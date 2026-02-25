@@ -1,0 +1,17 @@
+{
+  "name": "lamo-trivia",
+  "private": true,
+  "workspaces": [
+    "packages/shared",
+    "packages/backend",
+    "packages/frontend"
+  ],
+  "scripts": {
+    "dev": "npm run dev:backend & npm run dev:frontend",
+    "dev:backend": "npm run dev --workspace=packages/backend",
+    "dev:frontend": "npm run dev --workspace=packages/frontend",
+    "build": "npm run build --workspace=packages/frontend",
+    "deploy:backend": "npm run deploy --workspace=packages/backend",
+    "deploy:frontend": "npm run deploy --workspace=packages/frontend"
+  }
+}

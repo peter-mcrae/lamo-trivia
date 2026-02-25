@@ -1,0 +1,29 @@
+name = "lamo-trivia-api"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+[dev]
+port = 8787
+
+[durable_objects]
+bindings = [
+  { name = "GAME_LOBBY", class_name = "GameLobby" },
+  { name = "GAME_ROOM", class_name = "GameRoom" }
+]
+
+[[migrations]]
+tag = "v1"
+new_classes = ["GameLobby", "GameRoom"]
+
+# For production: npx wrangler kv:namespace create TRIVIA_KV
+# Then paste the real id in [env.production] below
+[[kv_namespaces]]
+binding = "TRIVIA_KV"
+id = "local-dev-placeholder"
+
+[vars]
+FRONTEND_URL = "http://localhost:5173"
+
+[env.production.vars]
+FRONTEND_URL = "https://lamo-trivia.pages.dev"
