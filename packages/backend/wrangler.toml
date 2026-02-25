@@ -14,14 +14,11 @@ bindings = [
 
 [[migrations]]
 tag = "v1"
-new_classes = ["GameLobby", "GameRoom"]
+new_sqlite_classes = ["GameLobby", "GameRoom"]
 
 [[kv_namespaces]]
 binding = "TRIVIA_KV"
 id = "34ed0bee812244b59410394854c16952"
 
 [vars]
-FRONTEND_URL = "http://localhost:5173"
-
-[env.production.vars]
 FRONTEND_URL = "https://lamo-trivia.pages.dev"
