@@ -18,7 +18,7 @@ new_sqlite_classes = ["GameLobby", "GameRoom"]
 
 [[kv_namespaces]]
 binding = "TRIVIA_KV"
-id = "34ed0bee812244b59410394854c16952"
+id = "764eda89270249808b1dede3c375f033"
 
 [vars]
 FRONTEND_URL = "https://lamo-trivia.pages.dev"
