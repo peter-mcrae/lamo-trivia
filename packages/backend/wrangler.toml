@@ -16,11 +16,9 @@ bindings = [
 tag = "v1"
 new_classes = ["GameLobby", "GameRoom"]
 
-# For production: npx wrangler kv:namespace create TRIVIA_KV
-# Then paste the real id in [env.production] below
 [[kv_namespaces]]
 binding = "TRIVIA_KV"
-id = "local-dev-placeholder"
+id = "34ed0bee812244b59410394854c16952"
 
 [vars]
 FRONTEND_URL = "http://localhost:5173"

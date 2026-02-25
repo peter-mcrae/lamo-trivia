@@ -1,13 +1,4 @@
 import type { Question } from '@lamo-trivia/shared';
-import { HARRY_POTTER_QUESTIONS } from './harry-potter';
-
-/**
- * All question sets keyed by category ID.
- * Add new categories here as they are created.
- */
-const QUESTION_SETS: Record<string, Question[]> = {
-  'harry-potter': HARRY_POTTER_QUESTIONS,
-};
 
 /** Fetch questions from KV for the given categories, shuffled. */
 export async function getQuestions(
@@ -21,11 +12,17 @@ export async function getQuestions(
   return shuffle(pool).slice(0, count);
 }
 
-/** Write all question sets and category metadata to KV. */
-export async function seedQuestions(kv: KVNamespace): Promise<Record<string, number>> {
+/**
+ * Write question sets to KV and update category metadata.
+ * Accepts a map of categoryId -> Question[] from the caller.
+ */
+export async function seedQuestions(
+  kv: KVNamespace,
+  categories: Record<string, Question[]>,
+): Promise<Record<string, number>> {
   const counts: Record<string, number> = {};
 
-  for (const [categoryId, questions] of Object.entries(QUESTION_SETS)) {
+  for (const [categoryId, questions] of Object.entries(categories)) {
     await kv.put(`questions:${categoryId}`, JSON.stringify(questions));
     counts[categoryId] = questions.length;
   }

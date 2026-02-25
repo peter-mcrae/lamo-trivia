@@ -64,9 +64,10 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     return Response.json({ categories });
   }
 
-  // POST /api/seed — populate KV with questions from source files
+  // POST /api/seed — populate KV with questions (expects { categoryId: Question[] } body)
   if (method === 'POST' && url.pathname === '/api/seed') {
-    const counts = await seedQuestions(env.TRIVIA_KV);
+    const categories = (await request.json()) as Record<string, unknown[]>;
+    const counts = await seedQuestions(env.TRIVIA_KV, categories as Record<string, import('@lamo-trivia/shared').Question[]>);
     return Response.json({ seeded: true, counts });
   }
 

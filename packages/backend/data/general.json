@@ -1,0 +1,352 @@
+[
+  {
+    "id": "gen-001",
+    "text": "What is the main ingredient in traditional Japanese miso soup?",
+    "options": ["Rice paste", "Soybean paste", "Seaweed extract", "Fish stock"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-002",
+    "text": "Which programming language was created by Guido van Rossum in 1991?",
+    "options": ["Java", "Ruby", "Python", "Perl"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-003",
+    "text": "What is the largest organ in the human body?",
+    "options": ["Skin", "Liver", "Lungs", "Heart"],
+    "correctIndex": 0,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-004",
+    "text": "In psychology, what does the term 'cognitive dissonance' refer to?",
+    "options": ["A learning disability", "The discomfort of holding conflicting beliefs", "A type of memory loss", "An anxiety disorder"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-005",
+    "text": "Which artist painted 'The Persistence of Memory', featuring melting clocks?",
+    "options": ["Pablo Picasso", "René Magritte", "Salvador Dalí", "Joan Miró"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-006",
+    "text": "What is the chemical symbol for gold?",
+    "options": ["Go", "Gd", "Ag", "Au"],
+    "correctIndex": 3,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-007",
+    "text": "Which country is the world's largest producer of coffee?",
+    "options": ["Brazil", "Colombia", "Ethiopia", "Vietnam"],
+    "correctIndex": 0,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-008",
+    "text": "What does the Latin phrase 'habeas corpus' literally mean?",
+    "options": ["Speak the truth", "You shall have the body", "In good faith", "By the law itself"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-009",
+    "text": "What is the hardest natural substance on Earth?",
+    "options": ["Quartz", "Topaz", "Diamond", "Corundum"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-010",
+    "text": "Which technology company was originally called 'BackRub'?",
+    "options": ["Yahoo", "Amazon", "Facebook", "Google"],
+    "correctIndex": 3,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-011",
+    "text": "Scoville units are used to measure the heat level of what?",
+    "options": ["Chili peppers", "Volcanic lava", "Stars", "Chemical reactions"],
+    "correctIndex": 0,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-012",
+    "text": "In which language does 'danke' mean 'thank you'?",
+    "options": ["Dutch", "German", "Swedish", "Norwegian"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-013",
+    "text": "What psychological phenomenon describes people's tendency to follow the actions of a group?",
+    "options": ["Dunning-Kruger effect", "Stockholm syndrome", "Conformity bias", "Projection"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-014",
+    "text": "Which gas makes up approximately 78% of Earth's atmosphere?",
+    "options": ["Oxygen", "Carbon dioxide", "Argon", "Nitrogen"],
+    "correctIndex": 3,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-015",
+    "text": "Tofu is made from the curds of which type of milk?",
+    "options": ["Soy milk", "Coconut milk", "Almond milk", "Rice milk"],
+    "correctIndex": 0,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-016",
+    "text": "Who painted the ceiling of the Sistine Chapel?",
+    "options": ["Leonardo da Vinci", "Michelangelo", "Raphael", "Donatello"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-017",
+    "text": "What does 'HTTP' stand for in web addresses?",
+    "options": ["Hyper Text Transfer Program", "High Tech Transfer Protocol", "HyperText Transfer Protocol", "Hyper Transfer Text Protocol"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-018",
+    "text": "Which amendment to the U.S. Constitution guarantees freedom of speech?",
+    "options": ["Second Amendment", "Fourth Amendment", "Fifth Amendment", "First Amendment"],
+    "correctIndex": 3,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-019",
+    "text": "What is the fastest land animal?",
+    "options": ["Cheetah", "Pronghorn antelope", "Springbok", "Lion"],
+    "correctIndex": 0,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-020",
+    "text": "In Maslow's hierarchy of needs, which level is at the top?",
+    "options": ["Esteem", "Self-actualization", "Love and belonging", "Safety"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-021",
+    "text": "Which spice is derived from the crocus flower?",
+    "options": ["Turmeric", "Paprika", "Saffron", "Cinnamon"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-022",
+    "text": "What is the term for a word that is spelled the same forwards and backwards?",
+    "options": ["Anagram", "Homophone", "Acronym", "Palindrome"],
+    "correctIndex": 3,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-023",
+    "text": "What type of animal is a Komodo dragon?",
+    "options": ["Lizard", "Snake", "Crocodilian", "Amphibian"],
+    "correctIndex": 0,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-024",
+    "text": "Which art movement is Claude Monet most associated with?",
+    "options": ["Cubism", "Impressionism", "Surrealism", "Expressionism"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-025",
+    "text": "What does the acronym 'RAM' stand for in computing?",
+    "options": ["Read Access Memory", "Readily Available Memory", "Random Access Memory", "Rapid Application Memory"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-026",
+    "text": "In which country did the legal concept of 'innocent until proven guilty' originate?",
+    "options": ["England", "United States", "Greece", "France"],
+    "correctIndex": 3,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-027",
+    "text": "Photosynthesis primarily takes place in which part of a plant cell?",
+    "options": ["Chloroplast", "Mitochondria", "Nucleus", "Cell wall"],
+    "correctIndex": 0,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-028",
+    "text": "The Pavlov's dog experiment demonstrated which type of learning?",
+    "options": ["Operant conditioning", "Classical conditioning", "Observational learning", "Habituation"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-029",
+    "text": "Which fruit is known as the 'king of fruits' in Southeast Asia?",
+    "options": ["Jackfruit", "Mangosteen", "Durian", "Rambutan"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-030",
+    "text": "What is the most widely spoken native language in the world by number of speakers?",
+    "options": ["English", "Hindi", "Spanish", "Mandarin Chinese"],
+    "correctIndex": 3,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-031",
+    "text": "What is the process by which a caterpillar becomes a butterfly called?",
+    "options": ["Metamorphosis", "Mitosis", "Photosynthesis", "Osmosis"],
+    "correctIndex": 0,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-032",
+    "text": "Who created the sculpture 'The Thinker'?",
+    "options": ["Henry Moore", "Auguste Rodin", "Constantin Brâncuși", "Alberto Giacometti"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-033",
+    "text": "What year was the World Wide Web invented by Tim Berners-Lee?",
+    "options": ["1985", "1991", "1989", "1993"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-034",
+    "text": "What is the name for a person who brings a lawsuit in a court of law?",
+    "options": ["Defendant", "Prosecutor", "Witness", "Plaintiff"],
+    "correctIndex": 3,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-035",
+    "text": "Which planet in our solar system has the most moons?",
+    "options": ["Saturn", "Jupiter", "Neptune", "Uranus"],
+    "correctIndex": 0,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-036",
+    "text": "The Rorschach test uses what kind of images to assess personality?",
+    "options": ["Geometric shapes", "Inkblots", "Photographs", "Abstract paintings"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-037",
+    "text": "What is the Italian word for 'tomato' that appears in many pasta sauce names?",
+    "options": ["Basilico", "Aglio", "Pomodoro", "Formaggio"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-038",
+    "text": "What was the first commercially successful smartphone, released in 2007?",
+    "options": ["BlackBerry Storm", "Samsung Galaxy", "Nokia N95", "Apple iPhone"],
+    "correctIndex": 3,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-039",
+    "text": "How many bones does an adult human body have?",
+    "options": ["206", "208", "212", "198"],
+    "correctIndex": 0,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-040",
+    "text": "Which art style is characterized by geometric shapes and multiple viewpoints?",
+    "options": ["Art Nouveau", "Cubism", "Baroque", "Romanticism"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-041",
+    "text": "What is the name of the psychological effect where people overestimate their abilities?",
+    "options": ["Halo effect", "Bystander effect", "Dunning-Kruger effect", "Placebo effect"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-042",
+    "text": "What does 'al dente' mean when cooking pasta?",
+    "options": ["Fully cooked", "Overcooked", "Undercooked", "Firm to the bite"],
+    "correctIndex": 3,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-043",
+    "text": "What is the only continent without any native species of ants?",
+    "options": ["Antarctica", "Australia", "Europe", "South America"],
+    "correctIndex": 0,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-044",
+    "text": "Which language has the most words according to most dictionary counts?",
+    "options": ["Mandarin Chinese", "English", "Spanish", "Arabic"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-045",
+    "text": "In law, what is the term for a legal decision that serves as a rule for future cases?",
+    "options": ["Statute", "Injunction", "Precedent", "Indictment"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-046",
+    "text": "Which technology uses a distributed ledger and is the foundation of Bitcoin?",
+    "options": ["Cloud computing", "Quantum computing", "Machine learning", "Blockchain"],
+    "correctIndex": 3,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-047",
+    "text": "What is the largest species of shark?",
+    "options": ["Whale shark", "Great white shark", "Basking shark", "Hammerhead shark"],
+    "correctIndex": 0,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-048",
+    "text": "Which famous painting depicts a woman with an enigmatic smile, housed in the Louvre?",
+    "options": ["Girl with a Pearl Earring", "Mona Lisa", "The Birth of Venus", "Whistler's Mother"],
+    "correctIndex": 1,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-049",
+    "text": "What is the term for the fear of confined spaces?",
+    "options": ["Agoraphobia", "Acrophobia", "Claustrophobia", "Arachnophobia"],
+    "correctIndex": 2,
+    "categoryId": "general"
+  },
+  {
+    "id": "gen-050",
+    "text": "Which vitamin is primarily produced when human skin is exposed to sunlight?",
+    "options": ["Vitamin A", "Vitamin B12", "Vitamin C", "Vitamin D"],
+    "correctIndex": 3,
+    "categoryId": "general"
+  }
+]

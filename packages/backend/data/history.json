@@ -1,0 +1,352 @@
+[
+  {
+    "id": "hist-001",
+    "text": "Which ancient civilization built the Great Pyramid of Giza?",
+    "options": ["Mesopotamians", "Egyptians", "Greeks", "Romans"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-002",
+    "text": "In what year did the Roman Empire officially fall in the West?",
+    "options": ["395 AD", "410 AD", "476 AD", "529 AD"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-003",
+    "text": "Who was the first Emperor of China, unifying the warring states?",
+    "options": ["Qin Shi Huang", "Liu Bang", "Wu Zetian", "Kublai Khan"],
+    "correctIndex": 0,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-004",
+    "text": "The Magna Carta was signed in which year?",
+    "options": ["1066", "1215", "1348", "1415"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-005",
+    "text": "Which battle in 1066 resulted in the Norman conquest of England?",
+    "options": ["Battle of Agincourt", "Battle of Crécy", "Battle of Stamford Bridge", "Battle of Hastings"],
+    "correctIndex": 3,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-006",
+    "text": "What was the primary writing system used in ancient Mesopotamia?",
+    "options": ["Hieroglyphics", "Cuneiform", "Linear A", "Sanskrit"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-007",
+    "text": "Which explorer is credited with the first circumnavigation of the globe?",
+    "options": ["Christopher Columbus", "Vasco da Gama", "Ferdinand Magellan", "Francis Drake"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-008",
+    "text": "The French Revolution began in which year?",
+    "options": ["1776", "1789", "1799", "1804"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-009",
+    "text": "Who was the leader of the Mongol Empire at its greatest territorial extent?",
+    "options": ["Genghis Khan", "Kublai Khan", "Ögedei Khan", "Tamerlane"],
+    "correctIndex": 0,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-010",
+    "text": "The ancient city of Carthage was located in what modern-day country?",
+    "options": ["Libya", "Algeria", "Tunisia", "Morocco"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-011",
+    "text": "Which treaty ended World War I?",
+    "options": ["Treaty of Paris", "Treaty of Versailles", "Treaty of Ghent", "Treaty of Westphalia"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-012",
+    "text": "What ancient wonder was located in the city of Babylon?",
+    "options": ["Colossus of Rhodes", "Lighthouse of Alexandria", "Hanging Gardens", "Temple of Artemis"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-013",
+    "text": "Who was the first President of the United States?",
+    "options": ["Thomas Jefferson", "John Adams", "Benjamin Franklin", "George Washington"],
+    "correctIndex": 3,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-014",
+    "text": "The Aztec Empire was centered in what modern-day country?",
+    "options": ["Mexico", "Peru", "Guatemala", "Colombia"],
+    "correctIndex": 0,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-015",
+    "text": "Which war was fought between the Houses of Lancaster and York?",
+    "options": ["Hundred Years' War", "English Civil War", "Wars of the Roses", "Thirty Years' War"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-016",
+    "text": "What year did the Berlin Wall fall?",
+    "options": ["1987", "1989", "1991", "1993"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-017",
+    "text": "The Rosetta Stone was key to deciphering which ancient script?",
+    "options": ["Cuneiform", "Linear B", "Egyptian hieroglyphics", "Phoenician alphabet"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-018",
+    "text": "Which civilization built Machu Picchu?",
+    "options": ["Maya", "Aztec", "Olmec", "Inca"],
+    "correctIndex": 3,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-019",
+    "text": "Napoleon Bonaparte was exiled to which island after his final defeat?",
+    "options": ["Saint Helena", "Elba", "Corsica", "Sardinia"],
+    "correctIndex": 0,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-020",
+    "text": "The Bubonic Plague, also known as the Black Death, peaked in Europe during which century?",
+    "options": ["12th century", "13th century", "14th century", "15th century"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-021",
+    "text": "Which ancient Greek city-state was known for its powerful navy and democracy?",
+    "options": ["Sparta", "Thebes", "Corinth", "Athens"],
+    "correctIndex": 3,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-022",
+    "text": "Who led the Indian independence movement through nonviolent civil disobedience?",
+    "options": ["Mahatma Gandhi", "Jawaharlal Nehru", "Subhas Chandra Bose", "Bhagat Singh"],
+    "correctIndex": 0,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-023",
+    "text": "The Ottoman Empire was dissolved after which major conflict?",
+    "options": ["Crimean War", "World War I", "World War II", "Balkan Wars"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-024",
+    "text": "What was the name of the ship that carried the Pilgrims to America in 1620?",
+    "options": ["Santa Maria", "Mayflower", "Golden Hind", "Victoria"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-025",
+    "text": "The Peloponnesian War was fought between Athens and which other city-state?",
+    "options": ["Thebes", "Corinth", "Sparta", "Argos"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-026",
+    "text": "Which dynasty is credited with building the Great Wall of China as a unified structure?",
+    "options": ["Han Dynasty", "Ming Dynasty", "Tang Dynasty", "Song Dynasty"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-027",
+    "text": "Who was the famous queen of ancient Egypt known for her relationships with Julius Caesar and Mark Antony?",
+    "options": ["Nefertiti", "Hatshepsut", "Cleopatra VII", "Berenice"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-028",
+    "text": "The bombing of Pearl Harbor occurred on December 7 of which year?",
+    "options": ["1939", "1940", "1941", "1942"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-029",
+    "text": "Which ancient civilization is credited with inventing the concept of zero in mathematics?",
+    "options": ["Egyptian", "Greek", "Roman", "Indian"],
+    "correctIndex": 3,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-030",
+    "text": "The Renaissance period originated in which country?",
+    "options": ["Italy", "France", "England", "Spain"],
+    "correctIndex": 0,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-031",
+    "text": "Who was the Soviet leader during the Cuban Missile Crisis?",
+    "options": ["Joseph Stalin", "Nikita Khrushchev", "Leonid Brezhnev", "Mikhail Gorbachev"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-032",
+    "text": "The ancient Indus Valley Civilization was located primarily in modern-day Pakistan and which other country?",
+    "options": ["Bangladesh", "India", "Afghanistan", "Iran"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-033",
+    "text": "Which general famously crossed the Alps with war elephants to attack Rome?",
+    "options": ["Hannibal Barca", "Scipio Africanus", "Alexander the Great", "Pyrrhus of Epirus"],
+    "correctIndex": 0,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-034",
+    "text": "The Bolshevik Revolution took place in which country in 1917?",
+    "options": ["Germany", "France", "Russia", "China"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-035",
+    "text": "Who was the British Prime Minister during most of World War II?",
+    "options": ["Neville Chamberlain", "Clement Attlee", "Anthony Eden", "Winston Churchill"],
+    "correctIndex": 3,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-036",
+    "text": "The Code of Hammurabi is one of the oldest known written legal codes, originating from which civilization?",
+    "options": ["Babylonian", "Egyptian", "Greek", "Persian"],
+    "correctIndex": 0,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-037",
+    "text": "In what year did the United States declare independence from Great Britain?",
+    "options": ["1774", "1775", "1776", "1778"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-038",
+    "text": "Which empire was ruled by Suleiman the Magnificent?",
+    "options": ["Mughal Empire", "Ottoman Empire", "Persian Empire", "Byzantine Empire"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-039",
+    "text": "The Trojan War, as described in Homer's Iliad, involved a siege of which ancient city?",
+    "options": ["Athens", "Mycenae", "Troy", "Sparta"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-040",
+    "text": "Who was the first woman to fly solo across the Atlantic Ocean?",
+    "options": ["Bessie Coleman", "Harriet Quimby", "Amelia Earhart", "Jacqueline Cochran"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-041",
+    "text": "The Silk Road primarily connected China with which other region?",
+    "options": ["Sub-Saharan Africa", "The Mediterranean and Europe", "Southeast Asia", "The Americas"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-042",
+    "text": "Which Viking explorer is believed to have reached North America around 1000 AD?",
+    "options": ["Leif Erikson", "Erik the Red", "Ragnar Lothbrok", "Harald Hardrada"],
+    "correctIndex": 0,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-043",
+    "text": "The Meiji Restoration in 1868 transformed which country into a modern industrial state?",
+    "options": ["China", "Korea", "Japan", "Thailand"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-044",
+    "text": "Who assassinated Archduke Franz Ferdinand, triggering World War I?",
+    "options": ["Leon Czolgosz", "Gavrilo Princip", "Rasputin", "Karl Liebknecht"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-045",
+    "text": "The ancient Library of Alexandria was located in which modern-day country?",
+    "options": ["Greece", "Turkey", "Egypt", "Iraq"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-046",
+    "text": "Which Roman Emperor made Christianity the official religion of the Roman Empire?",
+    "options": ["Constantine", "Augustus", "Theodosius I", "Nero"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-047",
+    "text": "The Zulu Kingdom, led by Shaka Zulu, was located in what is now which country?",
+    "options": ["South Africa", "Kenya", "Nigeria", "Ethiopia"],
+    "correctIndex": 0,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-048",
+    "text": "Which document, written primarily by Thomas Jefferson, declared the American colonies free from British rule?",
+    "options": ["The Constitution", "The Bill of Rights", "The Federalist Papers", "The Declaration of Independence"],
+    "correctIndex": 3,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-049",
+    "text": "The Thirty Years' War (1618-1648) was primarily fought in which region?",
+    "options": ["The Iberian Peninsula", "The British Isles", "Central Europe", "Scandinavia"],
+    "correctIndex": 2,
+    "categoryId": "history"
+  },
+  {
+    "id": "hist-050",
+    "text": "Who was the Macedonian king who conquered the Persian Empire and created one of the largest empires in ancient history?",
+    "options": ["Philip II", "Alexander the Great", "Ptolemy I", "Seleucus I"],
+    "correctIndex": 1,
+    "categoryId": "history"
+  }
+]

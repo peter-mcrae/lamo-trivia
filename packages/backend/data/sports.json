@@ -1,0 +1,352 @@
+[
+  {
+    "id": "spt-001",
+    "text": "How many rings are on the Olympic flag?",
+    "options": ["Four", "Five", "Six", "Seven"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-002",
+    "text": "Which country has won the most FIFA World Cup titles?",
+    "options": ["Germany", "Argentina", "Brazil", "Italy"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-003",
+    "text": "In basketball, how many players from each team are on the court at the same time?",
+    "options": ["Four", "Five", "Six", "Seven"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-004",
+    "text": "Who holds the record for the most Olympic gold medals of all time?",
+    "options": ["Usain Bolt", "Carl Lewis", "Michael Phelps", "Mark Spitz"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-005",
+    "text": "Which NFL team won the first ever Super Bowl in 1967?",
+    "options": ["Dallas Cowboys", "Green Bay Packers", "Pittsburgh Steelers", "New York Giants"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-006",
+    "text": "What is the diameter of a basketball hoop in inches?",
+    "options": ["16 inches", "18 inches", "20 inches", "22 inches"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-007",
+    "text": "Which country hosted the 2016 Summer Olympics?",
+    "options": ["China", "United Kingdom", "Brazil", "Japan"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-008",
+    "text": "Who is the all-time leading scorer in NBA history?",
+    "options": ["Kareem Abdul-Jabbar", "Karl Malone", "Kobe Bryant", "LeBron James"],
+    "correctIndex": 3,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-009",
+    "text": "How long is a standard football (soccer) match in regulation time?",
+    "options": ["80 minutes", "90 minutes", "100 minutes", "120 minutes"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-010",
+    "text": "Which athlete is known as 'The Lightning Bolt'?",
+    "options": ["Carl Lewis", "Usain Bolt", "Tyson Gay", "Yohan Blake"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-011",
+    "text": "What sport is played at Wimbledon?",
+    "options": ["Cricket", "Golf", "Tennis", "Rugby"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-012",
+    "text": "Which country won the first FIFA Women's World Cup in 1991?",
+    "options": ["United States", "Norway", "Germany", "Sweden"],
+    "correctIndex": 0,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-013",
+    "text": "How many points is a touchdown worth in American football?",
+    "options": ["3", "5", "6", "7"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-014",
+    "text": "Which NBA team has won the most championships?",
+    "options": ["Chicago Bulls", "Los Angeles Lakers", "Boston Celtics", "Golden State Warriors"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-015",
+    "text": "In which year were the first modern Olympic Games held?",
+    "options": ["1888", "1892", "1896", "1900"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-016",
+    "text": "Who won the FIFA Ballon d'Or the most times?",
+    "options": ["Cristiano Ronaldo", "Lionel Messi", "Michel Platini", "Johan Cruyff"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-017",
+    "text": "What is the maximum score possible in a single frame of bowling?",
+    "options": ["10", "20", "30", "50"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-018",
+    "text": "Which city hosted the first modern Olympic Games?",
+    "options": ["Paris", "Athens", "London", "Rome"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-019",
+    "text": "How many Grand Slam tennis tournaments are there each year?",
+    "options": ["3", "4", "5", "6"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-020",
+    "text": "Which soccer club has won the most UEFA Champions League titles?",
+    "options": ["AC Milan", "Barcelona", "Real Madrid", "Bayern Munich"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-021",
+    "text": "What does NBA stand for?",
+    "options": ["National Ball Association", "National Basketball Association", "North American Basketball Alliance", "National Basketball Alliance"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-022",
+    "text": "Who was the first athlete to run a mile in under four minutes?",
+    "options": ["Jesse Owens", "Roger Bannister", "Jim Ryun", "Herb Elliott"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-023",
+    "text": "Which country has won the most gold medals in Summer Olympic history?",
+    "options": ["China", "Soviet Union", "United Kingdom", "United States"],
+    "correctIndex": 3,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-024",
+    "text": "In soccer, what is the penalty for receiving two yellow cards in a single match?",
+    "options": ["Free kick for the other team", "A red card and ejection", "A penalty kick", "Loss of a substitution"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-025",
+    "text": "Which quarterback has won the most Super Bowl titles?",
+    "options": ["Joe Montana", "Peyton Manning", "Tom Brady", "Terry Bradshaw"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-026",
+    "text": "What is the only sport to have been played on the moon?",
+    "options": ["Baseball", "Golf", "Tennis", "Cricket"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-027",
+    "text": "How many players are on a standard soccer team on the field?",
+    "options": ["9", "10", "11", "12"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-028",
+    "text": "Which Olympic sport involves the disciplines of pommel horse, rings, and vault?",
+    "options": ["Diving", "Gymnastics", "Wrestling", "Weightlifting"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-029",
+    "text": "What is the term for scoring three goals in a single soccer match?",
+    "options": ["Triple play", "Hat trick", "Three-peat", "Grand slam"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-030",
+    "text": "Which Williams sister has won more Grand Slam singles titles?",
+    "options": ["Venus Williams", "Serena Williams", "They are tied", "Neither has won a Grand Slam"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-031",
+    "text": "How many periods are in a regulation NHL hockey game?",
+    "options": ["2", "3", "4", "5"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-032",
+    "text": "What color are the goalposts in American football?",
+    "options": ["White", "Yellow", "Silver", "Red"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-033",
+    "text": "Which country is credited with inventing the sport of basketball?",
+    "options": ["Canada", "United States", "England", "France"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-034",
+    "text": "In which Olympic event did Jesse Owens famously win four gold medals in 1936?",
+    "options": ["Berlin Olympics", "London Olympics", "Paris Olympics", "Los Angeles Olympics"],
+    "correctIndex": 0,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-035",
+    "text": "What is the length of an Olympic swimming pool in meters?",
+    "options": ["25 meters", "50 meters", "75 meters", "100 meters"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-036",
+    "text": "Which soccer player is known as 'CR7'?",
+    "options": ["Carlos Ruiz", "Cristiano Ronaldo", "Clarence Romario", "Christian Rodriguez"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-037",
+    "text": "How many points is a three-point field goal worth in basketball?",
+    "options": ["1", "2", "3", "4"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-038",
+    "text": "What sport uses the terms 'love', 'deuce', and 'ace'?",
+    "options": ["Badminton", "Volleyball", "Table Tennis", "Tennis"],
+    "correctIndex": 3,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-039",
+    "text": "Which NFL team is known as 'America's Team'?",
+    "options": ["New England Patriots", "Dallas Cowboys", "San Francisco 49ers", "Pittsburgh Steelers"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-040",
+    "text": "Who scored the 'Hand of God' goal in the 1986 FIFA World Cup?",
+    "options": ["Pelé", "Zinedine Zidane", "Diego Maradona", "Ronaldo"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-041",
+    "text": "What is the highest possible score in a single game of ten-pin bowling?",
+    "options": ["200", "250", "280", "300"],
+    "correctIndex": 3,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-042",
+    "text": "Which sport is played in the Tour de France?",
+    "options": ["Running", "Swimming", "Cycling", "Motor racing"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-043",
+    "text": "How many Olympic rings represent the continents?",
+    "options": ["4", "5", "6", "7"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-044",
+    "text": "Who was the NBA's first overall draft pick in 2003?",
+    "options": ["Carmelo Anthony", "Dwyane Wade", "Chris Bosh", "LeBron James"],
+    "correctIndex": 3,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-045",
+    "text": "What is the only country to have played in every FIFA World Cup tournament?",
+    "options": ["Argentina", "Germany", "Italy", "Brazil"],
+    "correctIndex": 3,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-046",
+    "text": "In American football, how many yards long is the playing field (excluding end zones)?",
+    "options": ["80 yards", "90 yards", "100 yards", "120 yards"],
+    "correctIndex": 2,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-047",
+    "text": "Which gymnast earned a perfect 10.0 score at the 1976 Olympics?",
+    "options": ["Mary Lou Retton", "Nadia Comaneci", "Olga Korbut", "Simone Biles"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-048",
+    "text": "What does FIFA stand for?",
+    "options": ["Fédération Internationale de Football Association", "Federal International Football Authority", "Federation of International Football Associations", "Fédération Internationale de Football Authority"],
+    "correctIndex": 0,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-049",
+    "text": "Which basketball player is nicknamed 'The Black Mamba'?",
+    "options": ["Michael Jordan", "Shaquille O'Neal", "Kevin Durant", "Kobe Bryant"],
+    "correctIndex": 3,
+    "categoryId": "sports"
+  },
+  {
+    "id": "spt-050",
+    "text": "In which year did the 'Miracle on Ice' occur, where the US hockey team defeated the Soviet Union at the Olympics?",
+    "options": ["1976", "1980", "1984", "1988"],
+    "correctIndex": 1,
+    "categoryId": "sports"
+  }
+]

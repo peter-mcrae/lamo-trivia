@@ -1,0 +1,352 @@
+[
+  {
+    "id": "geo-001",
+    "text": "What is the capital of France?",
+    "options": ["Berlin", "Paris", "Madrid", "Rome"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-002",
+    "text": "Which is the largest ocean on Earth?",
+    "options": ["Atlantic Ocean", "Indian Ocean", "Arctic Ocean", "Pacific Ocean"],
+    "correctIndex": 3,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-003",
+    "text": "Mount Everest is located on the border of which two countries?",
+    "options": ["Nepal and China", "India and Pakistan", "Afghanistan and Tajikistan", "Bhutan and Tibet"],
+    "correctIndex": 0,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-004",
+    "text": "What is the smallest country in the world by area?",
+    "options": ["Monaco", "San Marino", "Vatican City", "Liechtenstein"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-005",
+    "text": "Which river is the longest in the world?",
+    "options": ["Amazon", "Yangtze", "Nile", "Mississippi"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-006",
+    "text": "What is the capital of Australia?",
+    "options": ["Sydney", "Melbourne", "Canberra", "Brisbane"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-007",
+    "text": "Which country has the most natural lakes?",
+    "options": ["United States", "Canada", "Russia", "Brazil"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-008",
+    "text": "The Great Barrier Reef is located off the coast of which country?",
+    "options": ["Indonesia", "Australia", "Philippines", "Thailand"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-009",
+    "text": "What is the driest continent on Earth?",
+    "options": ["Africa", "Australia", "Antarctica", "Asia"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-010",
+    "text": "Which country is known as the Land of the Rising Sun?",
+    "options": ["China", "South Korea", "Thailand", "Japan"],
+    "correctIndex": 3,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-011",
+    "text": "What is the capital of Canada?",
+    "options": ["Toronto", "Ottawa", "Vancouver", "Montreal"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-012",
+    "text": "Which African country has the largest population?",
+    "options": ["Ethiopia", "Egypt", "Nigeria", "South Africa"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-013",
+    "text": "The Sahara Desert is located on which continent?",
+    "options": ["Asia", "Africa", "South America", "Australia"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-014",
+    "text": "Which European country is shaped like a boot?",
+    "options": ["Spain", "Greece", "Italy", "Portugal"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-015",
+    "text": "What is the largest country in the world by area?",
+    "options": ["Canada", "China", "United States", "Russia"],
+    "correctIndex": 3,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-016",
+    "text": "Which strait separates Europe from Africa?",
+    "options": ["Strait of Hormuz", "Strait of Malacca", "Strait of Gibraltar", "Bosphorus Strait"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-017",
+    "text": "What is the capital of Brazil?",
+    "options": ["Brasília", "Rio de Janeiro", "São Paulo", "Salvador"],
+    "correctIndex": 0,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-018",
+    "text": "Which mountain range separates Europe from Asia?",
+    "options": ["Alps", "Himalayas", "Andes", "Ural Mountains"],
+    "correctIndex": 3,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-019",
+    "text": "In which country would you find Machu Picchu?",
+    "options": ["Bolivia", "Colombia", "Peru", "Ecuador"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-020",
+    "text": "What is the deepest lake in the world?",
+    "options": ["Lake Baikal", "Lake Tanganyika", "Caspian Sea", "Lake Superior"],
+    "correctIndex": 0,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-021",
+    "text": "Which country has the longest coastline in the world?",
+    "options": ["Indonesia", "Russia", "Canada", "Australia"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-022",
+    "text": "What is the capital of South Korea?",
+    "options": ["Busan", "Incheon", "Daegu", "Seoul"],
+    "correctIndex": 3,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-023",
+    "text": "The Amazon Rainforest is primarily located in which country?",
+    "options": ["Colombia", "Brazil", "Venezuela", "Peru"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-024",
+    "text": "Which is the largest island in the world?",
+    "options": ["Borneo", "Madagascar", "Greenland", "New Guinea"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-025",
+    "text": "What is the capital of Egypt?",
+    "options": ["Cairo", "Alexandria", "Luxor", "Giza"],
+    "correctIndex": 0,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-026",
+    "text": "Which country is both in Europe and Asia?",
+    "options": ["Greece", "Turkey", "Iran", "Georgia"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-027",
+    "text": "What is the highest waterfall in the world?",
+    "options": ["Niagara Falls", "Victoria Falls", "Iguazu Falls", "Angel Falls"],
+    "correctIndex": 3,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-028",
+    "text": "Which sea is the saltiest in the world?",
+    "options": ["Red Sea", "Dead Sea", "Caspian Sea", "Black Sea"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-029",
+    "text": "What is the capital of New Zealand?",
+    "options": ["Auckland", "Christchurch", "Wellington", "Queenstown"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-030",
+    "text": "Which desert is the largest hot desert in the world?",
+    "options": ["Gobi Desert", "Arabian Desert", "Kalahari Desert", "Sahara Desert"],
+    "correctIndex": 3,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-031",
+    "text": "In which country is the Taj Mahal located?",
+    "options": ["India", "Pakistan", "Bangladesh", "Sri Lanka"],
+    "correctIndex": 0,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-032",
+    "text": "What is the longest mountain range in the world?",
+    "options": ["Rocky Mountains", "Himalayas", "Andes", "Great Dividing Range"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-033",
+    "text": "Which country has the most time zones?",
+    "options": ["Russia", "United States", "France", "China"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-034",
+    "text": "What is the capital of Thailand?",
+    "options": ["Hanoi", "Bangkok", "Jakarta", "Manila"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-035",
+    "text": "Which African country was formerly known as Abyssinia?",
+    "options": ["Somalia", "Sudan", "Ethiopia", "Eritrea"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-036",
+    "text": "What is the deepest point in the ocean?",
+    "options": ["Mariana Trench", "Tonga Trench", "Philippine Trench", "Puerto Rico Trench"],
+    "correctIndex": 0,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-037",
+    "text": "Which country is home to the ancient city of Petra?",
+    "options": ["Lebanon", "Syria", "Israel", "Jordan"],
+    "correctIndex": 3,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-038",
+    "text": "What is the capital of Argentina?",
+    "options": ["Montevideo", "Buenos Aires", "Santiago", "Lima"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-039",
+    "text": "Which landlocked country is the largest in the world?",
+    "options": ["Mongolia", "Chad", "Kazakhstan", "Mali"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-040",
+    "text": "The Galápagos Islands belong to which country?",
+    "options": ["Ecuador", "Colombia", "Peru", "Chile"],
+    "correctIndex": 0,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-041",
+    "text": "What is the capital of Turkey?",
+    "options": ["Istanbul", "Izmir", "Ankara", "Antalya"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-042",
+    "text": "Which river flows through the most countries?",
+    "options": ["Nile", "Amazon", "Danube", "Mekong"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-043",
+    "text": "In which ocean are the Maldives located?",
+    "options": ["Pacific Ocean", "Atlantic Ocean", "Indian Ocean", "Arctic Ocean"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-044",
+    "text": "What is the most populous city in Africa?",
+    "options": ["Cairo", "Lagos", "Kinshasa", "Johannesburg"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-045",
+    "text": "Which country is home to Angkor Wat?",
+    "options": ["Thailand", "Vietnam", "Laos", "Cambodia"],
+    "correctIndex": 3,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-046",
+    "text": "What is the capital of Morocco?",
+    "options": ["Rabat", "Casablanca", "Marrakech", "Fez"],
+    "correctIndex": 0,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-047",
+    "text": "Which volcano destroyed the city of Pompeii in 79 AD?",
+    "options": ["Mount Etna", "Mount Vesuvius", "Mount Stromboli", "Mount Olympus"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-048",
+    "text": "Which is the largest lake in Africa?",
+    "options": ["Lake Tanganyika", "Lake Malawi", "Lake Chad", "Lake Victoria"],
+    "correctIndex": 3,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-049",
+    "text": "What is the capital of Myanmar?",
+    "options": ["Yangon", "Mandalay", "Naypyidaw", "Bago"],
+    "correctIndex": 2,
+    "categoryId": "geography"
+  },
+  {
+    "id": "geo-050",
+    "text": "Which country contains the most UNESCO World Heritage Sites?",
+    "options": ["China", "Italy", "Spain", "France"],
+    "correctIndex": 1,
+    "categoryId": "geography"
+  }
+]
