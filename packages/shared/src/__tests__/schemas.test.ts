@@ -175,6 +175,22 @@ describe('ClientMessageSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts a valid rematch message', () => {
+    const result = ClientMessageSchema.safeParse({
+      type: 'rematch',
+      newGameId: 'ABCD-1234',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects rematch with empty newGameId', () => {
+    const result = ClientMessageSchema.safeParse({
+      type: 'rematch',
+      newGameId: '',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('accepts a valid ping message', () => {
     const result = ClientMessageSchema.safeParse({ type: 'ping' });
     expect(result.success).toBe(true);

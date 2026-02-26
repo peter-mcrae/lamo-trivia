@@ -7,6 +7,7 @@ export type ClientMessage =
   | { type: 'start_game' }
   | { type: 'submit_answer'; questionIndex: number; answerIndex: number }
   | { type: 'claim_host' }
+  | { type: 'rematch'; newGameId: string }
   | { type: 'ping' };
 
 // Server -> Client
@@ -19,6 +20,7 @@ export type ServerMessage =
   | { type: 'question'; question: ClientQuestion; questionIndex: number; totalQuestions: number }
   | { type: 'answer_result'; correct: boolean; correctIndex: number; scores: Record<string, number> }
   | { type: 'game_finished'; finalScores: Record<string, number>; rankings: Player[] }
+  | { type: 'rematch'; newGameId: string }
   | { type: 'game_expired'; message: string }
   | { type: 'error'; message: string; code?: string }
   | { type: 'pong' };

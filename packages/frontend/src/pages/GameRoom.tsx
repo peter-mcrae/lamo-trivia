@@ -9,6 +9,7 @@ import { PlayerList } from '../components/PlayerList';
 import { QuestionCard } from '../components/QuestionCard';
 import { Timer } from '../components/Timer';
 import { ScoreBoard } from '../components/ScoreBoard';
+import { RematchModal } from '../components/RematchModal';
 import { Button } from '../components/ui/Button';
 
 export default function GameRoom() {
@@ -20,6 +21,7 @@ export default function GameRoom() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [copied, setCopied] = useState(false);
   const [expiryTimeLeft, setExpiryTimeLeft] = useState<number | null>(null);
+  const [showRematchModal, setShowRematchModal] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const joinedRef = useRef(false);
 
@@ -46,6 +48,10 @@ export default function GameRoom() {
       if (message.type === 'game_expired') {
         setError('This game has expired. Returning to lobby...');
         setTimeout(() => navigate('/lobby'), 3000);
+        return;
+      }
+      if (message.type === 'rematch') {
+        navigate(`/game/${message.newGameId}`);
         return;
       }
       handleMessage(message);
@@ -147,6 +153,11 @@ export default function GameRoom() {
 
   const handleClaimHost = () => {
     send({ type: 'claim_host' });
+  };
+
+  const handleRematchCreated = (newGameId: string) => {
+    send({ type: 'rematch', newGameId });
+    navigate(`/game/${newGameId}`);
   };
 
   // Expiry countdown — only active during waiting phase
@@ -386,9 +397,24 @@ export default function GameRoom() {
             </div>
           )}
 
-          <div className="text-center">
-            <Button onClick={() => navigate('/lobby')}>Back to Lobby</Button>
+          <div className="flex justify-center gap-3">
+            {isHost && (
+              <Button onClick={() => setShowRematchModal(true)}>
+                Play Again
+              </Button>
+            )}
+            <Button variant="secondary" onClick={() => navigate('/lobby')}>
+              Back to Lobby
+            </Button>
           </div>
+
+          {showRematchModal && (
+            <RematchModal
+              currentConfig={gameState.config}
+              onRematchCreated={handleRematchCreated}
+              onClose={() => setShowRematchModal(false)}
+            />
+          )}
         </div>
       )}
     </div>

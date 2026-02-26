@@ -109,6 +109,9 @@ export class GameRoom {
         case 'claim_host':
           await this.handleClaimHost(ws);
           break;
+        case 'rematch':
+          await this.handleRematch(ws, parsed.data.newGameId);
+          break;
         case 'ping':
           this.sendTo(ws, { type: 'pong' });
           break;
@@ -322,6 +325,23 @@ export class GameRoom {
     this.room.hostId = playerId;
     await this.persist();
     this.broadcast({ type: 'host_changed', hostId: playerId });
+  }
+
+  private async handleRematch(ws: WebSocket, newGameId: string): Promise<void> {
+    if (!this.room) return;
+
+    const playerId = this.getPlayerId(ws);
+    if (playerId !== this.room.hostId) {
+      this.sendTo(ws, { type: 'error', message: 'Only the host can start a rematch' });
+      return;
+    }
+
+    if (this.room.phase !== 'finished') {
+      this.sendTo(ws, { type: 'error', message: 'Game must be finished to rematch' });
+      return;
+    }
+
+    this.broadcast({ type: 'rematch', newGameId });
   }
 
   // --- Alarm actions ---

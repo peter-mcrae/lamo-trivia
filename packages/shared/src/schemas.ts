@@ -36,6 +36,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     answerIndex: z.number().int().min(0).max(3),
   }),
   z.object({ type: z.literal('claim_host') }),
+  z.object({ type: z.literal('rematch'), newGameId: z.string().min(1) }),
   z.object({ type: z.literal('ping') }),
 ]);
 
