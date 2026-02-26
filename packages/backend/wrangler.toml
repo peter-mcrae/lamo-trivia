@@ -25,6 +25,9 @@ new_sqlite_classes = ["PrivateGroup"]
 binding = "TRIVIA_KV"
 id = "34ed0bee812244b59410394854c16952"
 
+[observability]
+enabled = true
+
 [vars]
 FRONTEND_URL = "https://lamotrivia.app"
 

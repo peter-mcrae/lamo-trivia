@@ -24,87 +24,97 @@ export class PrivateGroup {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
-    // POST /init — create/initialize the group
-    if (request.method === 'POST' && url.pathname === '/init') {
-      if (this.group) {
-        return Response.json({ error: 'Group already exists' }, { status: 409 });
+    try {
+      // POST /init — create/initialize the group
+      if (request.method === 'POST' && url.pathname === '/init') {
+        if (this.group) {
+          return Response.json({ error: 'Group already exists' }, { status: 409 });
+        }
+        const { id, name } = (await request.json()) as { id: string; name: string };
+        this.group = {
+          id,
+          name,
+          createdAt: Date.now(),
+          members: [],
+          games: new Map(),
+        };
+        await this.persist();
+        return Response.json({ ok: true, groupId: id });
       }
-      const { id, name } = (await request.json()) as { id: string; name: string };
-      this.group = {
-        id,
-        name,
-        createdAt: Date.now(),
-        members: [],
-        games: new Map(),
-      };
-      await this.persist();
-      return Response.json({ ok: true, groupId: id });
-    }
 
-    // GET /state — check if group exists
-    if (request.method === 'GET' && url.pathname === '/state') {
-      if (!this.group) {
-        return Response.json({ error: 'Group not found' }, { status: 404 });
+      // GET /state — check if group exists
+      if (request.method === 'GET' && url.pathname === '/state') {
+        if (!this.group) {
+          return Response.json({ error: 'Group not found' }, { status: 404 });
+        }
+        return Response.json({
+          id: this.group.id,
+          name: this.group.name,
+          createdAt: this.group.createdAt,
+          memberCount: this.group.members.length,
+        });
       }
-      return Response.json({
-        id: this.group.id,
-        name: this.group.name,
-        createdAt: this.group.createdAt,
-        memberCount: this.group.members.length,
+
+      // POST /games — register a new game in the group
+      if (request.method === 'POST' && url.pathname === '/games') {
+        if (!this.group) {
+          return Response.json({ error: 'Group not found' }, { status: 404 });
+        }
+        const game = (await request.json()) as GroupGame;
+        this.group.games.set(game.gameId, game);
+        await this.persist();
+        this.broadcast({ type: 'game_created', game });
+        return Response.json({ ok: true });
+      }
+
+      // PUT /games/:gameId — update game state (player count, phase)
+      if (request.method === 'PUT' && url.pathname.startsWith('/games/')) {
+        if (!this.group) return Response.json({ error: 'Group not found' }, { status: 404 });
+        const gameId = url.pathname.split('/games/')[1];
+        const update = (await request.json()) as Partial<GroupGame>;
+        const existing = this.group.games.get(gameId);
+        if (existing) {
+          const updated = { ...existing, ...update };
+          this.group.games.set(gameId, updated);
+          await this.persist();
+          this.broadcast({ type: 'game_updated', game: updated });
+        }
+        return Response.json({ ok: true });
+      }
+
+      // DELETE /games/:gameId — remove a game from the group
+      if (request.method === 'DELETE' && url.pathname.startsWith('/games/')) {
+        if (!this.group) return Response.json({ error: 'Group not found' }, { status: 404 });
+        const gameId = url.pathname.split('/games/')[1];
+        if (gameId && this.group.games.has(gameId)) {
+          this.group.games.delete(gameId);
+          await this.persist();
+          this.broadcast({ type: 'game_removed', gameId });
+        }
+        return Response.json({ ok: true });
+      }
+
+      // WebSocket upgrade
+      if (request.headers.get('Upgrade') === 'websocket') {
+        if (!this.group) {
+          return new Response('Group not found', { status: 404 });
+        }
+        const pair = new WebSocketPair();
+        const [client, server] = Object.values(pair);
+        this.state.acceptWebSocket(server);
+        return new Response(null, { status: 101, webSocket: client });
+      }
+
+      return new Response('Not found', { status: 404 });
+    } catch (err) {
+      console.error('PrivateGroup fetch error', {
+        groupId: this.group?.id,
+        method: request.method,
+        path: url.pathname,
+        error: err instanceof Error ? err.message : String(err),
       });
+      return Response.json({ error: 'Internal server error' }, { status: 500 });
     }
-
-    // POST /games — register a new game in the group
-    if (request.method === 'POST' && url.pathname === '/games') {
-      if (!this.group) {
-        return Response.json({ error: 'Group not found' }, { status: 404 });
-      }
-      const game = (await request.json()) as GroupGame;
-      this.group.games.set(game.gameId, game);
-      await this.persist();
-      this.broadcast({ type: 'game_created', game });
-      return Response.json({ ok: true });
-    }
-
-    // PUT /games/:gameId — update game state (player count, phase)
-    if (request.method === 'PUT' && url.pathname.startsWith('/games/')) {
-      if (!this.group) return Response.json({ error: 'Group not found' }, { status: 404 });
-      const gameId = url.pathname.split('/games/')[1];
-      const update = (await request.json()) as Partial<GroupGame>;
-      const existing = this.group.games.get(gameId);
-      if (existing) {
-        const updated = { ...existing, ...update };
-        this.group.games.set(gameId, updated);
-        await this.persist();
-        this.broadcast({ type: 'game_updated', game: updated });
-      }
-      return Response.json({ ok: true });
-    }
-
-    // DELETE /games/:gameId — remove a game from the group
-    if (request.method === 'DELETE' && url.pathname.startsWith('/games/')) {
-      if (!this.group) return Response.json({ error: 'Group not found' }, { status: 404 });
-      const gameId = url.pathname.split('/games/')[1];
-      if (gameId && this.group.games.has(gameId)) {
-        this.group.games.delete(gameId);
-        await this.persist();
-        this.broadcast({ type: 'game_removed', gameId });
-      }
-      return Response.json({ ok: true });
-    }
-
-    // WebSocket upgrade
-    if (request.headers.get('Upgrade') === 'websocket') {
-      if (!this.group) {
-        return new Response('Group not found', { status: 404 });
-      }
-      const pair = new WebSocketPair();
-      const [client, server] = Object.values(pair);
-      this.state.acceptWebSocket(server);
-      return new Response(null, { status: 101, webSocket: client });
-    }
-
-    return new Response('Not found', { status: 404 });
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
@@ -136,7 +146,11 @@ export class PrivateGroup {
           this.sendTo(ws, { type: 'pong' });
           break;
       }
-    } catch {
+    } catch (err) {
+      console.error('Group WebSocket message error', {
+        groupId: this.group?.id,
+        error: err instanceof Error ? err.message : String(err),
+      });
       this.sendTo(ws, { type: 'error', message: 'Failed to parse message' });
     }
   }

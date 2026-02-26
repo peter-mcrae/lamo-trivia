@@ -42,39 +42,48 @@ export class GameRoom {
   async fetch(request: Request): Promise<Response> {
     const url = new URL(request.url);
 
-    if (request.method === 'POST' && url.pathname === '/config') {
-      const body = (await request.json()) as GameConfig & { gameId: string };
-      this.room = {
-        gameId: body.gameId,
-        config: body,
-        phase: 'waiting',
-        hostId: '',
-        players: [],
-        questions: [],
-        currentQuestionIndex: 0,
-        scores: {},
-        streaks: {},
-        answersThisRound: {},
-        questionStartedAt: 0,
-        nextAlarmAction: 'expire_game',
-        createdAt: Date.now(),
-      };
-      await this.persist();
+    try {
+      if (request.method === 'POST' && url.pathname === '/config') {
+        const body = (await request.json()) as GameConfig & { gameId: string };
+        this.room = {
+          gameId: body.gameId,
+          config: body,
+          phase: 'waiting',
+          hostId: '',
+          players: [],
+          questions: [],
+          currentQuestionIndex: 0,
+          scores: {},
+          streaks: {},
+          answersThisRound: {},
+          questionStartedAt: 0,
+          nextAlarmAction: 'expire_game',
+          createdAt: Date.now(),
+        };
+        await this.persist();
 
-      // Set 20-minute expiry alarm — overwritten if game starts
-      await this.state.storage.setAlarm(Date.now() + GAME_EXPIRY_MS);
+        // Set 20-minute expiry alarm — overwritten if game starts
+        await this.state.storage.setAlarm(Date.now() + GAME_EXPIRY_MS);
 
-      return Response.json({ ok: true });
+        return Response.json({ ok: true });
+      }
+
+      if (request.headers.get('Upgrade') === 'websocket') {
+        const pair = new WebSocketPair();
+        const [client, server] = Object.values(pair);
+        this.state.acceptWebSocket(server);
+        return new Response(null, { status: 101, webSocket: client });
+      }
+
+      return new Response('Expected WebSocket or /config', { status: 400 });
+    } catch (err) {
+      console.error('GameRoom fetch error', {
+        gameId: this.room?.gameId,
+        path: url.pathname,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return Response.json({ error: 'Internal server error' }, { status: 500 });
     }
-
-    if (request.headers.get('Upgrade') === 'websocket') {
-      const pair = new WebSocketPair();
-      const [client, server] = Object.values(pair);
-      this.state.acceptWebSocket(server);
-      return new Response(null, { status: 101, webSocket: client });
-    }
-
-    return new Response('Expected WebSocket or /config', { status: 400 });
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
@@ -116,7 +125,11 @@ export class GameRoom {
           this.sendTo(ws, { type: 'pong' });
           break;
       }
-    } catch {
+    } catch (err) {
+      console.error('WebSocket message error', {
+        gameId: this.room?.gameId,
+        error: err instanceof Error ? err.message : String(err),
+      });
       this.sendTo(ws, { type: 'error', message: 'Failed to parse message' });
     }
   }
@@ -261,6 +274,12 @@ export class GameRoom {
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to load questions';
+      console.error('Question loading failed', {
+        gameId: this.room.gameId,
+        aiTopic: this.room.config.aiTopic,
+        categoryIds: this.room.config.categoryIds,
+        error: message,
+      });
       this.sendTo(ws, { type: 'error', message: `Question loading failed: ${message}` });
       return;
     }
@@ -529,8 +548,13 @@ export class GameRoom {
           }),
         }),
       );
-    } catch {
+    } catch (err) {
       // Non-critical — group update failure shouldn't break game flow
+      console.error('Group notification failed', {
+        gameId: this.room.gameId,
+        groupId: this.room.config.groupId,
+        error: err instanceof Error ? err.message : String(err),
+      });
     }
   }
 

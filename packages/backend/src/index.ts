@@ -15,35 +15,47 @@ export default {
       return new Response(null, { headers: corsHeaders(env.FRONTEND_URL) });
     }
 
-    // WebSocket upgrade: /ws/game/:gameId
-    if (url.pathname.startsWith('/ws/game/') && request.headers.get('Upgrade') === 'websocket') {
-      const gameId = url.pathname.split('/ws/game/')[1];
-      if (!gameId) {
-        return new Response('Missing game ID', { status: 400 });
+    try {
+      // WebSocket upgrade: /ws/game/:gameId
+      if (url.pathname.startsWith('/ws/game/') && request.headers.get('Upgrade') === 'websocket') {
+        const gameId = url.pathname.split('/ws/game/')[1];
+        if (!gameId) {
+          return new Response('Missing game ID', { status: 400 });
+        }
+        const roomId = env.GAME_ROOM.idFromName(gameId);
+        const room = env.GAME_ROOM.get(roomId);
+        return room.fetch(request);
       }
-      const roomId = env.GAME_ROOM.idFromName(gameId);
-      const room = env.GAME_ROOM.get(roomId);
-      return room.fetch(request);
-    }
 
-    // WebSocket upgrade: /ws/group/:groupId
-    if (url.pathname.startsWith('/ws/group/') && request.headers.get('Upgrade') === 'websocket') {
-      const groupId = url.pathname.split('/ws/group/')[1];
-      if (!groupId) {
-        return new Response('Missing group ID', { status: 400 });
+      // WebSocket upgrade: /ws/group/:groupId
+      if (url.pathname.startsWith('/ws/group/') && request.headers.get('Upgrade') === 'websocket') {
+        const groupId = url.pathname.split('/ws/group/')[1];
+        if (!groupId) {
+          return new Response('Missing group ID', { status: 400 });
+        }
+        const doId = env.PRIVATE_GROUP.idFromName(groupId);
+        const group = env.PRIVATE_GROUP.get(doId);
+        return group.fetch(request);
       }
-      const doId = env.PRIVATE_GROUP.idFromName(groupId);
-      const group = env.PRIVATE_GROUP.get(doId);
-      return group.fetch(request);
-    }
 
-    // HTTP API routes
-    const response = await handleRequest(request, env);
-    const headers = new Headers(response.headers);
-    for (const [k, v] of Object.entries(corsHeaders(env.FRONTEND_URL))) {
-      headers.set(k, v);
+      // HTTP API routes
+      const response = await handleRequest(request, env);
+      const headers = new Headers(response.headers);
+      for (const [k, v] of Object.entries(corsHeaders(env.FRONTEND_URL))) {
+        headers.set(k, v);
+      }
+      return new Response(response.body, { status: response.status, headers });
+    } catch (err) {
+      console.error('Unhandled error', {
+        method: request.method,
+        url: url.pathname,
+        error: err instanceof Error ? err.message : String(err),
+      });
+      return new Response('Internal Server Error', {
+        status: 500,
+        headers: corsHeaders(env.FRONTEND_URL),
+      });
     }
-    return new Response(response.body, { status: response.status, headers });
   },
 };
 

@@ -68,7 +68,13 @@ Rules:
 
   // Strip markdown code fences if present
   const cleaned = content.replace(/^```json?\s*/i, '').replace(/\s*```$/i, '').trim();
-  const questions: Question[] = JSON.parse(cleaned);
+  let questions: Question[];
+  try {
+    questions = JSON.parse(cleaned);
+  } catch {
+    console.error('OpenAI returned invalid JSON', { topic, response: cleaned.slice(0, 500) });
+    throw new Error('AI returned malformed JSON — please try again');
+  }
 
   if (!Array.isArray(questions) || questions.length === 0) {
     throw new Error('OpenAI returned invalid question format');
