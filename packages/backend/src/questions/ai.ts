@@ -49,7 +49,7 @@ Rules:
       temperature: 0.8,
       max_tokens: 4096,
     }),
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(30000),
   });
 
   if (!response.ok) {
