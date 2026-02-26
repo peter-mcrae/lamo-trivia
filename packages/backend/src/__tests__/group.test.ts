@@ -295,6 +295,51 @@ describe('PrivateGroup — Member identity', () => {
     const member = groupState.state.members.find((m: any) => m.memberId === memberId);
     expect(member.username).toBe('alice_v2');
   });
+
+  it('backward compat: existing member without memberId gets one assigned on join', async () => {
+    // Inject a legacy member (no memberId) by modifying the stored object directly
+    // Mock storage returns by reference, so this modifies the group's in-memory state
+    const stored = await (state.storage as any).get('group');
+    stored.members.push({
+      username: 'legacy_user',
+      joinedAt: Date.now() - 100000,
+      online: false,
+    });
+
+    // Legacy user joins again (no memberId)
+    const ws = createMockWebSocket();
+    state.acceptWebSocket(ws);
+    await group.webSocketMessage(ws, JSON.stringify({ type: 'join_group', username: 'legacy_user' }));
+
+    const messages = getSentMessages(ws);
+    const confirmed = messages.find((m: any) => m.type === 'join_confirmed');
+    expect(confirmed).toBeDefined();
+    expect(confirmed.memberId).toBeDefined();
+    // Should be a valid UUID
+    expect(confirmed.memberId).toMatch(/^[0-9a-f-]{36}$/);
+
+    // The group_state should show the member with their new memberId
+    const groupState = messages.find((m: any) => m.type === 'group_state');
+    const member = groupState.state.members.find((m: any) => m.username === 'legacy_user');
+    expect(member.memberId).toBe(confirmed.memberId);
+  });
+
+  it('MEMBER_EXISTS check is case-insensitive', async () => {
+    // alice joins with lowercase
+    await joinAndGetMemberId(group, state, 'alice');
+
+    // Someone tries to join as "Alice" (different case) without memberId
+    const ws2 = createMockWebSocket();
+    state.acceptWebSocket(ws2);
+    await group.webSocketMessage(
+      ws2,
+      JSON.stringify({ type: 'join_group', username: 'Alice' }),
+    );
+
+    const lastMsg = getLastMessage(ws2);
+    expect(lastMsg.type).toBe('error');
+    expect(lastMsg.code).toBe('MEMBER_EXISTS');
+  });
 });
 
 describe('PrivateGroup — Recovery flow', () => {
@@ -358,6 +403,38 @@ describe('PrivateGroup — Recovery flow', () => {
 
     const messages = getSentMessages(ws2);
     expect(messages[0].type).toBe('join_confirmed');
+  });
+
+  it('recover_member with multiple username matches returns error', async () => {
+    // Inject two members with the same username (case-insensitive) via storage reference
+    const stored = await (state.storage as any).get('group');
+    stored.members.push(
+      { memberId: crypto.randomUUID(), username: 'alice', joinedAt: Date.now(), online: false },
+      { memberId: crypto.randomUUID(), username: 'Alice', joinedAt: Date.now(), online: false },
+    );
+
+    const ws = createMockWebSocket();
+    state.acceptWebSocket(ws);
+    await group.webSocketMessage(ws, JSON.stringify({ type: 'recover_member', username: 'alice' }));
+
+    const lastMsg = getLastMessage(ws);
+    expect(lastMsg.type).toBe('error');
+    expect(lastMsg.message).toContain('Multiple members found');
+  });
+
+  it('recover_member assigns memberId to legacy member without one', async () => {
+    // Inject a legacy member without memberId via storage reference
+    const stored = await (state.storage as any).get('group');
+    stored.members.push({ username: 'legacy', joinedAt: Date.now(), online: false });
+
+    const ws = createMockWebSocket();
+    state.acceptWebSocket(ws);
+    await group.webSocketMessage(ws, JSON.stringify({ type: 'recover_member', username: 'legacy' }));
+
+    const messages = getSentMessages(ws);
+    expect(messages[0].type).toBe('join_confirmed');
+    expect(messages[0].memberId).toBeDefined();
+    expect(messages[0].memberId).toMatch(/^[0-9a-f-]{36}$/);
   });
 });
 
@@ -452,6 +529,20 @@ describe('PrivateGroup — WebSocket messages', () => {
     ws2._sent.length = 0;
 
     await group.webSocketClose(ws1);
+
+    const bobMessages = getSentMessages(ws2);
+    expect(bobMessages).toHaveLength(1);
+    expect(bobMessages[0].type).toBe('member_offline');
+    expect(bobMessages[0].username).toBe('alice');
+  });
+
+  it('webSocketError marks member offline (same as close)', async () => {
+    const { ws: ws1 } = await joinAndGetMemberId(group, state, 'alice');
+    const { ws: ws2 } = await joinAndGetMemberId(group, state, 'bob');
+    ws2._sent.length = 0;
+
+    // Simulate a WebSocket error (not close)
+    await group.webSocketError(ws1);
 
     const bobMessages = getSentMessages(ws2);
     expect(bobMessages).toHaveLength(1);
