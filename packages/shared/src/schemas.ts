@@ -35,6 +35,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     questionIndex: z.number().int().min(0),
     answerIndex: z.number().int().min(0).max(3),
   }),
+  z.object({ type: z.literal('claim_host') }),
   z.object({ type: z.literal('ping') }),
 ]);
 

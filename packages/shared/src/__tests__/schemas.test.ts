@@ -170,6 +170,11 @@ describe('ClientMessageSchema', () => {
     expect(result.success).toBe(true);
   });
 
+  it('accepts a valid claim_host message', () => {
+    const result = ClientMessageSchema.safeParse({ type: 'claim_host' });
+    expect(result.success).toBe(true);
+  });
+
   it('accepts a valid ping message', () => {
     const result = ClientMessageSchema.safeParse({ type: 'ping' });
     expect(result.success).toBe(true);

@@ -125,6 +125,64 @@ describe('useGameState', () => {
     expect(result.current.gameState!.players[0].id).toBe('p1');
   });
 
+  it('player_left with newHostId updates hostId', () => {
+    const { result } = renderHook(() => useGameState());
+
+    const stateWithTwoPlayers = {
+      ...initialGameState,
+      players: [
+        ...initialGameState.players,
+        {
+          id: 'p2',
+          username: 'Player2',
+          avatar: { emoji: '🐈', name: 'Cat' },
+          connectedAt: Date.now(),
+          score: 0,
+        },
+      ],
+    };
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'game_state',
+        state: stateWithTwoPlayers,
+      } as any);
+    });
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'player_left',
+        playerId: 'p1',
+        newHostId: 'p2',
+      } as any);
+    });
+
+    expect(result.current.gameState!.players).toHaveLength(1);
+    expect(result.current.gameState!.hostId).toBe('p2');
+  });
+
+  it('host_changed updates hostId', () => {
+    const { result } = renderHook(() => useGameState());
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'game_state',
+        state: initialGameState,
+      } as any);
+    });
+
+    expect(result.current.gameState!.hostId).toBe('p1');
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'host_changed',
+        hostId: 'p2',
+      } as any);
+    });
+
+    expect(result.current.gameState!.hostId).toBe('p2');
+  });
+
   it('game_starting sets countdown and phase to starting', () => {
     const { result } = renderHook(() => useGameState());
 

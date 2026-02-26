@@ -36,7 +36,15 @@ export function useGameState() {
           return {
             ...prev,
             players: prev.players.filter((p) => p.id !== message.playerId),
+            ...(message.newHostId ? { hostId: message.newHostId } : {}),
           };
+        });
+        break;
+
+      case 'host_changed':
+        setGameState((prev) => {
+          if (!prev) return prev;
+          return { ...prev, hostId: message.hostId };
         });
         break;
 

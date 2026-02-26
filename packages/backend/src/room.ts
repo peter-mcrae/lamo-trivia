@@ -106,6 +106,9 @@ export class GameRoom {
         case 'submit_answer':
           await this.handleSubmitAnswer(ws, parsed.data.questionIndex, parsed.data.answerIndex);
           break;
+        case 'claim_host':
+          await this.handleClaimHost(ws);
+          break;
         case 'ping':
           this.sendTo(ws, { type: 'pong' });
           break;
@@ -197,17 +200,21 @@ export class GameRoom {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
+    const wasHost = this.room.hostId === playerId;
+
     this.room.players = this.room.players.filter((p) => p.id !== playerId);
     delete this.room.scores[playerId];
     delete this.room.streaks[playerId];
 
     // Reassign host if the host left
-    if (this.room.hostId === playerId && this.room.players.length > 0) {
+    let newHostId: string | undefined;
+    if (wasHost && this.room.players.length > 0) {
       this.room.hostId = this.room.players[0].id;
+      newHostId = this.room.hostId;
     }
 
     await this.persist();
-    this.broadcast({ type: 'player_left', playerId });
+    this.broadcast({ type: 'player_left', playerId, ...(newHostId ? { newHostId } : {}) });
   }
 
   private async handleStartGame(ws: WebSocket): Promise<void> {
@@ -289,6 +296,32 @@ export class GameRoom {
     // Record or update the answer — players can change until time expires
     this.room.answersThisRound[playerId] = answerIndex;
     await this.persist();
+  }
+
+  private async handleClaimHost(ws: WebSocket): Promise<void> {
+    if (!this.room) return;
+
+    const playerId = this.getPlayerId(ws);
+    if (!playerId) return;
+
+    if (this.room.phase !== 'waiting') {
+      this.sendTo(ws, { type: 'error', message: 'Can only claim host during waiting phase' });
+      return;
+    }
+
+    if (!this.room.players.some((p) => p.id === playerId)) {
+      this.sendTo(ws, { type: 'error', message: 'Player not in game' });
+      return;
+    }
+
+    if (this.room.hostId === playerId) {
+      this.sendTo(ws, { type: 'error', message: 'You are already the host' });
+      return;
+    }
+
+    this.room.hostId = playerId;
+    await this.persist();
+    this.broadcast({ type: 'host_changed', hostId: playerId });
   }
 
   // --- Alarm actions ---

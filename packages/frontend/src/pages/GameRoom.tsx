@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { GAME_EXPIRY_MS } from '@lamo-trivia/shared';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { useGameState } from '../hooks/useGameState';
 import { useUsername } from '../hooks/useUsername';
@@ -17,6 +18,8 @@ export default function GameRoom() {
   const [error, setError] = useState<string | null>(null);
   const [startingGame, setStartingGame] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const [expiryTimeLeft, setExpiryTimeLeft] = useState<number | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const joinedRef = useRef(false);
 
@@ -120,6 +123,56 @@ export default function GameRoom() {
     if (error) setStartingGame(false);
   }, [error]);
 
+  const handleShare = async () => {
+    const url = window.location.href;
+    const text = `Join my LAMO Trivia game!\n${gameState?.config.name ?? 'Game'} — Code: ${gameState?.id}\n${url}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: 'LAMO Trivia', text });
+        return;
+      } catch {
+        // User cancelled or share failed — fall through to clipboard
+      }
+    }
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard failed silently
+    }
+  };
+
+  const handleClaimHost = () => {
+    send({ type: 'claim_host' });
+  };
+
+  // Expiry countdown — only active during waiting phase
+  useEffect(() => {
+    if (!gameState || gameState.phase !== 'waiting') {
+      setExpiryTimeLeft(null);
+      return;
+    }
+
+    const updateExpiry = () => {
+      const remaining = GAME_EXPIRY_MS - (Date.now() - gameState.createdAt);
+      setExpiryTimeLeft(Math.max(0, remaining));
+    };
+
+    updateExpiry();
+    const id = setInterval(updateExpiry, 1000);
+    return () => clearInterval(id);
+  }, [gameState?.phase, gameState?.createdAt]);
+
+  const formatExpiry = (ms: number): string => {
+    const totalSeconds = Math.ceil(ms / 1000);
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+  };
+
   const handleUsernameSubmit = (name: string) => {
     setUsername(name);
   };
@@ -160,12 +213,20 @@ export default function GameRoom() {
       {/* Waiting Phase */}
       {gameState.phase === 'waiting' && (
         <div>
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-2xl font-bold text-lamo-dark">{gameState.config.name}</h2>
-              <p className="text-lamo-gray-muted text-sm mt-1">
-                Game Code: <span className="font-mono font-bold text-lamo-dark">{gameState.id}</span>
-              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <p className="text-lamo-gray-muted text-sm">
+                  Game Code: <span className="font-mono font-bold text-lamo-dark">{gameState.id}</span>
+                </p>
+                <button
+                  onClick={handleShare}
+                  className="text-xs px-2.5 py-1 rounded-full bg-lamo-blue/10 text-lamo-blue font-medium hover:bg-lamo-blue/20 transition-colors"
+                >
+                  {copied ? 'Copied!' : 'Share'}
+                </button>
+              </div>
             </div>
             <div className="text-right">
               <p className="text-sm text-lamo-gray-muted">
@@ -176,6 +237,17 @@ export default function GameRoom() {
               </p>
             </div>
           </div>
+
+          {/* Expiry countdown */}
+          {expiryTimeLeft !== null && (
+            <p className={`text-xs mb-4 ${
+              expiryTimeLeft < 5 * 60 * 1000
+                ? 'text-red-500 bg-red-50 px-3 py-1.5 rounded-lg inline-block'
+                : 'text-lamo-gray-muted'
+            }`}>
+              Game expires in {formatExpiry(expiryTimeLeft)}
+            </p>
+          )}
 
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-lamo-dark mb-3">Players</h3>
@@ -199,7 +271,15 @@ export default function GameRoom() {
                 </Button>
               )}
               {!isHost && (
-                <p className="text-sm text-lamo-gray-muted py-2">Waiting for host to start...</p>
+                <div className="flex items-center gap-3">
+                  <p className="text-sm text-lamo-gray-muted py-2">Waiting for host to start...</p>
+                  <button
+                    onClick={handleClaimHost}
+                    className="text-xs px-2.5 py-1 rounded-full border border-lamo-border text-lamo-gray-muted hover:text-lamo-dark hover:border-lamo-blue/40 transition-colors"
+                  >
+                    Claim Host
+                  </button>
+                </div>
               )}
               <Button variant="secondary" onClick={() => navigate('/lobby')}>
                 Leave
