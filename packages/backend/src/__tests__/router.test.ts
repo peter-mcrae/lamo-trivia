@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleRequest } from '../router';
 import { createMockEnv } from './mocks';
+import type { Env } from '../env';
 
 describe('Router - Seed endpoint auth', () => {
   it('POST /api/seed without Authorization header returns 401', async () => {
@@ -90,6 +91,200 @@ describe('Router - Seed endpoint auth', () => {
   it('unknown route returns 404', async () => {
     const env = createMockEnv();
     const request = new Request('http://localhost/api/nonexistent', { method: 'GET' });
+
+    const response = await handleRequest(request, env);
+
+    expect(response.status).toBe(404);
+  });
+});
+
+describe('Router - Group endpoints', () => {
+  function createGroupMockEnv(): Env {
+    return createMockEnv({
+      PRIVATE_GROUP: {
+        idFromName: (name: string) => ({ toString: () => `group-${name}` }),
+        get: () => ({
+          fetch: async (req: Request) => {
+            const url = new URL(req.url);
+
+            // POST /init
+            if (req.method === 'POST' && url.pathname === '/init') {
+              return Response.json({ ok: true, groupId: 'test-group-id' });
+            }
+
+            // GET /state
+            if (req.method === 'GET' && url.pathname === '/state') {
+              return Response.json({
+                id: 'brave-mountain-golden-river',
+                name: 'McRae Family',
+                createdAt: Date.now(),
+                memberCount: 2,
+              });
+            }
+
+            // POST /games
+            if (req.method === 'POST' && url.pathname === '/games') {
+              return Response.json({ ok: true });
+            }
+
+            return new Response('Not found', { status: 404 });
+          },
+        }),
+      } as unknown as DurableObjectNamespace,
+      GAME_LOBBY: {
+        idFromName: () => ({ toString: () => 'lobby-id' }),
+        get: () => ({
+          fetch: async (req: Request) => {
+            if (req.method === 'POST') {
+              return Response.json({ gameId: 'TEST-0001', name: 'Test Game', phase: 'waiting' });
+            }
+            return Response.json({ games: [] });
+          },
+        }),
+      } as unknown as DurableObjectNamespace,
+      GAME_ROOM: {
+        idFromName: () => ({ toString: () => 'room-id' }),
+        get: () => ({
+          fetch: async () => Response.json({ ok: true }),
+        }),
+      } as unknown as DurableObjectNamespace,
+    });
+  }
+
+  // --- POST /api/groups ---
+
+  it('POST /api/groups with valid name creates a group', async () => {
+    const env = createGroupMockEnv();
+    const request = new Request('http://localhost/api/groups', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'McRae Family' }),
+    });
+
+    const response = await handleRequest(request, env);
+
+    expect(response.status).toBe(200);
+    const data = (await response.json()) as any;
+    expect(data.groupId).toBeDefined();
+    expect(typeof data.groupId).toBe('string');
+    expect(data.groupId.split('-')).toHaveLength(4);
+    expect(data.name).toBe('McRae Family');
+  });
+
+  it('POST /api/groups with empty name returns 400', async () => {
+    const env = createGroupMockEnv();
+    const request = new Request('http://localhost/api/groups', {
+      method: 'POST',
+      body: JSON.stringify({ name: '' }),
+    });
+
+    const response = await handleRequest(request, env);
+
+    expect(response.status).toBe(400);
+  });
+
+  it('POST /api/groups with name exceeding 50 characters returns 400', async () => {
+    const env = createGroupMockEnv();
+    const request = new Request('http://localhost/api/groups', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'x'.repeat(51) }),
+    });
+
+    const response = await handleRequest(request, env);
+
+    expect(response.status).toBe(400);
+  });
+
+  // --- GET /api/groups/:groupId ---
+
+  it('GET /api/groups/:groupId returns group info for valid group', async () => {
+    const env = createGroupMockEnv();
+    const request = new Request('http://localhost/api/groups/brave-mountain-golden-river', {
+      method: 'GET',
+    });
+
+    const response = await handleRequest(request, env);
+
+    expect(response.status).toBe(200);
+    const data = (await response.json()) as any;
+    expect(data.id).toBe('brave-mountain-golden-river');
+    expect(data.name).toBe('McRae Family');
+    expect(data.memberCount).toBe(2);
+  });
+
+  it('GET /api/groups/:groupId returns 404 when group not found', async () => {
+    const env = createMockEnv({
+      PRIVATE_GROUP: {
+        idFromName: () => ({ toString: () => 'group-id' }),
+        get: () => ({
+          fetch: async () => Response.json({ error: 'Group not found' }, { status: 404 }),
+        }),
+      } as unknown as DurableObjectNamespace,
+    });
+
+    const request = new Request('http://localhost/api/groups/nonexistent-group-id-here', {
+      method: 'GET',
+    });
+
+    const response = await handleRequest(request, env);
+
+    expect(response.status).toBe(404);
+  });
+
+  // --- POST /api/groups/:groupId/games ---
+
+  it('POST /api/groups/:groupId/games creates a game with isPrivate forced to true', async () => {
+    const env = createGroupMockEnv();
+    const request = new Request('http://localhost/api/groups/brave-mountain-golden-river/games', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Group Game',
+        categoryIds: ['general'],
+        questionCount: 10,
+        isPrivate: false, // should be overridden to true
+      }),
+    });
+
+    const response = await handleRequest(request, env);
+
+    expect(response.status).toBe(200);
+    const data = (await response.json()) as any;
+    expect(data.gameId).toBeDefined();
+  });
+
+  it('POST /api/groups/:groupId/games returns 400 for invalid game config', async () => {
+    const env = createGroupMockEnv();
+    const request = new Request('http://localhost/api/groups/brave-mountain-golden-river/games', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: '',
+        categoryIds: [],
+        questionCount: 2, // below minimum of 5
+      }),
+    });
+
+    const response = await handleRequest(request, env);
+
+    expect(response.status).toBe(400);
+  });
+
+  it('POST /api/groups/:groupId/games returns 404 when group does not exist', async () => {
+    const env = createMockEnv({
+      PRIVATE_GROUP: {
+        idFromName: () => ({ toString: () => 'group-id' }),
+        get: () => ({
+          fetch: async () => Response.json({ error: 'Group not found' }, { status: 404 }),
+        }),
+      } as unknown as DurableObjectNamespace,
+    });
+
+    const request = new Request('http://localhost/api/groups/nonexistent-id/games', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Test Game',
+        categoryIds: ['general'],
+        questionCount: 10,
+      }),
+    });
 
     const response = await handleRequest(request, env);
 

@@ -9,16 +9,24 @@ port = 8787
 [durable_objects]
 bindings = [
   { name = "GAME_LOBBY", class_name = "GameLobby" },
-  { name = "GAME_ROOM", class_name = "GameRoom" }
+  { name = "GAME_ROOM", class_name = "GameRoom" },
+  { name = "PRIVATE_GROUP", class_name = "PrivateGroup" }
 ]
 
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["GameLobby", "GameRoom"]
 
+[[migrations]]
+tag = "v2"
+new_sqlite_classes = ["PrivateGroup"]
+
 [[kv_namespaces]]
 binding = "TRIVIA_KV"
 id = "34ed0bee812244b59410394854c16952"
+
+[observability]
+enabled = true
 
 [vars]
 FRONTEND_URL = "https://lamotrivia.app"

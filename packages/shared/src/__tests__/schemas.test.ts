@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { UsernameSchema, GameConfigSchema, ClientMessageSchema } from '../schemas';
+import { UsernameSchema, GameConfigSchema, ClientMessageSchema, GroupNameSchema, GroupClientMessageSchema } from '../schemas';
 
 describe('UsernameSchema', () => {
   it('accepts a valid username like "player1"', () => {
@@ -234,6 +234,132 @@ describe('ClientMessageSchema', () => {
       questionIndex: -1,
       answerIndex: 0,
     });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('GameConfigSchema — groupId field', () => {
+  const validConfig = {
+    name: 'Test Game',
+    categoryIds: ['general'],
+    questionCount: 10,
+  };
+
+  it('accepts config with groupId', () => {
+    const result = GameConfigSchema.safeParse({
+      ...validConfig,
+      groupId: 'brave-mountain-golden-river',
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.groupId).toBe('brave-mountain-golden-river');
+    }
+  });
+
+  it('accepts config without groupId (optional)', () => {
+    const result = GameConfigSchema.safeParse(validConfig);
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.groupId).toBeUndefined();
+    }
+  });
+
+  it('rejects config with empty groupId', () => {
+    const result = GameConfigSchema.safeParse({
+      ...validConfig,
+      groupId: '',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('GroupNameSchema', () => {
+  it('accepts a valid group name', () => {
+    expect(GroupNameSchema.safeParse('McRae Family').success).toBe(true);
+  });
+
+  it('accepts single character name (min length)', () => {
+    expect(GroupNameSchema.safeParse('A').success).toBe(true);
+  });
+
+  it('accepts exactly 50 characters (max length)', () => {
+    expect(GroupNameSchema.safeParse('x'.repeat(50)).success).toBe(true);
+  });
+
+  it('rejects empty string', () => {
+    expect(GroupNameSchema.safeParse('').success).toBe(false);
+  });
+
+  it('rejects name exceeding 50 characters', () => {
+    expect(GroupNameSchema.safeParse('x'.repeat(51)).success).toBe(false);
+  });
+});
+
+describe('GroupClientMessageSchema', () => {
+  it('accepts a valid join_group message', () => {
+    const result = GroupClientMessageSchema.safeParse({
+      type: 'join_group',
+      username: 'alice',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a valid leave_group message', () => {
+    const result = GroupClientMessageSchema.safeParse({ type: 'leave_group' });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a valid ping message', () => {
+    const result = GroupClientMessageSchema.safeParse({ type: 'ping' });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects an unknown message type', () => {
+    const result = GroupClientMessageSchema.safeParse({ type: 'unknown_type' });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects join_group without username', () => {
+    const result = GroupClientMessageSchema.safeParse({ type: 'join_group' });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts join_group with valid UUID memberId', () => {
+    const result = GroupClientMessageSchema.safeParse({
+      type: 'join_group',
+      username: 'alice',
+      memberId: '550e8400-e29b-41d4-a716-446655440000',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects join_group with non-UUID memberId', () => {
+    const result = GroupClientMessageSchema.safeParse({
+      type: 'join_group',
+      username: 'alice',
+      memberId: 'not-a-uuid',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts join_group without memberId (optional)', () => {
+    const result = GroupClientMessageSchema.safeParse({
+      type: 'join_group',
+      username: 'alice',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a valid recover_member message', () => {
+    const result = GroupClientMessageSchema.safeParse({
+      type: 'recover_member',
+      username: 'alice',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects recover_member without username', () => {
+    const result = GroupClientMessageSchema.safeParse({ type: 'recover_member' });
     expect(result.success).toBe(false);
   });
 });

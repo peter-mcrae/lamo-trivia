@@ -32,4 +32,22 @@ export const api = {
   getCategories: () => fetchJSON<{ categories: TriviaCategory[] }>('/categories'),
 
   health: () => fetchJSON<{ status: string }>('/health'),
+
+  // Groups
+  createGroup: (name: string) =>
+    fetchJSON<{ groupId: string; name: string }>('/groups', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    }),
+
+  getGroup: (groupId: string) =>
+    fetchJSON<{ id: string; name: string; createdAt: number; memberCount: number }>(
+      `/groups/${groupId}`,
+    ),
+
+  createGroupGame: (groupId: string, config: GameConfigInput) =>
+    fetchJSON<{ gameId: string }>(`/groups/${groupId}/games`, {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
 };

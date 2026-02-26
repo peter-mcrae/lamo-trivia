@@ -24,6 +24,12 @@ export function Layout({ children }: { children: ReactNode }) {
           >
             Create Game
           </Link>
+          <Link
+            to="/groups"
+            className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors"
+          >
+            Groups
+          </Link>
         </div>
       </nav>
       <main>{children}</main>

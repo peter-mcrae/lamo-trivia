@@ -24,6 +24,7 @@ export default function GameRoom() {
   const [showRematchModal, setShowRematchModal] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const joinedRef = useRef(false);
+  const groupIdRef = useRef<string | undefined>();
 
   const {
     gameState,
@@ -46,8 +47,9 @@ export default function GameRoom() {
         return;
       }
       if (message.type === 'game_expired') {
-        setError('This game has expired. Returning to lobby...');
-        setTimeout(() => navigate('/lobby'), 3000);
+        const dest = groupIdRef.current ? `/group/${groupIdRef.current}` : '/lobby';
+        setError('This game has expired. Returning...');
+        setTimeout(() => navigate(dest), 3000);
         return;
       }
       if (message.type === 'rematch') {
@@ -184,6 +186,16 @@ export default function GameRoom() {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  // Track groupId in a ref so the onMessage callback can access it
+  useEffect(() => {
+    groupIdRef.current = gameState?.config.groupId;
+  }, [gameState?.config.groupId]);
+
+  const backPath = gameState?.config.groupId
+    ? `/group/${gameState.config.groupId}`
+    : '/lobby';
+  const backLabel = gameState?.config.groupId ? 'Back to Group' : 'Back to Lobby';
+
   const handleUsernameSubmit = (name: string) => {
     setUsername(name);
   };
@@ -200,7 +212,7 @@ export default function GameRoom() {
         {error ? (
           <div>
             <p className="text-red-500 font-medium mb-4">{error}</p>
-            <Button onClick={() => navigate('/lobby')}>Back to Lobby</Button>
+            <Button onClick={() => navigate(backPath)}>{backLabel}</Button>
           </div>
         ) : (
           <p className="text-lamo-gray-muted">Connecting to game...</p>
@@ -292,7 +304,7 @@ export default function GameRoom() {
                   </button>
                 </div>
               )}
-              <Button variant="secondary" onClick={() => navigate('/lobby')}>
+              <Button variant="secondary" onClick={() => navigate(backPath)}>
                 Leave
               </Button>
             </div>
@@ -403,8 +415,8 @@ export default function GameRoom() {
                 Play Again
               </Button>
             )}
-            <Button variant="secondary" onClick={() => navigate('/lobby')}>
-              Back to Lobby
+            <Button variant="secondary" onClick={() => navigate(backPath)}>
+              {backLabel}
             </Button>
           </div>
 
