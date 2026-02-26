@@ -89,7 +89,7 @@ export default function GameRoom() {
   }, [gameState?.phase, currentQuestion, answerResult, gameState?.config.timePerQuestion]);
 
   const handleAnswer = (answerIndex: number) => {
-    if (selectedAnswer !== null) return;
+    if (answerResult) return; // Can't change after results are revealed
     setSelectedAnswer(answerIndex);
     send({ type: 'submit_answer', questionIndex, answerIndex });
   };

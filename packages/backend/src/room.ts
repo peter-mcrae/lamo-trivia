@@ -252,59 +252,12 @@ export class GameRoom {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
-    // Ignore if not the current question or already answered
+    // Ignore if not the current question
     if (questionIndex !== this.room.currentQuestionIndex) return;
-    if (playerId in this.room.answersThisRound) return;
 
+    // Record or update the answer — players can change until time expires
     this.room.answersThisRound[playerId] = answerIndex;
-
-    const question = this.room.questions[this.room.currentQuestionIndex];
-    const correct = answerIndex === question.correctIndex;
-    const timeElapsed = (Date.now() - this.room.questionStartedAt) / 1000;
-    const timeRemaining = Math.max(0, this.room.config.timePerQuestion - timeElapsed);
-
-    // Calculate score
-    let points = 0;
-    if (correct) {
-      if (this.room.config.scoringMethod === 'speed-bonus') {
-        points = Math.round(1000 * (timeRemaining / this.room.config.timePerQuestion));
-        points = Math.max(points, 100); // minimum 100 for correct answer
-      } else {
-        points = 1000;
-      }
-
-      // Streak bonus
-      this.room.streaks[playerId] = (this.room.streaks[playerId] || 0) + 1;
-      if (this.room.config.streakBonus) {
-        const multiplier = Math.min(this.room.streaks[playerId], 3);
-        points = points * multiplier;
-      }
-    } else {
-      this.room.streaks[playerId] = 0;
-    }
-
-    this.room.scores[playerId] = (this.room.scores[playerId] || 0) + points;
-
-    // Update the player's score in the players array too
-    const player = this.room.players.find((p) => p.id === playerId);
-    if (player) player.score = this.room.scores[playerId];
-
     await this.persist();
-
-    // Send individual result to the answering player
-    this.sendTo(ws, {
-      type: 'answer_result',
-      correct,
-      correctIndex: question.correctIndex,
-      scores: this.room.scores,
-    });
-
-    // Check if all players have answered
-    const allAnswered = this.room.players.every((p) => p.id in this.room!.answersThisRound);
-    if (allAnswered) {
-      await this.state.storage.deleteAlarm();
-      await this.endCurrentQuestion();
-    }
   }
 
   // --- Alarm actions ---
@@ -343,24 +296,48 @@ export class GameRoom {
 
     const question = this.room.questions[this.room.currentQuestionIndex];
 
-    // Reset streak for players who didn't answer
+    // Score all players at once now that time has expired
     for (const player of this.room.players) {
-      if (!(player.id in this.room.answersThisRound)) {
-        this.room.streaks[player.id] = 0;
+      const playerId = player.id;
+      const answerIndex = this.room.answersThisRound[playerId];
+      const answered = playerId in this.room.answersThisRound;
+      const correct = answered && answerIndex === question.correctIndex;
+
+      let points = 0;
+      if (correct) {
+        if (this.room.config.scoringMethod === 'speed-bonus') {
+          // With deferred scoring, everyone gets the same base points (no speed advantage)
+          points = 1000;
+        } else {
+          points = 1000;
+        }
+
+        // Streak bonus
+        this.room.streaks[playerId] = (this.room.streaks[playerId] || 0) + 1;
+        if (this.room.config.streakBonus) {
+          const multiplier = Math.min(this.room.streaks[playerId], 3);
+          points = points * multiplier;
+        }
+      } else {
+        this.room.streaks[playerId] = 0;
       }
+
+      this.room.scores[playerId] = (this.room.scores[playerId] || 0) + points;
+      player.score = this.room.scores[playerId];
     }
 
     await this.persist();
 
-    // Send answer_result to players who timed out
+    // Send answer_result to each player with their personal result
     const sockets = this.state.getWebSockets();
     for (const ws of sockets) {
       const pid = this.getPlayerId(ws);
       if (!pid) continue;
-      if (pid in this.room.answersThisRound) continue;
+      const answered = pid in this.room.answersThisRound;
+      const correct = answered && this.room.answersThisRound[pid] === question.correctIndex;
       this.sendTo(ws, {
         type: 'answer_result',
-        correct: false,
+        correct,
         correctIndex: question.correctIndex,
         scores: this.room.scores,
       });

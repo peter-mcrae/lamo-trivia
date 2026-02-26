@@ -35,9 +35,6 @@ export function QuestionCard({
     if (selectedAnswer === i) {
       return `${base} bg-lamo-blue text-white border-lamo-blue`;
     }
-    if (selectedAnswer !== null) {
-      return `${base} bg-lamo-bg-hero text-lamo-dark border-lamo-border opacity-60`;
-    }
     return `${base} bg-lamo-bg-hero text-lamo-dark border-lamo-border hover:border-lamo-blue/40`;
   };
 
@@ -52,7 +49,7 @@ export function QuestionCard({
           <button
             key={i}
             onClick={() => onAnswer(i)}
-            disabled={selectedAnswer !== null}
+            disabled={!!showResult}
             className={getButtonClass(i)}
           >
             {option}
