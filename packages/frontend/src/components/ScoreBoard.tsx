@@ -17,6 +17,7 @@ export function ScoreBoard({ players, scores }: ScoreBoardProps) {
         >
           <div className="flex items-center gap-3">
             <span className="text-sm font-bold text-lamo-gray-muted w-5">{rank + 1}</span>
+            <span className="text-lg" title={player.avatar.name}>{player.avatar.emoji}</span>
             <span className="font-medium text-lamo-dark">{player.username}</span>
           </div>
           <span className="font-bold text-lamo-blue">{scores[player.id] ?? 0}</span>

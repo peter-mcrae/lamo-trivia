@@ -1,4 +1,4 @@
-import type { TriviaCategory } from './types';
+import type { Avatar, TriviaCategory } from './types';
 
 export const GAME_DEFAULTS = {
   questionCount: 10,
@@ -21,6 +21,42 @@ export const GAME_LIMITS = {
   maxUsernameLength: 20,
   minUsernameLength: 2,
 } as const;
+
+// Player avatars — randomly assigned on join, unique per game
+export const AVATARS: Avatar[] = [
+  // Dog breeds
+  { emoji: '🐕', name: 'Golden Retriever' },
+  { emoji: '🐩', name: 'Poodle' },
+  { emoji: '🦮', name: 'Labrador' },
+  { emoji: '🐶', name: 'Beagle' },
+  { emoji: '🐺', name: 'Husky' },
+  { emoji: '🦊', name: 'Shiba Inu' },
+  { emoji: '🐾', name: 'Bulldog' },
+  { emoji: '🐕‍🦺', name: 'German Shepherd' },
+  { emoji: '🐻', name: 'Bernese' },
+  { emoji: '🦴', name: 'Dalmatian' },
+  { emoji: '🧡', name: 'Corgi' },
+  { emoji: '🐿️', name: 'Chihuahua' },
+  { emoji: '🐗', name: 'Boxer' },
+  { emoji: '🦁', name: 'Chow Chow' },
+  { emoji: '🤍', name: 'Samoyed' },
+  // Harry Potter characters
+  { emoji: '⚡', name: 'Harry' },
+  { emoji: '📚', name: 'Hermione' },
+  { emoji: '♟️', name: 'Ron' },
+  { emoji: '🧙', name: 'Dumbledore' },
+  { emoji: '🐍', name: 'Voldemort' },
+  { emoji: '🖤', name: 'Snape' },
+  { emoji: '🌕', name: 'Lupin' },
+  { emoji: '⭐', name: 'Sirius' },
+  { emoji: '🧹', name: 'Ginny' },
+  { emoji: '🐉', name: 'Hagrid' },
+  { emoji: '🦅', name: 'McGonagall' },
+  { emoji: '🌿', name: 'Neville' },
+  { emoji: '🦉', name: 'Hedwig' },
+  { emoji: '🧦', name: 'Dobby' },
+  { emoji: '🔮', name: 'Luna' },
+];
 
 export const TRIVIA_CATEGORIES: TriviaCategory[] = [
   { id: 'harry-potter', name: 'Harry Potter', description: 'The Wizarding World', icon: '⚡', questionCount: 30 },

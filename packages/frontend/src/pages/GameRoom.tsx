@@ -232,7 +232,11 @@ export default function GameRoom() {
                       <span className="text-lg font-bold text-lamo-gray-muted w-8">
                         {medal ?? `${i + 1}th`}
                       </span>
-                      <span className="font-semibold text-lamo-dark">{player.username}</span>
+                      <span className="text-2xl" title={player.avatar.name}>{player.avatar.emoji}</span>
+                      <div className="flex flex-col">
+                        <span className="font-semibold text-lamo-dark">{player.username}</span>
+                        <span className="text-xs text-lamo-gray-muted -mt-0.5">{player.avatar.name}</span>
+                      </div>
                     </div>
                     <span className="font-bold text-lamo-blue text-lg">
                       {gameState.scores[player.id] ?? 0}

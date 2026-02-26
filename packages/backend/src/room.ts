@@ -1,5 +1,5 @@
-import type { Player, GameConfig, GamePhase, Question, ClientQuestion, GameState } from '@lamo-trivia/shared';
-import { ClientMessageSchema } from '@lamo-trivia/shared';
+import type { Player, GameConfig, GamePhase, Question, ClientQuestion, GameState, Avatar } from '@lamo-trivia/shared';
+import { ClientMessageSchema, AVATARS } from '@lamo-trivia/shared';
 import type { Env } from './env';
 import { getQuestions } from './questions';
 
@@ -145,9 +145,11 @@ export class GameRoom {
     }
 
     const playerId = crypto.randomUUID();
+    const avatar = this.pickAvatar();
     const player: Player = {
       id: playerId,
       username,
+      avatar,
       connectedAt: Date.now(),
       score: 0,
     };
@@ -401,6 +403,13 @@ export class GameRoom {
 
   private getPlayerId(ws: WebSocket): string | null {
     return ws.deserializeAttachment() as string | null;
+  }
+
+  private pickAvatar(): Avatar {
+    const usedNames = new Set(this.room!.players.map((p) => p.avatar.name));
+    const available = AVATARS.filter((a) => !usedNames.has(a.name));
+    const pool = available.length > 0 ? available : AVATARS; // fallback if all used
+    return pool[Math.floor(Math.random() * pool.length)];
   }
 
   private getClientGameState(): GameState {

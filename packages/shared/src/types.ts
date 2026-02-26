@@ -1,6 +1,12 @@
+export interface Avatar {
+  emoji: string;
+  name: string;
+}
+
 export interface Player {
   id: string;
   username: string;
+  avatar: Avatar;
   connectedAt: number;
   score: number;
 }
