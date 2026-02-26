@@ -57,9 +57,15 @@ export interface GameListing {
   name: string;
   hostUsername: string;
   categoryIds: string[];
+  questionCount: number;
   playerCount: number;
+  minPlayers: number;
   maxPlayers: number;
+  timePerQuestion: number;
   scoringMethod: ScoringMethod;
+  streakBonus: boolean;
+  showAnswers: boolean;
+  isPrivate: boolean;
   phase: GamePhase;
   createdAt: number;
 }

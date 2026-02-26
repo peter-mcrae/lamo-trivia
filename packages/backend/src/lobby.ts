@@ -19,7 +19,7 @@ export class GameLobby {
     if (request.method === 'GET' && url.pathname === '/games') {
       const now = Date.now();
       const publicGames = Array.from(this.games.values()).filter(
-        (g) => g.phase === 'waiting' && (now - g.createdAt) < GAME_EXPIRY_MS,
+        (g) => g.phase === 'waiting' && !g.isPrivate && (now - g.createdAt) < GAME_EXPIRY_MS,
       );
       return Response.json({ games: publicGames });
     }
@@ -32,9 +32,15 @@ export class GameLobby {
         name: config.name,
         hostUsername: '',
         categoryIds: config.categoryIds,
+        questionCount: config.questionCount,
         playerCount: 0,
+        minPlayers: config.minPlayers,
         maxPlayers: config.maxPlayers,
+        timePerQuestion: config.timePerQuestion,
         scoringMethod: config.scoringMethod,
+        streakBonus: config.streakBonus,
+        showAnswers: config.showAnswers,
+        isPrivate: config.isPrivate,
         phase: 'waiting',
         createdAt: Date.now(),
       };
