@@ -15,6 +15,7 @@ export default function GameRoom() {
   const navigate = useNavigate();
   const { username, setUsername, hasUsername } = useUsername();
   const [error, setError] = useState<string | null>(null);
+  const [startingGame, setStartingGame] = useState(false);
   const [timeLeft, setTimeLeft] = useState(0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const joinedRef = useRef(false);
@@ -95,8 +96,21 @@ export default function GameRoom() {
   };
 
   const handleStartGame = () => {
+    setStartingGame(true);
+    setError(null);
     send({ type: 'start_game' });
   };
+
+  // Clear loading state when game phase advances or an error arrives
+  useEffect(() => {
+    if (startingGame && gameState?.phase && gameState.phase !== 'waiting') {
+      setStartingGame(false);
+    }
+  }, [startingGame, gameState?.phase]);
+
+  useEffect(() => {
+    if (error) setStartingGame(false);
+  }, [error]);
 
   const handleUsernameSubmit = (name: string) => {
     setUsername(name);
@@ -160,19 +174,30 @@ export default function GameRoom() {
             <PlayerList players={gameState.players} hostId={gameState.hostId} />
           </div>
 
-          <div className="flex gap-3">
-            {isHost && (
-              <Button onClick={handleStartGame} disabled={!canStart}>
-                {canStart ? 'Start Game' : `Need ${gameState.config.minPlayers - gameState.players.length} more`}
+          {startingGame ? (
+            <div className="flex flex-col items-center py-6 gap-3">
+              <div className="w-8 h-8 border-4 border-lamo-blue/30 border-t-lamo-blue rounded-full animate-spin" />
+              <p className="text-sm text-lamo-gray-muted">
+                {gameState.config.aiTopic
+                  ? '🤖 Generating AI questions... hang tight!'
+                  : 'Loading questions...'}
+              </p>
+            </div>
+          ) : (
+            <div className="flex gap-3">
+              {isHost && (
+                <Button onClick={handleStartGame} disabled={!canStart}>
+                  {canStart ? 'Start Game' : `Need ${gameState.config.minPlayers - gameState.players.length} more`}
+                </Button>
+              )}
+              {!isHost && (
+                <p className="text-sm text-lamo-gray-muted py-2">Waiting for host to start...</p>
+              )}
+              <Button variant="secondary" onClick={() => navigate('/lobby')}>
+                Leave
               </Button>
-            )}
-            {!isHost && (
-              <p className="text-sm text-lamo-gray-muted py-2">Waiting for host to start...</p>
-            )}
-            <Button variant="secondary" onClick={() => navigate('/lobby')}>
-              Leave
-            </Button>
-          </div>
+            </div>
+          )}
         </div>
       )}
 
