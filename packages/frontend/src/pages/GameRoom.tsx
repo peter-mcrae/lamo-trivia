@@ -38,9 +38,14 @@ export default function GameRoom() {
         setError(message.message);
         return;
       }
+      if (message.type === 'game_expired') {
+        setError('This game has expired. Returning to lobby...');
+        setTimeout(() => navigate('/lobby'), 3000);
+        return;
+      }
       handleMessage(message);
     },
-    [handleMessage],
+    [handleMessage, navigate],
   );
 
   const { connected, send } = useWebSocket({

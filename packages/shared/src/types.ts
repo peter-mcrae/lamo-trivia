@@ -61,6 +61,7 @@ export interface GameListing {
   maxPlayers: number;
   scoringMethod: ScoringMethod;
   phase: GamePhase;
+  createdAt: number;
 }
 
 export interface TriviaCategory {

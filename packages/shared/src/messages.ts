@@ -17,5 +17,6 @@ export type ServerMessage =
   | { type: 'question'; question: ClientQuestion; questionIndex: number; totalQuestions: number }
   | { type: 'answer_result'; correct: boolean; correctIndex: number; scores: Record<string, number> }
   | { type: 'game_finished'; finalScores: Record<string, number>; rankings: Player[] }
+  | { type: 'game_expired'; message: string }
   | { type: 'error'; message: string; code?: string }
   | { type: 'pong' };

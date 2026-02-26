@@ -1,4 +1,5 @@
 import type { GameListing, GameConfig } from '@lamo-trivia/shared';
+import { GAME_EXPIRY_MS } from '@lamo-trivia/shared';
 
 export class GameLobby {
   private state: DurableObjectState;
@@ -16,8 +17,9 @@ export class GameLobby {
     const url = new URL(request.url);
 
     if (request.method === 'GET' && url.pathname === '/games') {
+      const now = Date.now();
       const publicGames = Array.from(this.games.values()).filter(
-        (g) => g.phase === 'waiting',
+        (g) => g.phase === 'waiting' && (now - g.createdAt) < GAME_EXPIRY_MS,
       );
       return Response.json({ games: publicGames });
     }
@@ -34,10 +36,22 @@ export class GameLobby {
         maxPlayers: config.maxPlayers,
         scoringMethod: config.scoringMethod,
         phase: 'waiting',
+        createdAt: Date.now(),
       };
       this.games.set(gameId, listing);
       await this.state.storage.put('games', this.games);
       return Response.json({ gameId, ...listing });
+    }
+
+    // DELETE /games/:gameId — remove a game listing (used by room expiry)
+    if (request.method === 'DELETE' && url.pathname.startsWith('/games/')) {
+      const gameId = url.pathname.split('/games/')[1];
+      if (gameId && this.games.has(gameId)) {
+        this.games.delete(gameId);
+        await this.state.storage.put('games', this.games);
+        return Response.json({ deleted: true });
+      }
+      return Response.json({ deleted: false }, { status: 404 });
     }
 
     return new Response('Not found', { status: 404 });

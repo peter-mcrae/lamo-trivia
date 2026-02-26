@@ -22,6 +22,8 @@ export const GAME_LIMITS = {
   minUsernameLength: 2,
 } as const;
 
+export const GAME_EXPIRY_MS = 20 * 60 * 1000; // 20 minutes
+
 // Player avatars — randomly assigned on join, unique per game
 export const AVATARS: Avatar[] = [
   // Dog breeds

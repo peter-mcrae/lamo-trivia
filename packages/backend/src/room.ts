@@ -1,9 +1,9 @@
 import type { Player, GameConfig, GamePhase, Question, ClientQuestion, GameState, Avatar } from '@lamo-trivia/shared';
-import { ClientMessageSchema, AVATARS } from '@lamo-trivia/shared';
+import { ClientMessageSchema, AVATARS, GAME_EXPIRY_MS } from '@lamo-trivia/shared';
 import type { Env } from './env';
 import { getQuestions } from './questions';
 
-type AlarmAction = 'send_question' | 'end_question' | 'show_next_or_finish';
+type AlarmAction = 'expire_game' | 'send_question' | 'end_question' | 'show_next_or_finish';
 
 interface RoomState {
   gameId: string;
@@ -53,10 +53,14 @@ export class GameRoom {
         streaks: {},
         answersThisRound: {},
         questionStartedAt: 0,
-        nextAlarmAction: null,
+        nextAlarmAction: 'expire_game',
         createdAt: Date.now(),
       };
       await this.persist();
+
+      // Set 20-minute expiry alarm — overwritten if game starts
+      await this.state.storage.setAlarm(Date.now() + GAME_EXPIRY_MS);
+
       return Response.json({ ok: true });
     }
 
@@ -109,6 +113,9 @@ export class GameRoom {
     if (!this.room) return;
 
     switch (this.room.nextAlarmAction) {
+      case 'expire_game':
+        await this.expireGame();
+        break;
       case 'send_question':
         await this.sendCurrentQuestion();
         break;
@@ -397,6 +404,37 @@ export class GameRoom {
       finalScores: this.room.scores,
       rankings,
     });
+  }
+
+  private async expireGame(): Promise<void> {
+    if (!this.room) return;
+
+    // Safety: only expire games still in the waiting phase
+    if (this.room.phase !== 'waiting') return;
+
+    // Notify connected clients
+    this.broadcast({ type: 'game_expired', message: 'Game expired due to inactivity' });
+
+    // Close all WebSocket connections
+    const sockets = this.state.getWebSockets();
+    for (const ws of sockets) {
+      try {
+        ws.close(1000, 'Game expired');
+      } catch {
+        // Already closed
+      }
+    }
+
+    // Remove from lobby
+    const lobbyId = this.env.GAME_LOBBY.idFromName('global');
+    const lobby = this.env.GAME_LOBBY.get(lobbyId);
+    await lobby.fetch(
+      new Request(`http://internal/games/${this.room.gameId}`, { method: 'DELETE' }),
+    );
+
+    // Clear room storage
+    this.room = null;
+    await this.state.storage.deleteAll();
   }
 
   // --- Helpers ---
