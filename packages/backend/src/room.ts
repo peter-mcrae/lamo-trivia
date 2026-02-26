@@ -4,6 +4,7 @@ import { getOpenAIKey } from './env';
 import type { Env } from './env';
 import { getQuestions } from './questions';
 import { generateAIQuestions } from './questions/ai';
+import { calculateRoundScores } from './scoring';
 
 type AlarmAction = 'expire_game' | 'send_question' | 'end_question' | 'show_next_or_finish';
 
@@ -77,8 +78,15 @@ export class GameRoom {
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    // Guard against oversized messages (max 2KB is plenty for any valid client message)
+    const raw = typeof message === 'string' ? message : '';
+    if (raw.length > 2048) {
+      this.sendTo(ws, { type: 'error', message: 'Message too large' });
+      return;
+    }
+
     try {
-      const data = JSON.parse(message as string);
+      const data = JSON.parse(raw);
       const parsed = ClientMessageSchema.safeParse(data);
       if (!parsed.success) {
         this.sendTo(ws, { type: 'error', message: 'Invalid message format' });
@@ -272,6 +280,12 @@ export class GameRoom {
     // Ignore if not the current question
     if (questionIndex !== this.room.currentQuestionIndex) return;
 
+    // Defensive bounds check (schema validates, but belt-and-suspenders)
+    if (!Number.isInteger(answerIndex) || answerIndex < 0 || answerIndex > 3) {
+      this.sendTo(ws, { type: 'error', message: 'Invalid answer index' });
+      return;
+    }
+
     // Record or update the answer — players can change until time expires
     this.room.answersThisRound[playerId] = answerIndex;
     await this.persist();
@@ -281,6 +295,12 @@ export class GameRoom {
 
   private async sendCurrentQuestion(): Promise<void> {
     if (!this.room) return;
+
+    // Defensive bounds check
+    if (this.room.currentQuestionIndex >= this.room.questions.length) {
+      await this.finishGame();
+      return;
+    }
 
     this.room.phase = 'playing';
     this.room.answersThisRound = {};
@@ -313,34 +333,21 @@ export class GameRoom {
 
     const question = this.room.questions[this.room.currentQuestionIndex];
 
-    // Score all players at once now that time has expired
+    // Score all players using the extracted pure scoring function
+    const result = calculateRoundScores({
+      players: this.room.players,
+      answersThisRound: this.room.answersThisRound,
+      correctIndex: question.correctIndex,
+      currentScores: this.room.scores,
+      streaks: this.room.streaks,
+      scoringMethod: this.room.config.scoringMethod,
+      streakBonus: this.room.config.streakBonus,
+    });
+
+    this.room.scores = result.scores;
+    this.room.streaks = result.streaks;
     for (const player of this.room.players) {
-      const playerId = player.id;
-      const answerIndex = this.room.answersThisRound[playerId];
-      const answered = playerId in this.room.answersThisRound;
-      const correct = answered && answerIndex === question.correctIndex;
-
-      let points = 0;
-      if (correct) {
-        if (this.room.config.scoringMethod === 'speed-bonus') {
-          // With deferred scoring, everyone gets the same base points (no speed advantage)
-          points = 1000;
-        } else {
-          points = 1000;
-        }
-
-        // Streak bonus
-        this.room.streaks[playerId] = (this.room.streaks[playerId] || 0) + 1;
-        if (this.room.config.streakBonus) {
-          const multiplier = Math.min(this.room.streaks[playerId], 3);
-          points = points * multiplier;
-        }
-      } else {
-        this.room.streaks[playerId] = 0;
-      }
-
-      this.room.scores[playerId] = (this.room.scores[playerId] || 0) + points;
-      player.score = this.room.scores[playerId];
+      player.score = this.room.scores[player.id];
     }
 
     await this.persist();

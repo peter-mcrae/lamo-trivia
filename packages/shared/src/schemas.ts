@@ -32,8 +32,8 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('start_game') }),
   z.object({
     type: z.literal('submit_answer'),
-    questionIndex: z.number(),
-    answerIndex: z.number(),
+    questionIndex: z.number().int().min(0),
+    answerIndex: z.number().int().min(0).max(3),
   }),
   z.object({ type: z.literal('ping') }),
 ]);

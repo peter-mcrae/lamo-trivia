@@ -8,6 +8,8 @@ export interface Env {
   GAME_ROOM: DurableObjectNamespace;
   TRIVIA_KV: KVNamespace;
   FRONTEND_URL: string;
+  /** Shared secret for authenticating POST /api/seed — set via wrangler secret put SEED_SECRET */
+  SEED_SECRET?: string;
   /**
    * OpenAI API key — resolved from (in priority order):
    * 1. Secret Store binding (.get()) — wrangler v4+

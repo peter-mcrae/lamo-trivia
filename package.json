@@ -11,6 +11,10 @@
     "dev:backend": "npm run dev --workspace=packages/backend",
     "dev:frontend": "npm run dev --workspace=packages/frontend",
     "build": "npm run build --workspace=packages/frontend",
+    "test": "npm test --workspaces --if-present",
+    "test:shared": "npm test --workspace=packages/shared",
+    "test:backend": "npm test --workspace=packages/backend",
+    "test:frontend": "npm test --workspace=packages/frontend",
     "deploy:backend": "npm run deploy --workspace=packages/backend",
     "deploy:frontend": "npm run deploy --workspace=packages/frontend"
   }

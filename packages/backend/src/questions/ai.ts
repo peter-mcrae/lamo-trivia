@@ -54,7 +54,9 @@ Rules:
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`OpenAI API error (${response.status}): ${errorText}`);
+    // Log full error server-side (visible in Workers logs) but never expose to client
+    console.error(`OpenAI API error (${response.status}): ${errorText}`);
+    throw new Error(`AI question generation failed (status ${response.status})`);
   }
 
   const data = (await response.json()) as OpenAIChatResponse;

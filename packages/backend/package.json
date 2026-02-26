@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "test": "vitest run",
     "seed": "npx tsx scripts/seed.ts",
     "seed:remote": "npx tsx scripts/seed.ts --remote"
   },
@@ -15,6 +16,7 @@
     "@cloudflare/workers-types": "^4.20241106.0",
     "tsx": "^4.19.0",
     "typescript": "^5.8.0",
+    "vitest": "^4.0.18",
     "wrangler": "^4.68.1"
   }
 }

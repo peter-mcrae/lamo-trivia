@@ -65,7 +65,13 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   }
 
   // POST /api/seed — populate KV with questions (expects { categoryId: Question[] } body)
+  // Protected: requires Authorization: Bearer <SEED_SECRET>
   if (method === 'POST' && url.pathname === '/api/seed') {
+    const authHeader = request.headers.get('Authorization');
+    const expectedSecret = env.SEED_SECRET;
+    if (!expectedSecret || !authHeader || authHeader !== `Bearer ${expectedSecret}`) {
+      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const categories = (await request.json()) as Record<string, unknown[]>;
     const counts = await seedQuestions(env.TRIVIA_KV, categories as Record<string, import('@lamo-trivia/shared').Question[]>);
     return Response.json({ seeded: true, counts });
