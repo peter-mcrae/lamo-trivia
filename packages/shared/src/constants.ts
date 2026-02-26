@@ -68,4 +68,5 @@ export const TRIVIA_CATEGORIES: TriviaCategory[] = [
   { id: 'sports', name: 'Sports', description: 'Games, athletes, records', icon: '⚽', questionCount: 50 },
   { id: 'entertainment', name: 'Entertainment', description: 'Movies, music, TV', icon: '🎬', questionCount: 50 },
   { id: 'geography', name: 'Geography', description: 'Countries, capitals, landmarks', icon: '🌍', questionCount: 50 },
+  { id: 'math', name: 'Math', description: 'Multiplication times tables', icon: '✖️', questionCount: 50 },
 ];
