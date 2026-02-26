@@ -5,13 +5,18 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LAMO Trivia</title>
-    <!-- Google Analytics -->
-    <script async src="https://www.googletagmanager.com/gtag/js?id=G-804RC3BG82"></script>
+    <!-- Google Analytics — disabled by default, enabled on consent -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
-      gtag('js', new Date());
-      gtag('config', 'G-804RC3BG82', { send_page_view: false });
+      if (localStorage.getItem('analytics-consent') === 'accepted') {
+        var s = document.createElement('script');
+        s.async = true;
+        s.src = 'https://www.googletagmanager.com/gtag/js?id=G-804RC3BG82';
+        document.head.appendChild(s);
+        gtag('js', new Date());
+        gtag('config', 'G-804RC3BG82', { send_page_view: false });
+      }
     </script>
   </head>
   <body>

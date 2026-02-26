@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
+import { CookieBanner } from '@/components/CookieBanner';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import Home from '@/pages/Home';
 import Lobby from '@/pages/Lobby';
@@ -29,6 +30,7 @@ function App() {
   return (
     <BrowserRouter>
       <AppRoutes />
+      <CookieBanner />
     </BrowserRouter>
   );
 }

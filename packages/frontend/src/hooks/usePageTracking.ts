@@ -7,11 +7,15 @@ declare global {
   }
 }
 
+export function hasAnalyticsConsent(): boolean {
+  return localStorage.getItem('analytics-consent') === 'accepted';
+}
+
 export function usePageTracking() {
   const location = useLocation();
 
   useEffect(() => {
-    if (window.gtag) {
+    if (hasAnalyticsConsent() && window.gtag) {
       window.gtag('event', 'page_view', {
         page_path: location.pathname + location.search,
         page_title: document.title,
