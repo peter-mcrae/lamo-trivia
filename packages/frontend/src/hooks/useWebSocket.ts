@@ -13,8 +13,18 @@ export function useWebSocket({ gameId, onMessage, onOpen, onClose }: UseWebSocke
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/ws/game/${gameId}`;
+    const apiUrl = import.meta.env.VITE_API_URL;
+    let wsUrl: string;
+    if (apiUrl) {
+      // Production: connect to the Worker directly
+      const url = new URL(apiUrl);
+      const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${protocol}//${url.host}/ws/game/${gameId}`;
+    } else {
+      // Dev: use same host (Vite proxy handles it)
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      wsUrl = `${protocol}//${window.location.host}/ws/game/${gameId}`;
+    }
     const ws = new WebSocket(wsUrl);
 
     ws.onopen = () => {
