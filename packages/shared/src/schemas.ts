@@ -20,6 +20,7 @@ export const GameConfigSchema = z.object({
   showAnswers: z.boolean().default(true),
   timeBetweenQuestions: z.number().int().min(3).max(15).default(5),
   isPrivate: z.boolean().default(false),
+  groupId: z.string().min(1).optional(),
   aiTopic: z.string().min(2).max(100).optional(),
 }).refine(
   (data) => data.aiTopic || data.categoryIds.length > 0,
@@ -41,3 +42,11 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
 ]);
 
 export type GameConfigInput = z.infer<typeof GameConfigSchema>;
+
+export const GroupNameSchema = z.string().min(1).max(50);
+
+export const GroupClientMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('join_group'), username: z.string() }),
+  z.object({ type: z.literal('leave_group') }),
+  z.object({ type: z.literal('ping') }),
+]);

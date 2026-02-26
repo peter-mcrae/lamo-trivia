@@ -25,6 +25,7 @@ export interface GameConfig {
   showAnswers: boolean;
   timeBetweenQuestions: number;
   isPrivate: boolean;
+  groupId?: string;
   aiTopic?: string;
 }
 
@@ -67,9 +68,36 @@ export interface GameListing {
   streakBonus: boolean;
   showAnswers: boolean;
   isPrivate: boolean;
+  groupId?: string;
   phase: GamePhase;
   createdAt: number;
   aiTopic?: string;
+}
+
+export interface GroupMember {
+  username: string;
+  joinedAt: number;
+  online: boolean;
+}
+
+export interface GroupGame {
+  gameId: string;
+  name: string;
+  hostUsername: string;
+  playerCount: number;
+  maxPlayers: number;
+  phase: GamePhase;
+  createdAt: number;
+  categoryIds: string[];
+  aiTopic?: string;
+}
+
+export interface GroupState {
+  id: string;
+  name: string;
+  createdAt: number;
+  members: GroupMember[];
+  games: GroupGame[];
 }
 
 export interface TriviaCategory {

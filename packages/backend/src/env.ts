@@ -6,6 +6,7 @@ interface SecretStoreSecret {
 export interface Env {
   GAME_LOBBY: DurableObjectNamespace;
   GAME_ROOM: DurableObjectNamespace;
+  PRIVATE_GROUP: DurableObjectNamespace;
   TRIVIA_KV: KVNamespace;
   FRONTEND_URL: string;
   /** Shared secret for authenticating POST /api/seed — set via wrangler secret put SEED_SECRET */

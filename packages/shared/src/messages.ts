@@ -1,4 +1,4 @@
-import type { GameState, ClientQuestion, Player } from './types';
+import type { GameState, ClientQuestion, Player, GroupState, GroupMember, GroupGame } from './types';
 
 // Client -> Server
 export type ClientMessage =
@@ -22,5 +22,24 @@ export type ServerMessage =
   | { type: 'game_finished'; finalScores: Record<string, number>; rankings: Player[] }
   | { type: 'rematch'; newGameId: string }
   | { type: 'game_expired'; message: string }
+  | { type: 'error'; message: string; code?: string }
+  | { type: 'pong' };
+
+// Group Client -> Server
+export type GroupClientMessage =
+  | { type: 'join_group'; username: string }
+  | { type: 'leave_group' }
+  | { type: 'ping' };
+
+// Group Server -> Client
+export type GroupServerMessage =
+  | { type: 'group_state'; state: GroupState }
+  | { type: 'member_joined'; member: GroupMember }
+  | { type: 'member_left'; username: string }
+  | { type: 'member_online'; username: string }
+  | { type: 'member_offline'; username: string }
+  | { type: 'game_created'; game: GroupGame }
+  | { type: 'game_updated'; game: GroupGame }
+  | { type: 'game_removed'; gameId: string }
   | { type: 'error'; message: string; code?: string }
   | { type: 'pong' };

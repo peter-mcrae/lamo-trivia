@@ -1,9 +1,10 @@
 import { Env } from './env';
 import { GameLobby } from './lobby';
 import { GameRoom } from './room';
+import { PrivateGroup } from './group';
 import { handleRequest } from './router';
 
-export { GameLobby, GameRoom };
+export { GameLobby, GameRoom, PrivateGroup };
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -23,6 +24,17 @@ export default {
       const roomId = env.GAME_ROOM.idFromName(gameId);
       const room = env.GAME_ROOM.get(roomId);
       return room.fetch(request);
+    }
+
+    // WebSocket upgrade: /ws/group/:groupId
+    if (url.pathname.startsWith('/ws/group/') && request.headers.get('Upgrade') === 'websocket') {
+      const groupId = url.pathname.split('/ws/group/')[1];
+      if (!groupId) {
+        return new Response('Missing group ID', { status: 400 });
+      }
+      const doId = env.PRIVATE_GROUP.idFromName(groupId);
+      const group = env.PRIVATE_GROUP.get(doId);
+      return group.fetch(request);
     }
 
     // HTTP API routes

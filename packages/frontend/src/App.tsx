@@ -7,6 +7,10 @@ import Lobby from '@/pages/Lobby';
 import CreateGame from '@/pages/CreateGame';
 import GameRoom from '@/pages/GameRoom';
 import Results from '@/pages/Results';
+import Groups from '@/pages/Groups';
+import CreateGroup from '@/pages/CreateGroup';
+import JoinGroup from '@/pages/JoinGroup';
+import GroupLobby from '@/pages/GroupLobby';
 import NotFound from '@/pages/NotFound';
 
 function AppRoutes() {
@@ -20,6 +24,10 @@ function AppRoutes() {
         <Route path="/create" element={<CreateGame />} />
         <Route path="/game/:gameId" element={<GameRoom />} />
         <Route path="/results/:gameId" element={<Results />} />
+        <Route path="/groups" element={<Groups />} />
+        <Route path="/group/new" element={<CreateGroup />} />
+        <Route path="/group/join" element={<JoinGroup />} />
+        <Route path="/group/:groupId" element={<GroupLobby />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Layout>

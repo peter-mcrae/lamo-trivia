@@ -41,6 +41,7 @@ export class GameLobby {
         streakBonus: config.streakBonus,
         showAnswers: config.showAnswers,
         isPrivate: config.isPrivate,
+        groupId: config.groupId,
         phase: 'waiting',
         createdAt: Date.now(),
         aiTopic: config.aiTopic,

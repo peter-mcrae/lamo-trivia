@@ -30,6 +30,21 @@ export default function Home() {
             Create Game
           </Link>
         </div>
+        <div className="flex gap-4 justify-center mt-4 animate-fade-in-up">
+          <Link
+            to="/group/new"
+            className="text-sm text-lamo-blue font-medium hover:underline"
+          >
+            Create a Private Group
+          </Link>
+          <span className="text-lamo-border">|</span>
+          <Link
+            to="/group/join"
+            className="text-sm text-lamo-blue font-medium hover:underline"
+          >
+            Join a Group
+          </Link>
+        </div>
       </section>
 
       {/* Categories */}

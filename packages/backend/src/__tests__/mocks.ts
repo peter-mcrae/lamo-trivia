@@ -144,6 +144,12 @@ export function createMockEnv(overrides: Partial<Env> = {}): Env {
         fetch: async () => Response.json({ ok: true }),
       }),
     } as unknown as DurableObjectNamespace,
+    PRIVATE_GROUP: {
+      idFromName: () => ({ toString: () => 'group-id' }),
+      get: () => ({
+        fetch: async () => Response.json({ ok: true }),
+      }),
+    } as unknown as DurableObjectNamespace,
     TRIVIA_KV: createMockKV(),
     FRONTEND_URL: 'http://localhost:5173',
     ...overrides,

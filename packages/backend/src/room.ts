@@ -195,6 +195,9 @@ export class GameRoom {
 
     // Broadcast to everyone else
     this.broadcastExcept(ws, { type: 'player_joined', player });
+
+    // Notify group if this is a group game
+    await this.notifyGroupOfUpdate();
   }
 
   private async handleLeave(ws: WebSocket): Promise<void> {
@@ -218,6 +221,9 @@ export class GameRoom {
 
     await this.persist();
     this.broadcast({ type: 'player_left', playerId, ...(newHostId ? { newHostId } : {}) });
+
+    // Notify group if this is a group game
+    await this.notifyGroupOfUpdate();
   }
 
   private async handleStartGame(ws: WebSocket): Promise<void> {
@@ -275,6 +281,9 @@ export class GameRoom {
 
     // After 3 second countdown, send first question
     await this.state.storage.setAlarm(Date.now() + 3000);
+
+    // Notify group if this is a group game
+    await this.notifyGroupOfUpdate();
   }
 
   private async handleSubmitAnswer(
@@ -458,6 +467,9 @@ export class GameRoom {
       finalScores: this.room.scores,
       rankings,
     });
+
+    // Notify group if this is a group game
+    await this.notifyGroupOfUpdate();
   }
 
   private async expireGame(): Promise<void> {
@@ -486,12 +498,41 @@ export class GameRoom {
       new Request(`http://internal/games/${this.room.gameId}`, { method: 'DELETE' }),
     );
 
+    // Remove from group if this is a group game
+    if (this.room.config.groupId) {
+      const groupDoId = this.env.PRIVATE_GROUP.idFromName(this.room.config.groupId);
+      const group = this.env.PRIVATE_GROUP.get(groupDoId);
+      await group.fetch(
+        new Request(`http://internal/games/${this.room.gameId}`, { method: 'DELETE' }),
+      );
+    }
+
     // Clear room storage
     this.room = null;
     await this.state.storage.deleteAll();
   }
 
   // --- Helpers ---
+
+  private async notifyGroupOfUpdate(): Promise<void> {
+    if (!this.room?.config.groupId) return;
+    try {
+      const groupDoId = this.env.PRIVATE_GROUP.idFromName(this.room.config.groupId);
+      const group = this.env.PRIVATE_GROUP.get(groupDoId);
+      await group.fetch(
+        new Request(`http://internal/games/${this.room.gameId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            playerCount: this.room.players.length,
+            phase: this.room.phase,
+            hostUsername: this.room.players.find((p) => p.id === this.room!.hostId)?.username || '',
+          }),
+        }),
+      );
+    } catch {
+      // Non-critical — group update failure shouldn't break game flow
+    }
+  }
 
   private getPlayerId(ws: WebSocket): string | null {
     return ws.deserializeAttachment() as string | null;
