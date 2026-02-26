@@ -1,32 +1,462 @@
 [
-  { "id": "hp-001", "text": "What is the name of the train that takes students to Hogwarts?", "options": ["The Hogwarts Express", "The Wizarding Line", "The Magical Express", "The Knight Bus"], "correctIndex": 0, "categoryId": "harry-potter" },
-  { "id": "hp-002", "text": "What position does Harry play on his Quidditch team?", "options": ["Chaser", "Beater", "Seeker", "Keeper"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-003", "text": "What is the name of Hagrid's three-headed dog?", "options": ["Fang", "Norbert", "Fluffy", "Buckbeak"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-004", "text": "Which house at Hogwarts does Draco Malfoy belong to?", "options": ["Gryffindor", "Slytherin", "Ravenclaw", "Hufflepuff"], "correctIndex": 1, "categoryId": "harry-potter" },
-  { "id": "hp-005", "text": "What does the Mirror of Erised show?", "options": ["The future", "The past", "Your deepest desire", "Your worst fear"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-006", "text": "What type of dragon does Harry face in the Triwizard Tournament?", "options": ["Norwegian Ridgeback", "Hungarian Horntail", "Swedish Short-Snout", "Common Welsh Green"], "correctIndex": 1, "categoryId": "harry-potter" },
-  { "id": "hp-007", "text": "What is the core of Harry's wand?", "options": ["Dragon heartstring", "Unicorn hair", "Phoenix feather", "Veela hair"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-008", "text": "Who is the Half-Blood Prince?", "options": ["Voldemort", "Dumbledore", "Snape", "Sirius Black"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-009", "text": "What form does Harry's Patronus take?", "options": ["A stag", "A wolf", "An otter", "A phoenix"], "correctIndex": 0, "categoryId": "harry-potter" },
-  { "id": "hp-010", "text": "What is the name of the Weasley family home?", "options": ["The Hollow", "The Burrow", "The Den", "The Warren"], "correctIndex": 1, "categoryId": "harry-potter" },
-  { "id": "hp-011", "text": "Which spell is used to disarm an opponent?", "options": ["Stupefy", "Expelliarmus", "Petrificus Totalus", "Impedimenta"], "correctIndex": 1, "categoryId": "harry-potter" },
-  { "id": "hp-012", "text": "What is Voldemort's real name?", "options": ["Tom Marvolo Riddle", "Salazar Slytherin", "Gellert Grindelwald", "Marvolo Gaunt"], "correctIndex": 0, "categoryId": "harry-potter" },
-  { "id": "hp-013", "text": "How many Horcruxes did Voldemort intentionally create?", "options": ["5", "6", "7", "8"], "correctIndex": 1, "categoryId": "harry-potter" },
-  { "id": "hp-014", "text": "What potion allows you to take on the appearance of someone else?", "options": ["Veritaserum", "Felix Felicis", "Amortentia", "Polyjuice Potion"], "correctIndex": 3, "categoryId": "harry-potter" },
-  { "id": "hp-015", "text": "Who was the Prisoner of Azkaban?", "options": ["Barty Crouch Jr.", "Bellatrix Lestrange", "Sirius Black", "Peter Pettigrew"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-016", "text": "What subject does Professor McGonagall teach?", "options": ["Potions", "Charms", "Transfiguration", "Defense Against the Dark Arts"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-017", "text": "What is the name of the Hogwarts poltergeist?", "options": ["Nearly Headless Nick", "The Bloody Baron", "Moaning Myrtle", "Peeves"], "correctIndex": 3, "categoryId": "harry-potter" },
-  { "id": "hp-018", "text": "What do you need to say to open the Marauder's Map?", "options": ["Open sesame", "I solemnly swear that I am up to no good", "Reveal your secrets", "Alohomora"], "correctIndex": 1, "categoryId": "harry-potter" },
-  { "id": "hp-019", "text": "What animal can Ron's pet Scabbers transform into?", "options": ["A dog", "A cat", "A human", "A snake"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-020", "text": "Which Deathly Hallow did Harry possess first?", "options": ["The Elder Wand", "The Resurrection Stone", "The Cloak of Invisibility", "None of them"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-021", "text": "What creature guards the vaults at Gringotts?", "options": ["Trolls", "Goblins", "Dragons", "House-elves"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-022", "text": "What is the name of Dumbledore's phoenix?", "options": ["Hedwig", "Errol", "Fawkes", "Hermes"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-023", "text": "Which spell produces light from the tip of a wand?", "options": ["Lumos", "Nox", "Incendio", "Expecto Patronum"], "correctIndex": 0, "categoryId": "harry-potter" },
-  { "id": "hp-024", "text": "What is the name of the house-elf who tries to warn Harry not to return to Hogwarts?", "options": ["Kreacher", "Winky", "Dobby", "Hokey"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-025", "text": "Where is the entrance to the Chamber of Secrets?", "options": ["The Forbidden Forest", "Moaning Myrtle's bathroom", "The Room of Requirement", "Dumbledore's office"], "correctIndex": 1, "categoryId": "harry-potter" },
-  { "id": "hp-026", "text": "What is the name of Hagrid's giant half-brother?", "options": ["Grawp", "Fridwulfa", "Karkus", "Golgomath"], "correctIndex": 0, "categoryId": "harry-potter" },
-  { "id": "hp-027", "text": "Who killed Sirius Black?", "options": ["Voldemort", "Lucius Malfoy", "Bellatrix Lestrange", "Snape"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-028", "text": "What street do the Dursleys live on?", "options": ["Spinner's End", "Magnolia Crescent", "Privet Drive", "Grimmauld Place"], "correctIndex": 2, "categoryId": "harry-potter" },
-  { "id": "hp-029", "text": "What is Hermione's Patronus?", "options": ["A cat", "An otter", "A hare", "A doe"], "correctIndex": 1, "categoryId": "harry-potter" },
-  { "id": "hp-030", "text": "Which Horcrux was hidden in the Room of Requirement?", "options": ["Hufflepuff's Cup", "Slytherin's Locket", "Ravenclaw's Diadem", "The Diary"], "correctIndex": 2, "categoryId": "harry-potter" }
+  { "id": "hp-001", "text": "What is the name of the train that takes students to Hogwarts?", "options": [ "The Hogwarts Express", "The Wizarding Line", "The Magical Express", "The Knight Bus" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-002", "text": "What position does Harry play on his Quidditch team?", "options": [ "Chaser", "Beater", "Seeker", "Keeper" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-003", "text": "What is the name of Hagrid's three-headed dog?", "options": [ "Fang", "Norbert", "Fluffy", "Buckbeak" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-004", "text": "Which house at Hogwarts does Draco Malfoy belong to?", "options": [ "Gryffindor", "Slytherin", "Ravenclaw", "Hufflepuff" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-005", "text": "What does the Mirror of Erised show?", "options": [ "The future", "The past", "Your deepest desire", "Your worst fear" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-006", "text": "What type of dragon does Harry face in the Triwizard Tournament?", "options": [ "Norwegian Ridgeback", "Hungarian Horntail", "Swedish Short-Snout", "Common Welsh Green" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-007", "text": "What is the core of Harry's wand?", "options": [ "Dragon heartstring", "Unicorn hair", "Phoenix feather", "Veela hair" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-008", "text": "Who is the Half-Blood Prince?", "options": [ "Voldemort", "Dumbledore", "Snape", "Sirius Black" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-009", "text": "What form does Harry's Patronus take?", "options": [ "A stag", "A wolf", "An otter", "A phoenix" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-010", "text": "What is the name of the Weasley family home?", "options": [ "The Hollow", "The Burrow", "The Den", "The Warren" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-011", "text": "Which spell is used to disarm an opponent?", "options": [ "Stupefy", "Expelliarmus", "Petrificus Totalus", "Impedimenta" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-012", "text": "What is Voldemort's real name?", "options": [ "Tom Marvolo Riddle", "Salazar Slytherin", "Gellert Grindelwald", "Marvolo Gaunt" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-013", "text": "How many Horcruxes did Voldemort intentionally create?", "options": [ "5", "6", "7", "8" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-014", "text": "What potion allows you to take on the appearance of someone else?", "options": [ "Veritaserum", "Felix Felicis", "Amortentia", "Polyjuice Potion" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-015", "text": "Who was the Prisoner of Azkaban?", "options": [ "Barty Crouch Jr.", "Bellatrix Lestrange", "Sirius Black", "Peter Pettigrew" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-016", "text": "What subject does Professor McGonagall teach?", "options": [ "Potions", "Charms", "Transfiguration", "Defense Against the Dark Arts" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-017", "text": "What is the name of the Hogwarts poltergeist?", "options": [ "Nearly Headless Nick", "The Bloody Baron", "Moaning Myrtle", "Peeves" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-018", "text": "What do you need to say to open the Marauder's Map?", "options": [ "Open sesame", "I solemnly swear that I am up to no good", "Reveal your secrets", "Alohomora" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-019", "text": "What animal can Ron's pet Scabbers transform into?", "options": [ "A dog", "A cat", "A human", "A snake" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-020", "text": "Which Deathly Hallow did Harry possess first?", "options": [ "The Elder Wand", "The Resurrection Stone", "The Cloak of Invisibility", "None of them" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-021", "text": "What creature guards the vaults at Gringotts?", "options": [ "Trolls", "Goblins", "Dragons", "House-elves" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-022", "text": "What is the name of Dumbledore's phoenix?", "options": [ "Hedwig", "Errol", "Fawkes", "Hermes" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-023", "text": "Which spell produces light from the tip of a wand?", "options": [ "Lumos", "Nox", "Incendio", "Expecto Patronum" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-024", "text": "What is the name of the house-elf who tries to warn Harry not to return to Hogwarts?", "options": [ "Kreacher", "Winky", "Dobby", "Hokey" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-025", "text": "Where is the entrance to the Chamber of Secrets?", "options": [ "The Forbidden Forest", "Moaning Myrtle's bathroom", "The Room of Requirement", "Dumbledore's office" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-026", "text": "What is the name of Hagrid's giant half-brother?", "options": [ "Grawp", "Fridwulfa", "Karkus", "Golgomath" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-027", "text": "Who killed Sirius Black?", "options": [ "Voldemort", "Lucius Malfoy", "Bellatrix Lestrange", "Snape" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-028", "text": "What street do the Dursleys live on?", "options": [ "Spinner's End", "Magnolia Crescent", "Privet Drive", "Grimmauld Place" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-029", "text": "What is Hermione's Patronus?", "options": [ "A cat", "An otter", "A hare", "A doe" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-030", "text": "Which Horcrux was hidden in the Room of Requirement?", "options": [ "Hufflepuff's Cup", "Slytherin's Locket", "Ravenclaw's Diadem", "The Diary" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-031", "text": "What is the name of the wizarding newspaper?", "options": [ "The Wizarding Times", "The Daily Prophet", "The Magic Herald", "The Sorcerer's Gazette" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-032", "text": "What flavor is the most disgusting Bertie Bott's Every Flavour Bean Harry eats on the Hogwarts Express?", "options": [ "Earwax", "Vomit", "Dirt", "Spinach" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-033", "text": "What is the name of the pub that serves as the entrance to Diagon Alley?", "options": [ "The Three Broomsticks", "The Leaky Cauldron", "The Hog's Head", "The Broomsticks Inn" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-034", "text": "What animal does Hermione's pet Crookshanks turn out to be half of?", "options": [ "Kneazle", "Niffler", "Puffskein", "Jarvey" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-035", "text": "What is the name of the magical map that shows every person's location within Hogwarts?", "options": [ "The Hogwarts Atlas", "The Enchanted Chart", "The Marauder's Map", "The Tracking Scroll" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-036", "text": "Who gave Harry the Invisibility Cloak for Christmas in his first year?", "options": [ "Hagrid", "Sirius Black", "Dumbledore", "McGonagall" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-037", "text": "What is the name of Lord Voldemort's snake?", "options": [ "Basilisk", "Nagini", "Salazar", "Medusa" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-038", "text": "Which Hogwarts house values loyalty, patience, and hard work?", "options": [ "Gryffindor", "Slytherin", "Ravenclaw", "Hufflepuff" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-039", "text": "What is the name of the magical creature that can only be seen by those who have witnessed death?", "options": [ "Dementors", "Thestrals", "Boggarts", "Grindylows" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-040", "text": "What position does Oliver Wood play on the Gryffindor Quidditch team?", "options": [ "Seeker", "Chaser", "Beater", "Keeper" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-041", "text": "What is Neville Longbottom's toad's name?", "options": [ "Trevor", "Dennis", "Edgar", "Harold" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-042", "text": "Which potion is known as 'liquid luck'?", "options": [ "Amortentia", "Wolfsbane Potion", "Felix Felicis", "Draught of Living Death" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-043", "text": "What did Hagrid name his baby Norwegian Ridgeback dragon?", "options": [ "Norbert", "Norberta", "Fang", "Fireball" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-044", "text": "What is the name of the plant that screams when pulled from its pot?", "options": [ "Devil's Snare", "Venomous Tentacula", "Mandrake", "Whomping Willow" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-045", "text": "Who is the ghost of Gryffindor house?", "options": [ "The Bloody Baron", "The Grey Lady", "Nearly Headless Nick", "The Fat Friar" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-046", "text": "What type of broomstick does Harry receive in his first year?", "options": [ "Cleansweep Seven", "Comet 260", "Nimbus 2000", "Firebolt" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-047", "text": "Who teaches Potions during Harry's first year at Hogwarts?", "options": [ "Horace Slughorn", "Severus Snape", "Albus Dumbledore", "Remus Lupin" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-048", "text": "What is the name of the Weasley twins' joke shop?", "options": [ "Zonko's Joke Shop", "Weasleys' Wizard Wheezes", "Gambol and Japes", "The Prankster's Den" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-049", "text": "What object must be caught to end a Quidditch match?", "options": [ "The Quaffle", "The Bludger", "The Golden Snitch", "The Silver Arrow" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-050", "text": "Who is the headmaster of Hogwarts when Harry first arrives?", "options": [ "Severus Snape", "Minerva McGonagall", "Albus Dumbledore", "Armando Dippet" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-051", "text": "What creature lives in the Chamber of Secrets?", "options": [ "An Acromantula", "A Basilisk", "A Dragon", "A Manticore" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-052", "text": "Which Weasley child works with dragons in Romania?", "options": [ "Bill", "Charlie", "Percy", "Fred" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-053", "text": "What is the spell used to summon an object to you?", "options": [ "Accio", "Wingardium Leviosa", "Locomotor", "Depulso" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-054", "text": "What is the address of the headquarters of the Order of the Phoenix?", "options": [ "4 Privet Drive", "12 Grimmauld Place", "The Burrow", "Shell Cottage" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-055", "text": "What form does Severus Snape's Patronus take?", "options": [ "A snake", "A stag", "A doe", "A wolf" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-056", "text": "Which Horcrux was Tom Riddle's diary?", "options": [ "The first Horcrux he made", "The second Horcrux he made", "The third Horcrux he made", "The last Horcrux he made" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-057", "text": "What is Dumbledore's full first name?", "options": [ "Albert", "Albus", "Alfred", "Alistair" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-058", "text": "Who does Ron take to the Yule Ball?", "options": [ "Hermione Granger", "Padma Patil", "Lavender Brown", "Parvati Patil" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-059", "text": "What magical item transports Harry and his friends to the Quidditch World Cup?", "options": [ "A Portkey", "The Floo Network", "A flying car", "Side-Along Apparition" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-060", "text": "What subject does Professor Flitwick teach?", "options": [ "Potions", "Charms", "Herbology", "Astronomy" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-061", "text": "What is the name of the giant spider Hagrid raised?", "options": [ "Shelob", "Aragog", "Mosag", "Acromantula" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-062", "text": "Which Death Eater impersonates Mad-Eye Moody in Goblet of Fire?", "options": [ "Lucius Malfoy", "Peter Pettigrew", "Barty Crouch Jr.", "Augustus Rookwood" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-063", "text": "What does the Hogwarts motto 'Draco Dormiens Nunquam Titillandus' mean?", "options": [ "Strength through unity", "Knowledge is power", "Never tickle a sleeping dragon", "Wisdom conquers all" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-064", "text": "Who becomes the Minister for Magic after Cornelius Fudge?", "options": [ "Kingsley Shacklebolt", "Rufus Scrimgeour", "Pius Thicknesse", "Barty Crouch Sr." ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-065", "text": "What type of creature is Buckbeak?", "options": [ "A unicorn", "A hippogriff", "A thestral", "A centaur" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-066", "text": "What do wizards call non-magical people?", "options": [ "Squibs", "Muggles", "No-Majs", "Normals" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-067", "text": "Which Hogwarts house does Luna Lovegood belong to?", "options": [ "Gryffindor", "Hufflepuff", "Ravenclaw", "Slytherin" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-068", "text": "What object does Harry use to breathe underwater during the second task of the Triwizard Tournament?", "options": [ "A Bubble-Head Charm", "Gillyweed", "A Muggle scuba tank", "A bewitched snorkel" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-069", "text": "What is the name of the prison guarded by Dementors?", "options": [ "Nurmengard", "Azkaban", "The Ministry Dungeon", "Malfoy Manor" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-070", "text": "Who gave Harry the Firebolt broomstick?", "options": [ "Dumbledore", "Hagrid", "Sirius Black", "Remus Lupin" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-071", "text": "What charm makes an object float?", "options": [ "Accio", "Wingardium Leviosa", "Locomotor", "Levicorpus" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-072", "text": "What is the name of the village near Hogwarts that students can visit?", "options": [ "Godric's Hollow", "Ottery St Catchpole", "Hogsmeade", "Little Hangleton" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-073", "text": "Which Weasley becomes Head Boy?", "options": [ "Bill", "Charlie", "Percy", "Ron" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-074", "text": "What kind of creature is Firenze?", "options": [ "A giant", "A centaur", "A werewolf", "A goblin" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-075", "text": "What is the name of the charm used to repel Dementors?", "options": [ "Riddikulus", "Expecto Patronum", "Protego", "Impedimenta" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-076", "text": "Which of these is NOT one of the three Unforgivable Curses?", "options": [ "Imperius Curse", "Cruciatus Curse", "Killing Curse", "Sectumsempra" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-077", "text": "Who is the Hogwarts gamekeeper before Hagrid?", "options": [ "Ogg", "Filch", "Kettleburn", "Dippet" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-078", "text": "What does Dumbledore's Deluminator do?", "options": [ "Makes objects invisible", "Captures and releases light", "Silences all sounds", "Unlocks any door" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-079", "text": "Which house-elf works in the Hogwarts kitchens after being freed by the Crouch family?", "options": [ "Dobby", "Kreacher", "Winky", "Hokey" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-080", "text": "What is the name of Hagrid's boarhound?", "options": [ "Fang", "Fluffy", "Padfoot", "Ripper" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-081", "text": "What form does a Boggart take when facing Neville Longbottom?", "options": [ "A spider", "A Dementor", "Professor Snape", "A mummy" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-082", "text": "In which year at Hogwarts does Harry first compete in the Triwizard Tournament?", "options": [ "Third year", "Fourth year", "Fifth year", "Sixth year" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-083", "text": "What is the incantation used to open locked doors?", "options": [ "Alohomora", "Colloportus", "Aberto", "Portaberto" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-084", "text": "What creature does Lupin turn into during a full moon?", "options": [ "A vampire", "An Animagus", "A werewolf", "A ghoul" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-085", "text": "What is the name of the room that appears when someone is in great need of it?", "options": [ "The Chamber of Secrets", "The Room of Requirement", "The Restricted Section", "The Come-and-Go Room" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-086", "text": "What does Harry see when he looks into the Mirror of Erised?", "options": [ "Himself as head boy", "Himself holding the Quidditch cup", "His family", "Dumbledore" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-087", "text": "What is the name of the magical goblet that selects champions for the Triwizard Tournament?", "options": [ "The Chalice of Champions", "The Goblet of Fire", "The Cup of Destiny", "The Triwizard Chalice" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-088", "text": "Who is the founder of Gryffindor house?", "options": [ "Helga Hufflepuff", "Rowena Ravenclaw", "Godric Gryffindor", "Salazar Slytherin" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-089", "text": "Which ghost is known as the Grey Lady?", "options": [ "Helena Ravenclaw", "Moaning Myrtle", "The Fat Friar", "The Bloody Baron" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-090", "text": "What animal can Sirius Black transform into?", "options": [ "A stag", "A rat", "A dog", "A wolf" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-091", "text": "What is the name of the bank run by goblins in the wizarding world?", "options": [ "Gringotts", "Galleon Bank", "Sickle Savings", "Wizarding Trust" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-092", "text": "Who destroys the Horcrux locket with the Sword of Gryffindor?", "options": [ "Harry Potter", "Hermione Granger", "Ron Weasley", "Neville Longbottom" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-093", "text": "What subject does Hagrid teach starting in Harry's third year?", "options": [ "Herbology", "Care of Magical Creatures", "Defense Against the Dark Arts", "Divination" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-094", "text": "What is the name of the sweet shop in Hogsmeade?", "options": [ "Zonko's", "Honeydukes", "Sugar Plum's", "The Sweet Cauldron" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-095", "text": "Who does Harry end up marrying?", "options": [ "Hermione Granger", "Cho Chang", "Luna Lovegood", "Ginny Weasley" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-096", "text": "What is the name of the tree on the Hogwarts grounds that attacks anything near it?", "options": [ "The Forbidden Oak", "The Whomping Willow", "The Enchanted Elm", "Devil's Snare" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-097", "text": "Which professor uses a Time-Turner with Hermione in Prisoner of Azkaban?", "options": [ "Professor Dumbledore", "Professor McGonagall", "Professor Snape", "Professor Lupin" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-098", "text": "How do wizards travel using the Floo Network?", "options": [ "By broomstick", "By stepping into a fireplace", "By touching a Portkey", "By spinning on the spot" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-099", "text": "What is the name of Nearly Headless Nick's full title?", "options": [ "Sir Nicholas de Mimsy-Porpington", "Sir Nicholas de Canterville", "Sir Nicholas de Ghostington", "Sir Nicholas de Greystone" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-100", "text": "Which object is NOT a Deathly Hallow?", "options": [ "The Elder Wand", "The Resurrection Stone", "The Cloak of Invisibility", "The Sorting Hat" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-101", "text": "What color are Avada Kedavra spells?", "options": [ "Red", "Blue", "Green", "Purple" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-102", "text": "Which Triwizard Tournament champion is from Beauxbatons?", "options": [ "Viktor Krum", "Fleur Delacour", "Cedric Diggory", "Harry Potter" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-103", "text": "What subject does Professor Sprout teach?", "options": [ "Potions", "Charms", "Herbology", "Astronomy" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-104", "text": "What creature guards the entrance to the Gryffindor common room?", "options": [ "A gargoyle", "A suit of armor", "The Fat Lady", "A sphinx" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-105", "text": "Who was the original owner of the Elder Wand in the Tale of the Three Brothers?", "options": [ "Ignotus Peverell", "Cadmus Peverell", "Antioch Peverell", "Death" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-106", "text": "What is the name of the house-elf who belongs to the Black family?", "options": [ "Dobby", "Winky", "Kreacher", "Hokey" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-107", "text": "Which team does Viktor Krum play for in the Quidditch World Cup?", "options": [ "Ireland", "Bulgaria", "France", "England" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-108", "text": "What are the three types of balls used in Quidditch?", "options": [ "Quaffle, Bludger, Golden Snitch", "Quaffle, Snitch, Beater", "Quaffle, Bludger, Seeker Ball", "Chaser Ball, Bludger, Snitch" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-109", "text": "Who teaches Defense Against the Dark Arts in Harry's third year?", "options": [ "Gilderoy Lockhart", "Remus Lupin", "Alastor Moody", "Dolores Umbridge" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-110", "text": "What is the name of the wizarding village where the Potters lived?", "options": [ "Hogsmeade", "Ottery St Catchpole", "Godric's Hollow", "Little Whinging" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-111", "text": "How many players are on a Quidditch team?", "options": [ "5", "6", "7", "8" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-112", "text": "What is the name of the Hogwarts caretaker?", "options": [ "Rubeus Hagrid", "Argus Filch", "Professor Binns", "Albus Dumbledore" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-113", "text": "Which Weasley twin loses an ear?", "options": [ "Fred", "George", "Both of them", "Neither of them" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-114", "text": "What form does Ron Weasley's Patronus take?", "options": [ "A dog", "A Jack Russell terrier", "A weasel", "A horse" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-115", "text": "Which Hogwarts professor is a ghost?", "options": [ "Professor Trelawney", "Professor Binns", "Professor Vector", "Professor Sinistra" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-116", "text": "What does the spell 'Obliviate' do?", "options": [ "Creates a shield", "Erases memories", "Produces water", "Causes blindness" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-117", "text": "What is the name of the potion that allows a werewolf to keep their mind during transformation?", "options": [ "Felix Felicis", "Wolfsbane Potion", "Skele-Gro", "Pepperup Potion" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-118", "text": "Who becomes the new Potions professor in Harry's sixth year?", "options": [ "Severus Snape", "Horace Slughorn", "Remus Lupin", "Alastor Moody" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-119", "text": "What type of owl is Hedwig?", "options": [ "Great Horned Owl", "Barn Owl", "Snowy Owl", "Tawny Owl" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-120", "text": "What does Hermione use to attend multiple classes at the same time?", "options": [ "A Duplication Charm", "A Time-Turner", "An Invisibility Cloak", "A Floo Powder shortcut" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-121", "text": "What is the Dursleys' son's name?", "options": [ "Derek", "Dennis", "Donald", "Dudley" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-122", "text": "Who does Hermione marry?", "options": [ "Harry Potter", "Viktor Krum", "Ron Weasley", "Draco Malfoy" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-123", "text": "What magical object allows someone to travel back in time?", "options": [ "A Pensieve", "A Time-Turner", "A Portkey", "A Vanishing Cabinet" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-124", "text": "What subject does Professor Trelawney teach?", "options": [ "Astronomy", "Ancient Runes", "Divination", "Arithmancy" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-125", "text": "Which platform at King's Cross Station leads to the Hogwarts Express?", "options": [ "Platform 8 and a half", "Platform 10", "Platform 9 and three-quarters", "Platform 7" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-126", "text": "What does Dumbledore leave to Ron in his will?", "options": [ "The Sword of Gryffindor", "The Tales of Beedle the Bard", "The Deluminator", "The Resurrection Stone" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-127", "text": "What type of wood is Harry Potter's wand made of?", "options": [ "Oak", "Yew", "Elder", "Holly" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-128", "text": "Who kills Nagini in the Battle of Hogwarts?", "options": [ "Harry Potter", "Ron Weasley", "Neville Longbottom", "Hermione Granger" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-129", "text": "What color is the Hogwarts Express?", "options": [ "Blue", "Green", "Red", "Black" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-130", "text": "Where does Voldemort hide Hufflepuff's Cup?", "options": [ "The Room of Requirement", "Malfoy Manor", "Bellatrix Lestrange's vault at Gringotts", "The Gaunt shack" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-131", "text": "What is the name of the department in the Ministry of Magic where Arthur Weasley works?", "options": [ "Department of Magical Law Enforcement", "Misuse of Muggle Artefacts Office", "Department of Mysteries", "Department of International Magical Cooperation" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-132", "text": "Which spell is used to fix broken objects?", "options": [ "Reparo", "Episkey", "Scourgify", "Tergeo" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-133", "text": "What is the name of the school where Viktor Krum studies?", "options": [ "Beauxbatons", "Durmstrang", "Ilvermorny", "Castelobruxo" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-134", "text": "Who petrifies students in the Chamber of Secrets?", "options": [ "Voldemort directly", "Tom Riddle's diary", "The Basilisk", "Salazar Slytherin's ghost" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-135", "text": "What body part is Peter Pettigrew missing?", "options": [ "His left ear", "A finger", "His nose", "His right eye" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-136", "text": "Who writes most of the textbooks used at Hogwarts for Defense Against the Dark Arts in Chamber of Secrets?", "options": [ "Severus Snape", "Gilderoy Lockhart", "Remus Lupin", "Newt Scamander" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-137", "text": "What is the name of the device used to store and view memories?", "options": [ "A Remembrall", "A Pensieve", "A Sneakoscope", "A Foe-Glass" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-138", "text": "How many staircases does Hogwarts have?", "options": [ "42", "100", "142", "200" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-139", "text": "Which house does the Sorting Hat almost put Harry in?", "options": [ "Ravenclaw", "Hufflepuff", "Slytherin", "He only considered Gryffindor" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-140", "text": "What animal represents Hufflepuff house?", "options": [ "A lion", "An eagle", "A serpent", "A badger" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-141", "text": "Who is the Half-Blood Prince's mother?", "options": [ "Merope Gaunt", "Eileen Prince", "Narcissa Malfoy", "Lily Evans" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-142", "text": "What do the Weasley twins give Harry to help him sneak into Hogsmeade?", "options": [ "An Invisibility Cloak", "The Marauder's Map", "A Disillusionment Charm", "Peruvian Instant Darkness Powder" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-143", "text": "What spell does Hermione use on Neville to stop him from following them to the trapdoor?", "options": [ "Stupefy", "Petrificus Totalus", "Impedimenta", "Silencio" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-144", "text": "Which Hogwarts founder could speak to snakes?", "options": [ "Godric Gryffindor", "Helga Hufflepuff", "Rowena Ravenclaw", "Salazar Slytherin" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-145", "text": "What is the magical quill called that writes down the name of every magical child born in Britain?", "options": [ "The Quill of Acceptance", "The Sorting Quill", "The Book of Names", "The Hogwarts Quill" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-146", "text": "What is the name of the potion that causes the drinker to grow bones?", "options": [ "Wolfsbane Potion", "Skele-Gro", "Pepperup Potion", "Mandrake Restorative Draught" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-147", "text": "Who becomes Keeper of the Gryffindor Quidditch team in Harry's fifth year?", "options": [ "Seamus Finnigan", "Dean Thomas", "Ron Weasley", "Cormac McLaggen" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-148", "text": "What is the name of the organization Hermione founds to advocate for house-elf rights?", "options": [ "H.E.L.P.", "F.R.E.E.", "S.P.E.W.", "E.L.F." ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-149", "text": "Which creature in the Forbidden Forest gives Harry a clue about the first Triwizard task?", "options": [ "A centaur", "A unicorn", "Hagrid shows Harry the dragons", "An acromantula" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-150", "text": "What material are Galleons, Sickles, and Knuts made of?", "options": [ "Gold, silver, and bronze", "Gold, silver, and copper", "Gold, copper, and iron", "Platinum, gold, and silver" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-151", "text": "Where does Severus Snape live?", "options": [ "Godric's Hollow", "Hogsmeade", "Spinner's End", "Grimmauld Place" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-152", "text": "What item does Harry find in the Snitch Dumbledore left him?", "options": [ "A tiny key", "The Elder Wand", "The Resurrection Stone", "A note from Dumbledore" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-153", "text": "Which character says 'It does not do to dwell on dreams and forget to live'?", "options": [ "Hagrid", "Dumbledore", "Sirius Black", "McGonagall" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-154", "text": "What color robes do Hogwarts students wear?", "options": [ "Blue", "Red", "Black", "Grey" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-155", "text": "Who is the Ravenclaw house ghost?", "options": [ "Nearly Headless Nick", "The Grey Lady", "The Bloody Baron", "The Fat Friar" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-156", "text": "What kind of car do Harry and Ron fly to Hogwarts?", "options": [ "Ford Cortina", "Ford Anglia", "Volkswagen Beetle", "Mini Cooper" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-157", "text": "What animal represents Slytherin house?", "options": [ "A lion", "A badger", "A serpent", "An eagle" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-158", "text": "Who was Dumbledore's close friend who became a Dark wizard?", "options": [ "Tom Riddle", "Gellert Grindelwald", "Severus Snape", "Barty Crouch Jr." ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-159", "text": "What is the name of the spell that creates a shield?", "options": [ "Expecto Patronum", "Stupefy", "Protego", "Impedimenta" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-160", "text": "Where is the Philosopher's Stone hidden at Hogwarts?", "options": [ "In Dumbledore's office", "In the Room of Requirement", "Through a trapdoor guarded by Fluffy", "In the Chamber of Secrets" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-161", "text": "Who is appointed as the new Defense Against the Dark Arts teacher by the Ministry in Order of the Phoenix?", "options": [ "Cornelius Fudge", "Dolores Umbridge", "Kingsley Shacklebolt", "Rufus Scrimgeour" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-162", "text": "What is the name of the organization Harry secretly teaches in his fifth year?", "options": [ "The Order of the Phoenix", "Dumbledore's Army", "The Hogwarts Defense Club", "Potter's Patrol" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-163", "text": "What is the penalty for performing magic outside of Hogwarts as an underage wizard?", "options": [ "Detention", "Expulsion from Hogwarts", "A fine", "Community service" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-164", "text": "What kind of creature is Dobby?", "options": [ "A goblin", "A gnome", "A house-elf", "A pixie" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-165", "text": "What is the first thing Harry ever buys with wizarding money?", "options": [ "His wand", "Hedwig", "His school robes", "His textbooks" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-166", "text": "What does Dumbledore see when he looks in the Mirror of Erised?", "options": [ "Himself holding the Elder Wand", "World peace", "Thick, woolen socks", "His family alive and well" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-167", "text": "What is the core of Voldemort's wand?", "options": [ "Dragon heartstring", "Unicorn hair", "Phoenix feather", "Basilisk fang" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-168", "text": "Who wins the Quidditch World Cup in Goblet of Fire?", "options": [ "Bulgaria", "England", "Ireland", "France" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-169", "text": "Which spell is used to stun an opponent?", "options": [ "Petrificus Totalus", "Stupefy", "Impedimenta", "Incarcerous" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-170", "text": "What is the name of the Weasley family's owl?", "options": [ "Hedwig", "Pigwidgeon", "Errol", "Hermes" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-171", "text": "Who does Tonks marry?", "options": [ "Sirius Black", "Kingsley Shacklebolt", "Remus Lupin", "Charlie Weasley" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-172", "text": "What does a Remembrall do when the holder has forgotten something?", "options": [ "It speaks to them", "It turns red", "It vibrates", "It floats away" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-173", "text": "Who is the conductor of the Knight Bus?", "options": [ "Ernie Prang", "Stan Shunpike", "Tom the barman", "Mundungus Fletcher" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-174", "text": "What is the maximum sentence in Azkaban?", "options": [ "20 years", "50 years", "100 years", "Life" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-175", "text": "What does Harry accidentally do to the glass at the zoo in the first book?", "options": [ "Cracks it", "Makes it disappear", "Turns it into water", "Makes it fly" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-176", "text": "What type of dragon does Hagrid's Norbert turn out to be?", "options": [ "Hungarian Horntail", "Norwegian Ridgeback", "Common Welsh Green", "Swedish Short-Snout" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-177", "text": "Who is head of Slytherin house during most of Harry's time at Hogwarts?", "options": [ "Albus Dumbledore", "Horace Slughorn", "Severus Snape", "Minerva McGonagall" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-178", "text": "What does the Imperius Curse do?", "options": [ "Kills the victim", "Causes extreme pain", "Controls the victim's actions", "Erases the victim's memory" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-179", "text": "What is the name of Neville's grandmother?", "options": [ "Augusta Longbottom", "Enid Longbottom", "Alice Longbottom", "Margaret Longbottom" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-180", "text": "Which item of Voldemort's was a Horcrux hidden in the Gaunt family shack?", "options": [ "Slytherin's Locket", "Marvolo Gaunt's Ring", "Hufflepuff's Cup", "Ravenclaw's Diadem" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-181", "text": "What does Harry inherit from Sirius Black?", "options": [ "A broomstick", "A wand", "12 Grimmauld Place", "A flying motorcycle" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-182", "text": "Which creature produces unicorn-like silver blood?", "options": [ "A phoenix", "A thestral", "A unicorn", "A hippogriff" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-183", "text": "Who becomes the new headmaster of Hogwarts after Dumbledore's death?", "options": [ "Minerva McGonagall", "Severus Snape", "Dolores Umbridge", "Horace Slughorn" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-184", "text": "What does the spell 'Riddikulus' do?", "options": [ "Creates laughter", "Defeats a Boggart", "Makes objects silly", "Causes confusion" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-185", "text": "What is the name of the potion that causes the drinker to tell the truth?", "options": [ "Felix Felicis", "Veritaserum", "Amortentia", "Draught of Peace" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-186", "text": "Who kills Dumbledore?", "options": [ "Voldemort", "Bellatrix Lestrange", "Draco Malfoy", "Severus Snape" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-187", "text": "What animal represents Ravenclaw house?", "options": [ "A raven", "An eagle", "A hawk", "An owl" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-188", "text": "What are the names of Draco Malfoy's two constant companions?", "options": [ "Crabbe and Goyle", "Nott and Zabini", "Flint and Pucey", "Pike and Warrington" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-189", "text": "What is the name of Dumbledore's brother?", "options": [ "Aurelius", "Percival", "Aberforth", "Alastor" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-190", "text": "What does the spell 'Nox' do?", "options": [ "Creates light", "Extinguishes wand light", "Creates darkness", "Blinds the opponent" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-191", "text": "How did Harry's parents die?", "options": [ "In a car crash", "They were killed by Voldemort", "They died of illness", "They disappeared" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-192", "text": "What form does Lily Potter's Patronus take?", "options": [ "A stag", "A doe", "An otter", "A phoenix" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-193", "text": "Who is the wandmaker Harry visits in Diagon Alley?", "options": [ "Gregorovitch", "Ollivander", "Fortescue", "Flourish" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-194", "text": "What is the name of the ball held during the Triwizard Tournament?", "options": [ "The Winter Ball", "The Yule Ball", "The Champions' Dance", "The Triwizard Gala" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-195", "text": "What shape is Harry's scar?", "options": [ "A circle", "A star", "A lightning bolt", "A crescent moon" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-196", "text": "Which character is an unregistered Animagus in the form of a beetle?", "options": [ "Rita Skeeter", "Dolores Umbridge", "Bathilda Bagshot", "Molly Weasley" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-197", "text": "What is the name of the centaur who teaches Divination at Hogwarts?", "options": [ "Bane", "Ronan", "Firenze", "Magorian" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-198", "text": "What are the small, mischievous blue creatures Lockhart releases in class?", "options": [ "Grindylows", "Cornish Pixies", "Doxies", "Nifflers" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-199", "text": "What is the name of the object Neville receives from his grandmother that fills with red smoke when he has forgotten something?", "options": [ "A Sneakoscope", "A Remembrall", "A Put-Outer", "A Foe-Glass" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-200", "text": "What is the name of Filch's cat?", "options": [ "Crookshanks", "Mr. Tibbles", "Mrs. Norris", "Scabbers" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-201", "text": "What is the incantation for the Killing Curse?", "options": [ "Crucio", "Imperio", "Avada Kedavra", "Sectumsempra" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-202", "text": "Which Bill Weasley marries?", "options": [ "Tonks", "Fleur Delacour", "Penelope Clearwater", "Angelina Johnson" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-203", "text": "What is the vault number of the Philosopher's Stone at Gringotts?", "options": [ "711", "713", "687", "619" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-204", "text": "Who was the Seeker for the Slytherin Quidditch team during Harry's early years?", "options": [ "Marcus Flint", "Draco Malfoy", "Terence Higgs", "Adrian Pucey" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-205", "text": "Which professor is the head of Hufflepuff house?", "options": [ "Professor Flitwick", "Professor Sprout", "Professor McGonagall", "Professor Snape" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-206", "text": "What language do Parselmouths speak?", "options": [ "Gobbledegook", "Mermish", "Parseltongue", "Troll" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-207", "text": "Where does the Dursley family go on holiday when the Hogwarts letters keep arriving?", "options": [ "A hotel", "A hut on a rock in the sea", "A camping site", "A relative's house" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-208", "text": "What does Harry accidentally inflate in the third book?", "options": [ "A balloon", "His trunk", "Aunt Marge", "His pillow" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-209", "text": "What is the name of the Weasley's youngest child and only daughter?", "options": [ "Molly", "Rose", "Ginny", "Lily" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-210", "text": "Who gives Harry his first-ever birthday cake?", "options": [ "Dumbledore", "Mrs. Weasley", "Hagrid", "Hermione" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-211", "text": "What do Hermione's parents do for a living?", "options": [ "They are teachers", "They are lawyers", "They are dentists", "They are doctors" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-212", "text": "What name does Voldemort give his group of followers?", "options": [ "The Dark Order", "Death Eaters", "The Dark Mark", "The Serpent Circle" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-213", "text": "What color is unicorn blood?", "options": [ "Red", "Gold", "Silver", "Blue" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-214", "text": "Which Weasley twin dies during the Battle of Hogwarts?", "options": [ "Fred", "George", "Both survive", "Neither survives" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-215", "text": "What is the Hogwarts school song's key characteristic?", "options": [ "It has a single fixed melody", "Everyone sings it to their own favorite tune", "It is sung in Latin", "Only first-years sing it" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-216", "text": "What does S.P.E.W. stand for?", "options": [ "Society for the Promotion of Elfish Welfare", "Society for the Protection of Elvish Workers", "Society for the Prevention of Elf Wrongdoing", "Students Promoting Equality for Workers" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-217", "text": "What are the names of the four Marauders?", "options": [ "Moony, Wormtail, Padfoot, and Prongs", "Moony, Rattail, Padfoot, and Antlers", "Wolfie, Wormtail, Padfoot, and Prongs", "Moony, Wormtail, Paws, and Prongs" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-218", "text": "What happens to the vanishing cabinet in Borgin and Burkes that Draco repairs?", "options": [ "It teleports to Hogwarts", "It connects to a matching cabinet in Hogwarts", "It summons Voldemort", "It becomes a Horcrux" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-219", "text": "What method of transportation does the Ministry use to transport Harry to his hearing?", "options": [ "A Portkey", "Side-Along Apparition", "The Floo Network", "An advance guard on broomsticks" ], "correctIndex": 3, "categoryId": "harry-potter"
+   },
+  { "id": "hp-220", "text": "What is the profession of Newt Scamander?", "options": [ "Auror", "Magizoologist", "Professor", "Healer" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-221", "text": "What creature is the Hogwarts motto about?", "options": [ "A phoenix", "A unicorn", "A dragon", "A basilisk" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-222", "text": "What spell does Molly Weasley use to defeat Bellatrix Lestrange?", "options": [ "Avada Kedavra", "Stupefy", "A powerful curse that is not named", "Expelliarmus" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-223", "text": "Which character is a Metamorphmagus?", "options": [ "Hermione Granger", "Nymphadora Tonks", "Luna Lovegood", "Ginny Weasley" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-224", "text": "What is the name of Hagrid's half-giant mother?", "options": [ "Olympe Maxime", "Fridwulfa", "Augusta", "Millicent" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-225", "text": "Which pub in Hogsmeade is owned by Dumbledore's brother?", "options": [ "The Three Broomsticks", "The Hog's Head", "The Leaky Cauldron", "Madam Puddifoot's" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-226", "text": "What charm makes a dwelling unplottable on any map?", "options": [ "Fidelius Charm", "Unplottable Charm", "Disillusionment Charm", "Protean Charm" ], "correctIndex": 0, "categoryId": "harry-potter"
+   },
+  { "id": "hp-227", "text": "What is the name of Tonks and Lupin's son?", "options": [ "Remus Jr.", "James", "Teddy", "Sirius" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-228", "text": "What birthday does Harry celebrate in the first book?", "options": [ "His 10th", "His 11th", "His 12th", "His 13th" ], "correctIndex": 1, "categoryId": "harry-potter"
+   },
+  { "id": "hp-229", "text": "Where does the Triwizard Tournament's second task take place?", "options": [ "The Forbidden Forest", "The Quidditch pitch", "The Black Lake", "The Great Hall" ], "correctIndex": 2, "categoryId": "harry-potter"
+   },
+  { "id": "hp-230", "text": "What are the names of Harry's children?", "options": [ "James, Albus, and Lily", "James, Sirius, and Lily", "Arthur, Albus, and Rose", "Remus, Albus, and Ginny" ], "correctIndex": 0, "categoryId": "harry-potter"
+   }
 ]

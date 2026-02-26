@@ -61,7 +61,7 @@ export const AVATARS: Avatar[] = [
 ];
 
 export const TRIVIA_CATEGORIES: TriviaCategory[] = [
-  { id: 'harry-potter', name: 'Harry Potter', description: 'The Wizarding World', icon: '⚡', questionCount: 30 },
+  { id: 'harry-potter', name: 'Harry Potter', description: 'The Wizarding World', icon: '⚡', questionCount: 230 },
   { id: 'general', name: 'General Knowledge', description: 'A bit of everything', icon: '🧠', questionCount: 50 },
   { id: 'science', name: 'Science', description: 'Physics, chemistry, biology', icon: '🔬', questionCount: 50 },
   { id: 'history', name: 'History', description: 'World events and people', icon: '📜', questionCount: 50 },
@@ -69,4 +69,5 @@ export const TRIVIA_CATEGORIES: TriviaCategory[] = [
   { id: 'entertainment', name: 'Entertainment', description: 'Movies, music, TV', icon: '🎬', questionCount: 50 },
   { id: 'geography', name: 'Geography', description: 'Countries, capitals, landmarks', icon: '🌍', questionCount: 50 },
   { id: 'math', name: 'Math', description: 'Multiplication times tables', icon: '✖️', questionCount: 50 },
+  { id: 'diary-of-wimpy-kid', name: 'Wimpy Kid', description: 'Diary of a Wimpy Kid', icon: '📓', questionCount: 100 },
 ];
