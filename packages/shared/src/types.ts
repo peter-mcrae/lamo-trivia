@@ -75,6 +75,7 @@ export interface GameListing {
 }
 
 export interface GroupMember {
+  memberId?: string;
   username: string;
   joinedAt: number;
   online: boolean;

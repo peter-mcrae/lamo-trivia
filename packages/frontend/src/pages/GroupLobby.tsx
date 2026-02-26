@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import type { GroupServerMessage } from '@lamo-trivia/shared';
 import { useGroupWebSocket } from '@/hooks/useGroupWebSocket';
 import { useGroupState } from '@/hooks/useGroupState';
 import { useUsername } from '@/hooks/useUsername';
@@ -13,18 +14,28 @@ export default function GroupLobby() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
   const { username, setUsername, hasUsername } = useUsername();
-  const { addGroup } = useGroups();
+  const { addGroup, getMemberId, setMemberId } = useGroups();
   const [copied, setCopied] = useState(false);
   const [showNewGameModal, setShowNewGameModal] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
+  const [showRenameModal, setShowRenameModal] = useState(false);
   const joinedRef = useRef(false);
 
   const { groupState, error, handleMessage } = useGroupState();
 
   const onMessage = useCallback(
-    (message: Parameters<typeof handleMessage>[0]) => {
+    (message: GroupServerMessage) => {
+      if (message.type === 'join_confirmed') {
+        setMemberId(groupId!, message.memberId);
+        return;
+      }
+      if (message.type === 'error' && message.code === 'MEMBER_EXISTS') {
+        setShowRecovery(true);
+        return;
+      }
       handleMessage(message);
     },
-    [handleMessage],
+    [handleMessage, groupId, setMemberId],
   );
 
   const { connected, send } = useGroupWebSocket({
@@ -36,9 +47,14 @@ export default function GroupLobby() {
   useEffect(() => {
     if (connected && hasUsername && !joinedRef.current) {
       joinedRef.current = true;
-      send({ type: 'join_group', username: username! });
+      const memberId = getMemberId(groupId!);
+      send({
+        type: 'join_group',
+        username: username!,
+        ...(memberId ? { memberId } : {}),
+      });
     }
-  }, [connected, hasUsername, username, send]);
+  }, [connected, hasUsername, username, send, groupId, getMemberId]);
 
   // Save group to localStorage once we get state
   useEffect(() => {
@@ -78,9 +94,49 @@ export default function GroupLobby() {
     setUsername(name);
   };
 
+  const handleRecover = () => {
+    setShowRecovery(false);
+    send({ type: 'recover_member', username: username! });
+  };
+
+  const handleJoinAsNew = (newName: string) => {
+    setShowRenameModal(false);
+    setShowRecovery(false);
+    setUsername(newName);
+    joinedRef.current = false;
+    // The join effect will re-trigger with the new username
+  };
+
   // Show username modal if needed
   if (!hasUsername) {
     return <UsernameModal onSubmit={handleUsernameSubmit} />;
+  }
+
+  // Recovery prompt — username is taken, ask if it's them
+  if (showRecovery) {
+    if (showRenameModal) {
+      return <UsernameModal onSubmit={handleJoinAsNew} />;
+    }
+
+    return (
+      <div className="max-w-lg mx-auto py-10 px-6 text-center">
+        <div className="bg-lamo-bg border border-lamo-border rounded-2xl p-8">
+          <h3 className="text-lg font-bold text-lamo-dark mb-2">Welcome back?</h3>
+          <p className="text-sm text-lamo-gray-muted mb-6">
+            The username <span className="font-semibold text-lamo-dark">{username}</span> is
+            already in this group. Is this you on a new device?
+          </p>
+          <div className="flex flex-col gap-3">
+            <Button onClick={handleRecover}>
+              Yes, that's me
+            </Button>
+            <Button variant="secondary" onClick={() => setShowRenameModal(true)}>
+              No, join as someone else
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Loading / error state
@@ -132,7 +188,7 @@ export default function GroupLobby() {
         <div className="flex flex-wrap gap-2">
           {onlineMembers.map((m) => (
             <span
-              key={m.username}
+              key={m.memberId ?? m.username}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-lamo-bg rounded-full text-sm"
             >
               <span className="w-2 h-2 rounded-full bg-green-400" />

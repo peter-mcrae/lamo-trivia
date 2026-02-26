@@ -323,4 +323,43 @@ describe('GroupClientMessageSchema', () => {
     const result = GroupClientMessageSchema.safeParse({ type: 'join_group' });
     expect(result.success).toBe(false);
   });
+
+  it('accepts join_group with valid UUID memberId', () => {
+    const result = GroupClientMessageSchema.safeParse({
+      type: 'join_group',
+      username: 'alice',
+      memberId: '550e8400-e29b-41d4-a716-446655440000',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects join_group with non-UUID memberId', () => {
+    const result = GroupClientMessageSchema.safeParse({
+      type: 'join_group',
+      username: 'alice',
+      memberId: 'not-a-uuid',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('accepts join_group without memberId (optional)', () => {
+    const result = GroupClientMessageSchema.safeParse({
+      type: 'join_group',
+      username: 'alice',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a valid recover_member message', () => {
+    const result = GroupClientMessageSchema.safeParse({
+      type: 'recover_member',
+      username: 'alice',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects recover_member without username', () => {
+    const result = GroupClientMessageSchema.safeParse({ type: 'recover_member' });
+    expect(result.success).toBe(false);
+  });
 });

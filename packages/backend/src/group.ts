@@ -124,7 +124,10 @@ export class PrivateGroup {
 
       switch (parsed.data.type) {
         case 'join_group':
-          await this.handleJoin(ws, parsed.data.username);
+          await this.handleJoin(ws, parsed.data.username, parsed.data.memberId);
+          break;
+        case 'recover_member':
+          await this.handleRecover(ws, parsed.data.username);
           break;
         case 'leave_group':
           await this.handleLeave(ws);
@@ -148,73 +151,135 @@ export class PrivateGroup {
 
   // --- Handlers ---
 
-  private async handleJoin(ws: WebSocket, username: string): Promise<void> {
+  private async handleJoin(ws: WebSocket, username: string, memberId?: string): Promise<void> {
     if (!this.group) return;
 
-    // Attach username to WebSocket for hibernation persistence
-    ws.serializeAttachment(username);
+    let member: GroupMember | undefined;
+    let isNew = false;
 
-    // Check if this user is already a member
-    const existingMember = this.group.members.find(
-      (m) => m.username.toLowerCase() === username.toLowerCase(),
-    );
-
-    if (existingMember) {
-      // Returning member — mark online
-      existingMember.online = true;
-    } else {
-      // New member
-      if (this.group.members.length >= GROUP_LIMITS.maxMembers) {
-        this.sendTo(ws, { type: 'error', message: 'Group is full', code: 'GROUP_FULL' });
-        return;
+    // 1. If memberId provided, look up by memberId
+    if (memberId) {
+      member = this.group.members.find((m) => m.memberId === memberId);
+      if (member) {
+        // Update username if changed
+        member.username = username;
+        member.online = true;
       }
-      this.group.members.push({
-        username,
-        joinedAt: Date.now(),
-        online: true,
-      });
     }
+
+    // 2. No memberId or memberId not found — check by username
+    if (!member) {
+      const byUsername = this.group.members.find(
+        (m) => m.username.toLowerCase() === username.toLowerCase(),
+      );
+
+      if (byUsername && !byUsername.memberId) {
+        // Backward compat migration: existing member without memberId
+        byUsername.memberId = crypto.randomUUID();
+        byUsername.online = true;
+        member = byUsername;
+      } else if (byUsername && byUsername.memberId) {
+        // Username taken by a member who already has a token — new device scenario
+        this.sendTo(ws, {
+          type: 'error',
+          message: 'This username is already in this group. Use recovery to reclaim your account.',
+          code: 'MEMBER_EXISTS',
+        });
+        return;
+      } else {
+        // Brand new member
+        if (this.group.members.length >= GROUP_LIMITS.maxMembers) {
+          this.sendTo(ws, { type: 'error', message: 'Group is full', code: 'GROUP_FULL' });
+          return;
+        }
+        const newMemberId = crypto.randomUUID();
+        const newMember: GroupMember = {
+          memberId: newMemberId,
+          username,
+          joinedAt: Date.now(),
+          online: true,
+        };
+        this.group.members.push(newMember);
+        member = newMember;
+        isNew = true;
+      }
+    }
+
+    // Attach memberId to WebSocket for hibernation persistence
+    ws.serializeAttachment(member.memberId);
 
     await this.persist();
 
-    // Send full group state to the joining member
+    // Send join_confirmed then group_state
+    this.sendTo(ws, { type: 'join_confirmed', memberId: member.memberId! });
     this.sendTo(ws, { type: 'group_state', state: this.getClientGroupState() });
 
     // Broadcast to others
-    if (!existingMember) {
+    if (isNew) {
       this.broadcastExcept(ws, {
         type: 'member_joined',
-        member: { username, joinedAt: Date.now(), online: true },
+        member: { memberId: member.memberId, username, joinedAt: Date.now(), online: true },
       });
     } else {
       this.broadcastExcept(ws, { type: 'member_online', username });
     }
   }
 
+  private async handleRecover(ws: WebSocket, username: string): Promise<void> {
+    if (!this.group) return;
+
+    const matches = this.group.members.filter(
+      (m) => m.username.toLowerCase() === username.toLowerCase(),
+    );
+
+    if (matches.length === 0) {
+      this.sendTo(ws, { type: 'error', message: 'No member found with that username' });
+      return;
+    }
+
+    if (matches.length > 1) {
+      this.sendTo(ws, { type: 'error', message: 'Multiple members found. Contact group admin.' });
+      return;
+    }
+
+    const member = matches[0];
+    member.online = true;
+
+    // Ensure memberId exists (backward compat)
+    if (!member.memberId) {
+      member.memberId = crypto.randomUUID();
+    }
+
+    ws.serializeAttachment(member.memberId);
+    await this.persist();
+
+    this.sendTo(ws, { type: 'join_confirmed', memberId: member.memberId });
+    this.sendTo(ws, { type: 'group_state', state: this.getClientGroupState() });
+    this.broadcastExcept(ws, { type: 'member_online', username: member.username });
+  }
+
   private async handleLeave(ws: WebSocket): Promise<void> {
     if (!this.group) return;
 
-    const username = ws.deserializeAttachment() as string | null;
-    if (!username) return;
+    const attachedId = ws.deserializeAttachment() as string | null;
+    if (!attachedId) return;
 
-    // Check if user has another active WebSocket (multiple tabs)
+    // Check if member has another active WebSocket (multiple tabs)
     const sockets = this.state.getWebSockets();
     const otherActive = sockets.some((s) => {
       if (s === ws) return false;
       const attached = s.deserializeAttachment() as string | null;
-      return attached?.toLowerCase() === username.toLowerCase();
+      return attached === attachedId;
     });
 
     if (!otherActive) {
       // Mark offline only if no other connections
-      const member = this.group.members.find(
-        (m) => m.username.toLowerCase() === username.toLowerCase(),
-      );
+      const member = this.group.members.find((m) => m.memberId === attachedId);
       if (member) {
         member.online = false;
+        await this.persist();
+        this.broadcast({ type: 'member_offline', username: member.username });
       }
-      await this.persist();
-      this.broadcast({ type: 'member_offline', username });
     }
   }
 

@@ -27,12 +27,14 @@ export type ServerMessage =
 
 // Group Client -> Server
 export type GroupClientMessage =
-  | { type: 'join_group'; username: string }
+  | { type: 'join_group'; username: string; memberId?: string }
+  | { type: 'recover_member'; username: string }
   | { type: 'leave_group' }
   | { type: 'ping' };
 
 // Group Server -> Client
 export type GroupServerMessage =
+  | { type: 'join_confirmed'; memberId: string }
   | { type: 'group_state'; state: GroupState }
   | { type: 'member_joined'; member: GroupMember }
   | { type: 'member_left'; username: string }

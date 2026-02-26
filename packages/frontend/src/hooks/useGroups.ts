@@ -4,6 +4,7 @@ interface SavedGroup {
   groupId: string;
   name: string;
   joinedAt: number;
+  memberId?: string;
 }
 
 const STORAGE_KEY = 'lamo-trivia-groups';
@@ -17,7 +18,7 @@ function loadGroups(): SavedGroup[] {
   }
 }
 
-function saveGroups(groups: SavedGroup[]): void {
+function saveGroupsToStorage(groups: SavedGroup[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
 }
 
@@ -29,7 +30,7 @@ export function useGroups() {
       // Don't duplicate
       if (prev.some((g) => g.groupId === groupId)) return prev;
       const updated = [...prev, { groupId, name, joinedAt: Date.now() }];
-      saveGroups(updated);
+      saveGroupsToStorage(updated);
       return updated;
     });
   }, []);
@@ -37,7 +38,7 @@ export function useGroups() {
   const removeGroup = useCallback((groupId: string) => {
     setGroups((prev) => {
       const updated = prev.filter((g) => g.groupId !== groupId);
-      saveGroups(updated);
+      saveGroupsToStorage(updated);
       return updated;
     });
   }, []);
@@ -47,5 +48,21 @@ export function useGroups() {
     [groups],
   );
 
-  return { groups, addGroup, removeGroup, hasGroup };
+  const setMemberId = useCallback((groupId: string, memberId: string) => {
+    setGroups((prev) => {
+      const updated = prev.map((g) =>
+        g.groupId === groupId ? { ...g, memberId } : g,
+      );
+      saveGroupsToStorage(updated);
+      return updated;
+    });
+  }, []);
+
+  const getMemberId = useCallback(
+    (groupId: string): string | null =>
+      groups.find((g) => g.groupId === groupId)?.memberId ?? null,
+    [groups],
+  );
+
+  return { groups, addGroup, removeGroup, hasGroup, setMemberId, getMemberId };
 }

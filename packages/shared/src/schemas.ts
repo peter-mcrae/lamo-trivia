@@ -46,7 +46,8 @@ export type GameConfigInput = z.infer<typeof GameConfigSchema>;
 export const GroupNameSchema = z.string().min(1).max(50);
 
 export const GroupClientMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('join_group'), username: z.string() }),
+  z.object({ type: z.literal('join_group'), username: z.string(), memberId: z.string().uuid().optional() }),
+  z.object({ type: z.literal('recover_member'), username: z.string() }),
   z.object({ type: z.literal('leave_group') }),
   z.object({ type: z.literal('ping') }),
 ]);
