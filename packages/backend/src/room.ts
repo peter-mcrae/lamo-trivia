@@ -6,7 +6,7 @@ import { getQuestions } from './questions';
 import { generateAIQuestions } from './questions/ai';
 import { calculateRoundScores } from './scoring';
 
-type AlarmAction = 'expire_game' | 'send_question' | 'end_question' | 'show_next_or_finish';
+type AlarmAction = 'expire_game' | 'send_question' | 'end_question' | 'show_next_or_finish' | 'cleanup_game';
 
 interface RoomState {
   gameId: string;
@@ -153,6 +153,9 @@ export class GameRoom {
         break;
       case 'show_next_or_finish':
         await this.advanceOrFinish();
+        break;
+      case 'cleanup_game':
+        await this.cleanupGame();
         break;
     }
   }
@@ -473,7 +476,7 @@ export class GameRoom {
     if (!this.room) return;
 
     this.room.phase = 'finished';
-    this.room.nextAlarmAction = null;
+    this.room.nextAlarmAction = 'cleanup_game';
 
     const rankings = [...this.room.players].sort(
       (a, b) => (this.room!.scores[b.id] || 0) - (this.room!.scores[a.id] || 0),
@@ -489,6 +492,9 @@ export class GameRoom {
 
     // Notify group if this is a group game
     await this.notifyGroupOfUpdate();
+
+    // Clean up storage after 20 minutes
+    await this.state.storage.setAlarm(Date.now() + GAME_EXPIRY_MS);
   }
 
   private async expireGame(): Promise<void> {
@@ -509,6 +515,30 @@ export class GameRoom {
         // Already closed
       }
     }
+
+    // Remove from lobby
+    const lobbyId = this.env.GAME_LOBBY.idFromName('global');
+    const lobby = this.env.GAME_LOBBY.get(lobbyId);
+    await lobby.fetch(
+      new Request(`http://internal/games/${this.room.gameId}`, { method: 'DELETE' }),
+    );
+
+    // Remove from group if this is a group game
+    if (this.room.config.groupId) {
+      const groupDoId = this.env.PRIVATE_GROUP.idFromName(this.room.config.groupId);
+      const group = this.env.PRIVATE_GROUP.get(groupDoId);
+      await group.fetch(
+        new Request(`http://internal/games/${this.room.gameId}`, { method: 'DELETE' }),
+      );
+    }
+
+    // Clear room storage
+    this.room = null;
+    await this.state.storage.deleteAll();
+  }
+
+  private async cleanupGame(): Promise<void> {
+    if (!this.room) return;
 
     // Remove from lobby
     const lobbyId = this.env.GAME_LOBBY.idFromName('global');
