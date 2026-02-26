@@ -18,7 +18,7 @@ import { execSync } from 'node:child_process';
  *   data/history.json
  */
 
-const KV_NAMESPACE_ID = '764eda89270249808b1dede3c375f033';
+const KV_NAMESPACE_ID = '34ed0bee812244b59410394854c16952';
 const KV_BINDING = 'TRIVIA_KV';
 
 async function main() {
