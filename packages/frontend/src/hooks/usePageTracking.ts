@@ -8,7 +8,7 @@ declare global {
 }
 
 export function hasAnalyticsConsent(): boolean {
-  return localStorage.getItem('analytics-consent') === 'accepted';
+  return localStorage.getItem('analytics-consent') !== 'declined';
 }
 
 export function usePageTracking() {

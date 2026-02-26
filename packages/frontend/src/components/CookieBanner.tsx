@@ -1,7 +1,5 @@
 import { useState } from 'react';
 
-const GA_ID = 'G-804RC3BG82';
-
 export function CookieBanner() {
   const [visible, setVisible] = useState(
     () => localStorage.getItem('analytics-consent') === null,
@@ -11,23 +9,13 @@ export function CookieBanner() {
 
   const accept = () => {
     localStorage.setItem('analytics-consent', 'accepted');
-    // Load GA dynamically
-    const s = document.createElement('script');
-    s.async = true;
-    s.src = `https://www.googletagmanager.com/gtag/js?id=${GA_ID}`;
-    document.head.appendChild(s);
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = function () {
-      // eslint-disable-next-line prefer-rest-params
-      window.dataLayer!.push(arguments);
-    };
-    window.gtag('js', new Date());
-    window.gtag('config', GA_ID, { send_page_view: false });
     setVisible(false);
   };
 
   const decline = () => {
     localStorage.setItem('analytics-consent', 'declined');
+    // Disable GA — prevent further tracking
+    window['ga-disable-G-804RC3BG82' as keyof Window] = true as never;
     setVisible(false);
   };
 

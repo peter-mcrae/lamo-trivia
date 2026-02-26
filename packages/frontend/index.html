@@ -5,11 +5,11 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>LAMO Trivia</title>
-    <!-- Google Analytics — disabled by default, enabled on consent -->
+    <!-- Google Analytics — on by default, disabled if user declines -->
     <script>
       window.dataLayer = window.dataLayer || [];
       function gtag(){dataLayer.push(arguments);}
-      if (localStorage.getItem('analytics-consent') === 'accepted') {
+      if (localStorage.getItem('analytics-consent') !== 'declined') {
         var s = document.createElement('script');
         s.async = true;
         s.src = 'https://www.googletagmanager.com/gtag/js?id=G-804RC3BG82';
