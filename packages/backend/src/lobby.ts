@@ -1,5 +1,5 @@
 import type { GameListing, GameConfig } from '@lamo-trivia/shared';
-import { GAME_EXPIRY_MS } from '@lamo-trivia/shared';
+import { GAME_EXPIRY_MS, generateGameId } from '@lamo-trivia/shared';
 
 export class GameLobby {
   private state: DurableObjectState;
@@ -73,14 +73,4 @@ export class GameLobby {
       return Response.json({ error: 'Internal server error' }, { status: 500 });
     }
   }
-}
-
-function generateGameId(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
-  const nums = '0123456789';
-  let code = '';
-  for (let i = 0; i < 4; i++) code += chars[Math.floor(Math.random() * chars.length)];
-  code += '-';
-  for (let i = 0; i < 4; i++) code += nums[Math.floor(Math.random() * nums.length)];
-  return code;
 }

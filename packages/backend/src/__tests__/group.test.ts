@@ -8,7 +8,7 @@ import {
   type MockDurableObjectState,
   type MockWebSocket,
 } from './mocks';
-import { GAME_EXPIRY_MS, GROUP_LIMITS } from '@lamo-trivia/shared';
+import { GAME_EXPIRY_MS, GROUP_LIMITS, GROUP_GAME_MAX_AGE_MS } from '@lamo-trivia/shared';
 
 async function initGroup(group: PrivateGroup, id = 'brave-mountain-golden-river', name = 'McRae Family') {
   return group.fetch(
@@ -773,5 +773,228 @@ describe('PrivateGroup — Expired game filtering', () => {
     expect(gameIds).toContain('FRESH-001');
     expect(gameIds).toContain('PLAY-001');
     expect(gameIds).not.toContain('OLD-0001');
+  });
+});
+
+describe('PrivateGroup — Game sweep alarm', () => {
+  let state: MockDurableObjectState;
+  let group: PrivateGroup;
+  let ws: MockWebSocket;
+
+  beforeEach(async () => {
+    state = createMockDurableObjectState();
+    group = new PrivateGroup(state);
+    await initGroup(group);
+    const result = await joinAndGetMemberId(group, state, 'alice');
+    ws = result.ws;
+    ws._sent.length = 0;
+  });
+
+  it('alarm deletes stale non-playing games older than GAME_EXPIRY_MS', async () => {
+    await group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        body: JSON.stringify(
+          makeGroupGame({
+            gameId: 'OLD-0001',
+            phase: 'waiting',
+            createdAt: Date.now() - GAME_EXPIRY_MS - 1000,
+          }),
+        ),
+      }),
+    );
+    ws._sent.length = 0;
+
+    await group.alarm();
+
+    const messages = getSentMessages(ws);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toEqual({ type: 'game_removed', gameId: 'OLD-0001' });
+  });
+
+  it('alarm deletes stale finished games older than GAME_EXPIRY_MS', async () => {
+    await group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        body: JSON.stringify(
+          makeGroupGame({
+            gameId: 'DONE-001',
+            phase: 'finished',
+            createdAt: Date.now() - GAME_EXPIRY_MS - 1000,
+          }),
+        ),
+      }),
+    );
+    ws._sent.length = 0;
+
+    await group.alarm();
+
+    const messages = getSentMessages(ws);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toEqual({ type: 'game_removed', gameId: 'DONE-001' });
+  });
+
+  it('alarm keeps playing games under 2 hours', async () => {
+    await group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        body: JSON.stringify(
+          makeGroupGame({
+            gameId: 'PLAY-001',
+            phase: 'playing',
+            createdAt: Date.now() - GAME_EXPIRY_MS - 5000,
+          }),
+        ),
+      }),
+    );
+    ws._sent.length = 0;
+
+    await group.alarm();
+
+    const messages = getSentMessages(ws);
+    expect(messages).toHaveLength(0);
+  });
+
+  it('alarm deletes orphaned playing games older than GROUP_GAME_MAX_AGE_MS', async () => {
+    await group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        body: JSON.stringify(
+          makeGroupGame({
+            gameId: 'ORPH-001',
+            phase: 'playing',
+            createdAt: Date.now() - GROUP_GAME_MAX_AGE_MS - 1000,
+          }),
+        ),
+      }),
+    );
+    ws._sent.length = 0;
+
+    await group.alarm();
+
+    const messages = getSentMessages(ws);
+    expect(messages).toHaveLength(1);
+    expect(messages[0]).toEqual({ type: 'game_removed', gameId: 'ORPH-001' });
+  });
+
+  it('alarm reschedules when games remain after sweep', async () => {
+    await group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        body: JSON.stringify(makeGroupGame({ gameId: 'FRSH-001' })),
+      }),
+    );
+    state._alarm = null;
+
+    await group.alarm();
+
+    expect(state._alarm).not.toBeNull();
+  });
+
+  it('alarm does not reschedule when no games remain', async () => {
+    await group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        body: JSON.stringify(
+          makeGroupGame({
+            gameId: 'OLD-0001',
+            phase: 'finished',
+            createdAt: Date.now() - GAME_EXPIRY_MS - 1000,
+          }),
+        ),
+      }),
+    );
+    state._alarm = null;
+
+    await group.alarm();
+
+    expect(state._alarm).toBeNull();
+  });
+
+  it('POST /games sets alarm when first game is added', async () => {
+    expect(state._alarm).toBeNull();
+
+    await group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        body: JSON.stringify(makeGroupGame()),
+      }),
+    );
+
+    expect(state._alarm).not.toBeNull();
+  });
+
+  it('POST /games does not reset alarm when one is already set', async () => {
+    await group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        body: JSON.stringify(makeGroupGame({ gameId: 'GAME-001' })),
+      }),
+    );
+    const firstAlarm = state._alarm;
+
+    await group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        body: JSON.stringify(makeGroupGame({ gameId: 'GAME-002' })),
+      }),
+    );
+
+    expect(state._alarm).toBe(firstAlarm);
+  });
+});
+
+describe('PrivateGroup — maxActiveGames enforcement', () => {
+  let state: MockDurableObjectState;
+  let group: PrivateGroup;
+
+  beforeEach(async () => {
+    state = createMockDurableObjectState();
+    group = new PrivateGroup(state);
+    await initGroup(group);
+  });
+
+  it('rejects game creation when at maxActiveGames limit', async () => {
+    for (let i = 0; i < GROUP_LIMITS.maxActiveGames; i++) {
+      await group.fetch(
+        new Request('http://internal/games', {
+          method: 'POST',
+          body: JSON.stringify(makeGroupGame({ gameId: `GAME-${String(i).padStart(4, '0')}` })),
+        }),
+      );
+    }
+
+    const res = await group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        body: JSON.stringify(makeGroupGame({ gameId: 'OVER-FLOW' })),
+      }),
+    );
+
+    expect(res.status).toBe(400);
+    const data = (await res.json()) as any;
+    expect(data.error).toContain('Too many active games');
+  });
+
+  it('allows game creation when finished games bring count under limit', async () => {
+    for (let i = 0; i < GROUP_LIMITS.maxActiveGames; i++) {
+      await group.fetch(
+        new Request('http://internal/games', {
+          method: 'POST',
+          body: JSON.stringify(
+            makeGroupGame({ gameId: `DONE-${String(i).padStart(4, '0')}`, phase: 'finished' }),
+          ),
+        }),
+      );
+    }
+
+    const res = await group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        body: JSON.stringify(makeGroupGame({ gameId: 'NEW-0001' })),
+      }),
+    );
+
+    expect(res.status).toBe(200);
   });
 });
