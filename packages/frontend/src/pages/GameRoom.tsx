@@ -211,44 +211,65 @@ export default function GameRoom() {
       )}
 
       {/* Finished Phase */}
-      {gameState.phase === 'finished' && (
+      {gameState.phase === 'finished' && rankings && rankings.length > 0 && (
         <div>
           <h2 className="text-2xl font-bold text-lamo-dark text-center mb-2">Game Over!</h2>
           <p className="text-lamo-gray-muted text-center mb-8">{gameState.config.name}</p>
 
-          {rankings && rankings.length > 0 && (
-            <div className="space-y-3 mb-8">
-              {rankings.map((player, i) => {
-                const medal = i === 0 ? '1st' : i === 1 ? '2nd' : i === 2 ? '3rd' : null;
-                return (
-                  <div
-                    key={player.id}
-                    className={`flex items-center justify-between px-5 py-4 rounded-xl ${
-                      i === 0
-                        ? 'bg-yellow-50 border-2 border-yellow-300'
-                        : i === 1
-                          ? 'bg-gray-50 border-2 border-gray-300'
-                          : i === 2
-                            ? 'bg-orange-50 border-2 border-orange-300'
-                            : 'bg-lamo-bg border border-lamo-border'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      <span className="text-lg font-bold text-lamo-gray-muted w-8">
-                        {medal ?? `${i + 1}th`}
-                      </span>
-                      <span className="text-2xl" title={player.avatar.name}>{player.avatar.emoji}</span>
-                      <div className="flex flex-col">
-                        <span className="font-semibold text-lamo-dark">{player.username}</span>
-                        <span className="text-xs text-lamo-gray-muted -mt-0.5">{player.avatar.name}</span>
-                      </div>
-                    </div>
-                    <span className="font-bold text-lamo-blue text-lg">
-                      {gameState.scores[player.id] ?? 0}
-                    </span>
+          {/* Podium */}
+          <div className="flex items-end justify-center gap-3 mb-8">
+            {/* 2nd Place */}
+            {rankings[1] && (
+              <div className="flex flex-col items-center w-28">
+                <span className="text-3xl mb-1" title={rankings[1].avatar.name}>{rankings[1].avatar.emoji}</span>
+                <span className="text-sm font-semibold text-lamo-dark truncate w-full text-center">{rankings[1].username}</span>
+                <span className="text-xs text-lamo-gray-muted mb-2">{gameState.scores[rankings[1].id] ?? 0} pts</span>
+                <div className="w-full h-24 rounded-t-xl bg-gradient-to-t from-gray-300 to-gray-200 flex items-center justify-center">
+                  <span className="text-2xl font-bold text-gray-600">2nd</span>
+                </div>
+              </div>
+            )}
+
+            {/* 1st Place */}
+            <div className="flex flex-col items-center w-28">
+              <span className="text-xl mb-1">👑</span>
+              <span className="text-4xl mb-1" title={rankings[0].avatar.name}>{rankings[0].avatar.emoji}</span>
+              <span className="text-sm font-bold text-lamo-dark truncate w-full text-center">{rankings[0].username}</span>
+              <span className="text-xs text-lamo-gray-muted mb-2">{gameState.scores[rankings[0].id] ?? 0} pts</span>
+              <div className="w-full h-32 rounded-t-xl bg-gradient-to-t from-yellow-400 to-yellow-300 flex items-center justify-center">
+                <span className="text-2xl font-bold text-yellow-700">1st</span>
+              </div>
+            </div>
+
+            {/* 3rd Place */}
+            {rankings[2] && (
+              <div className="flex flex-col items-center w-28">
+                <span className="text-3xl mb-1" title={rankings[2].avatar.name}>{rankings[2].avatar.emoji}</span>
+                <span className="text-sm font-semibold text-lamo-dark truncate w-full text-center">{rankings[2].username}</span>
+                <span className="text-xs text-lamo-gray-muted mb-2">{gameState.scores[rankings[2].id] ?? 0} pts</span>
+                <div className="w-full h-16 rounded-t-xl bg-gradient-to-t from-orange-300 to-orange-200 flex items-center justify-center">
+                  <span className="text-2xl font-bold text-orange-600">3rd</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 4th place and beyond */}
+          {rankings.length > 3 && (
+            <div className="space-y-2 mb-8">
+              {rankings.slice(3).map((player, i) => (
+                <div
+                  key={player.id}
+                  className="flex items-center justify-between px-5 py-3 rounded-xl bg-lamo-bg border border-lamo-border"
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-lamo-gray-muted w-6">{i + 4}th</span>
+                    <span className="text-xl" title={player.avatar.name}>{player.avatar.emoji}</span>
+                    <span className="font-medium text-lamo-dark">{player.username}</span>
                   </div>
-                );
-              })}
+                  <span className="font-bold text-lamo-blue">{gameState.scores[player.id] ?? 0}</span>
+                </div>
+              ))}
             </div>
           )}
 

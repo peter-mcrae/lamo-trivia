@@ -1,3 +1,5 @@
+import { useEffect } from 'react';
+import confetti from 'canvas-confetti';
 import type { ClientQuestion } from '@lamo-trivia/shared';
 
 interface QuestionCardProps {
@@ -19,6 +21,17 @@ export function QuestionCard({
   showResult,
   onAnswer,
 }: QuestionCardProps) {
+  useEffect(() => {
+    if (showResult && selectedAnswer !== null && selectedAnswer === correctIndex) {
+      confetti({
+        particleCount: 70,
+        spread: 60,
+        origin: { y: 0.7 },
+        colors: ['#a8e000', '#0071e3', '#FFD700', '#FF6B6B', '#4ECDC4'],
+      });
+    }
+  }, [showResult, selectedAnswer, correctIndex]);
+
   const getButtonClass = (i: number) => {
     const base = 'px-5 py-3.5 rounded-xl text-left font-medium transition-colors border';
 
