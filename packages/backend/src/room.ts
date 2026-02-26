@@ -1,7 +1,9 @@
 import type { Player, GameConfig, GamePhase, Question, ClientQuestion, GameState, Avatar } from '@lamo-trivia/shared';
 import { ClientMessageSchema, AVATARS, GAME_EXPIRY_MS } from '@lamo-trivia/shared';
+import { getOpenAIKey } from './env';
 import type { Env } from './env';
 import { getQuestions } from './questions';
+import { generateAIQuestions } from './questions/ai';
 
 type AlarmAction = 'expire_game' | 'send_question' | 'end_question' | 'show_next_or_finish';
 
@@ -217,15 +219,30 @@ export class GameRoom {
       return;
     }
 
-    // Fetch questions from KV
-    this.room.questions = await getQuestions(
-      this.env.TRIVIA_KV,
-      this.room.config.categoryIds,
-      this.room.config.questionCount,
-    );
+    // Fetch questions — AI-generated or from KV
+    try {
+      if (this.room.config.aiTopic) {
+        const apiKey = await getOpenAIKey(this.env);
+        this.room.questions = await generateAIQuestions(
+          apiKey,
+          this.room.config.aiTopic,
+          this.room.config.questionCount,
+        );
+      } else {
+        this.room.questions = await getQuestions(
+          this.env.TRIVIA_KV,
+          this.room.config.categoryIds,
+          this.room.config.questionCount,
+        );
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to load questions';
+      this.sendTo(ws, { type: 'error', message: `Question loading failed: ${message}` });
+      return;
+    }
 
     if (this.room.questions.length === 0) {
-      this.sendTo(ws, { type: 'error', message: 'No questions available for selected categories' });
+      this.sendTo(ws, { type: 'error', message: 'No questions available' });
       return;
     }
 

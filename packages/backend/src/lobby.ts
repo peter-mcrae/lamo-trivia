@@ -43,6 +43,7 @@ export class GameLobby {
         isPrivate: config.isPrivate,
         phase: 'waiting',
         createdAt: Date.now(),
+        aiTopic: config.aiTopic,
       };
       this.games.set(gameId, listing);
       await this.state.storage.put('games', this.games);

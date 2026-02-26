@@ -48,6 +48,14 @@ export default function Home() {
               <span className="text-xs text-lamo-gray-muted">{cat.questionCount} Qs</span>
             </div>
           ))}
+          <Link
+            to="/create"
+            className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-gradient-to-br from-lamo-blue/5 to-lamo-lime/10 border border-dashed border-lamo-blue/30 hover:scale-105 hover:shadow-md transition-all cursor-pointer"
+          >
+            <span className="text-3xl">🤖</span>
+            <span className="text-sm font-semibold text-lamo-dark">AI Generated</span>
+            <span className="text-xs text-lamo-gray-muted">Any topic!</span>
+          </Link>
         </div>
       </section>
 

@@ -7,14 +7,20 @@ interface GameCardProps {
 }
 
 export function GameCard({ game, onJoin }: GameCardProps) {
-  const categoryNames = game.categoryIds
-    .map((id) => TRIVIA_CATEGORIES.find((c) => c.id === id)?.name ?? id)
-    .join(', ');
+  const isAI = !!game.aiTopic;
 
-  const categoryIcons = game.categoryIds
-    .map((id) => TRIVIA_CATEGORIES.find((c) => c.id === id)?.icon ?? '')
-    .filter(Boolean)
-    .join(' ');
+  const categoryNames = isAI
+    ? `AI: ${game.aiTopic}`
+    : game.categoryIds
+        .map((id) => TRIVIA_CATEGORIES.find((c) => c.id === id)?.name ?? id)
+        .join(', ');
+
+  const categoryIcons = isAI
+    ? '🤖'
+    : game.categoryIds
+        .map((id) => TRIVIA_CATEGORIES.find((c) => c.id === id)?.icon ?? '')
+        .filter(Boolean)
+        .join(' ');
 
   return (
     <div className="p-4 bg-lamo-bg-hero rounded-xl border border-lamo-border">

@@ -22,3 +22,8 @@ id = "34ed0bee812244b59410394854c16952"
 
 [vars]
 FRONTEND_URL = "https://lamotrivia.app"
+
+[[secrets_store_secrets]]
+binding = "OPENAI_API_KEY"
+store_id = "8410593cfc3b4becb7b3ef55e1ecac8c"
+secret_name = "openAI_lamotrivia"

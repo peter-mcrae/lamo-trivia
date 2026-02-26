@@ -11,6 +11,8 @@ export default function CreateGame() {
   const [error, setError] = useState('');
 
   const [name, setName] = useState('');
+  const [useAI, setUseAI] = useState(false);
+  const [aiTopic, setAiTopic] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [questionCount, setQuestionCount] = useState(GAME_DEFAULTS.questionCount);
   const [timePerQuestion, setTimePerQuestion] = useState(GAME_DEFAULTS.timePerQuestion);
@@ -44,20 +46,28 @@ export default function CreateGame() {
       setError('Give your game a name');
       return;
     }
-    if (selectedCategories.length === 0) {
-      setError('Select at least one category');
-      return;
-    }
-    if (totalAvailable < questionCount) {
-      setError(`Only ${totalAvailable} questions available in selected categories`);
-      return;
+
+    if (useAI) {
+      if (!aiTopic.trim()) {
+        setError('Enter a topic for AI-generated questions');
+        return;
+      }
+    } else {
+      if (selectedCategories.length === 0) {
+        setError('Select at least one category');
+        return;
+      }
+      if (totalAvailable < questionCount) {
+        setError(`Only ${totalAvailable} questions available in selected categories`);
+        return;
+      }
     }
 
     setSubmitting(true);
     try {
       const result = await api.createGame({
         name: name.trim(),
-        categoryIds: selectedCategories,
+        categoryIds: useAI ? [] : selectedCategories,
         questionCount,
         minPlayers,
         maxPlayers,
@@ -67,6 +77,7 @@ export default function CreateGame() {
         showAnswers,
         timeBetweenQuestions,
         isPrivate,
+        ...(useAI ? { aiTopic: aiTopic.trim() } : {}),
       });
       navigate(`/game/${result.gameId}`);
     } catch {
@@ -93,42 +104,93 @@ export default function CreateGame() {
           />
         </div>
 
-        {/* Categories */}
+        {/* Question Source Toggle */}
         <div>
-          <label className="block text-sm font-medium text-lamo-dark mb-1.5">
-            Categories
-            {selectedCategories.length > 0 && (
-              <span className="text-lamo-gray-muted font-normal"> — {totalAvailable} questions available</span>
-            )}
-          </label>
+          <label className="block text-sm font-medium text-lamo-dark mb-1.5">Question Source</label>
           <div className="grid grid-cols-2 gap-2">
-            {categories.map((cat) => {
-              const selected = selectedCategories.includes(cat.id);
-              const disabled = cat.questionCount === 0;
-              return (
-                <button
-                  key={cat.id}
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => toggleCategory(cat.id)}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left text-sm transition-colors ${
-                    selected
-                      ? 'border-lamo-blue bg-lamo-blue/5 text-lamo-dark'
-                      : disabled
-                        ? 'border-lamo-border bg-lamo-bg text-lamo-gray-muted cursor-not-allowed opacity-50'
-                        : 'border-lamo-border bg-white text-lamo-dark hover:border-lamo-blue/40'
-                  }`}
-                >
-                  <span className="text-base">{cat.icon}</span>
-                  <div>
-                    <div className="font-medium">{cat.name}</div>
-                    <div className="text-xs text-lamo-gray-muted">{cat.questionCount} Qs</div>
-                  </div>
-                </button>
-              );
-            })}
+            <button
+              type="button"
+              onClick={() => setUseAI(false)}
+              className={`px-3 py-2.5 rounded-xl border text-left text-sm transition-colors ${
+                !useAI
+                  ? 'border-lamo-blue bg-lamo-blue/5 text-lamo-dark'
+                  : 'border-lamo-border bg-white text-lamo-dark hover:border-lamo-blue/40'
+              }`}
+            >
+              <div className="font-medium">Pick Categories</div>
+              <div className="text-xs text-lamo-gray-muted">Pre-made question sets</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setUseAI(true)}
+              className={`px-3 py-2.5 rounded-xl border text-left text-sm transition-colors ${
+                useAI
+                  ? 'border-lamo-blue bg-lamo-blue/5 text-lamo-dark'
+                  : 'border-lamo-border bg-white text-lamo-dark hover:border-lamo-blue/40'
+              }`}
+            >
+              <div className="font-medium">AI Generated</div>
+              <div className="text-xs text-lamo-gray-muted">Custom topic, fresh questions</div>
+            </button>
           </div>
         </div>
+
+        {/* Categories (when not AI) */}
+        {!useAI && (
+          <div>
+            <label className="block text-sm font-medium text-lamo-dark mb-1.5">
+              Categories
+              {selectedCategories.length > 0 && (
+                <span className="text-lamo-gray-muted font-normal"> — {totalAvailable} questions available</span>
+              )}
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {categories.map((cat) => {
+                const selected = selectedCategories.includes(cat.id);
+                const disabled = cat.questionCount === 0;
+                return (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => toggleCategory(cat.id)}
+                    className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left text-sm transition-colors ${
+                      selected
+                        ? 'border-lamo-blue bg-lamo-blue/5 text-lamo-dark'
+                        : disabled
+                          ? 'border-lamo-border bg-lamo-bg text-lamo-gray-muted cursor-not-allowed opacity-50'
+                          : 'border-lamo-border bg-white text-lamo-dark hover:border-lamo-blue/40'
+                    }`}
+                  >
+                    <span className="text-base">{cat.icon}</span>
+                    <div>
+                      <div className="font-medium">{cat.name}</div>
+                      <div className="text-xs text-lamo-gray-muted">{cat.questionCount} Qs</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* AI Topic (when AI) */}
+        {useAI && (
+          <div>
+            <label className="block text-sm font-medium text-lamo-dark mb-1.5">Topic</label>
+            <input
+              type="text"
+              value={aiTopic}
+              onChange={(e) => setAiTopic(e.target.value)}
+              placeholder="e.g. Dinosaurs, Taylor Swift, US Presidents"
+              maxLength={100}
+              className="w-full px-4 py-2.5 border border-lamo-border rounded-xl text-lamo-dark placeholder:text-lamo-gray-muted focus:outline-none focus:ring-2 focus:ring-lamo-blue/40"
+            />
+            <p className="text-xs text-lamo-gray-muted mt-1.5">
+              AI will generate {questionCount} unique questions about this topic
+            </p>
+          </div>
+        )}
 
         {/* Question Count */}
         <div>

@@ -25,6 +25,7 @@ export interface GameConfig {
   showAnswers: boolean;
   timeBetweenQuestions: number;
   isPrivate: boolean;
+  aiTopic?: string;
 }
 
 export type GamePhase = 'waiting' | 'starting' | 'playing' | 'finished';
@@ -68,6 +69,7 @@ export interface GameListing {
   isPrivate: boolean;
   phase: GamePhase;
   createdAt: number;
+  aiTopic?: string;
 }
 
 export interface TriviaCategory {
