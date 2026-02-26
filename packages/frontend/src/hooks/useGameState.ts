@@ -91,6 +91,7 @@ export function useGameState() {
     setSelectedAnswer,
     answerResult,
     countdown,
+    setCountdown,
     rankings,
     handleMessage,
   };

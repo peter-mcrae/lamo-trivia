@@ -29,6 +29,7 @@ export default function GameRoom() {
     setSelectedAnswer,
     answerResult,
     countdown,
+    setCountdown,
     rankings,
     handleMessage,
   } = useGameState();
@@ -88,6 +89,13 @@ export default function GameRoom() {
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [gameState?.phase, currentQuestion, answerResult, gameState?.config.timePerQuestion]);
+
+  // Countdown timer for "starting" phase (3 → 2 → 1)
+  useEffect(() => {
+    if (gameState?.phase !== 'starting' || countdown === null || countdown <= 0) return;
+    const id = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : c)), 1000);
+    return () => clearTimeout(id);
+  }, [gameState?.phase, countdown, setCountdown]);
 
   const handleAnswer = (answerIndex: number) => {
     if (answerResult) return; // Can't change after results are revealed
