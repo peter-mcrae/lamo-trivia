@@ -30,6 +30,9 @@ export default function Lobby() {
     navigate(`/game/${gameId}`);
   };
 
+  // Only show games that are still waiting for players
+  const joinableGames = games.filter((g) => g.phase === 'waiting');
+
   return (
     <div className="max-w-3xl mx-auto py-10 px-6">
       <div className="flex items-center justify-between mb-6">
@@ -44,7 +47,7 @@ export default function Lobby() {
 
       {loading ? (
         <p className="text-lamo-gray-muted">Loading games...</p>
-      ) : games.length === 0 ? (
+      ) : joinableGames.length === 0 ? (
         <div className="text-center py-16">
           <p className="text-lamo-gray-muted mb-4">No games available yet.</p>
           <Link
@@ -56,7 +59,7 @@ export default function Lobby() {
         </div>
       ) : (
         <div className="space-y-3">
-          {games.map((game) => (
+          {joinableGames.map((game) => (
             <GameCard key={game.id} game={game} onJoin={handleJoin} />
           ))}
         </div>
