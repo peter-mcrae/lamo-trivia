@@ -12,7 +12,7 @@ export const GameConfigSchema = z.object({
   name: z.string().min(1).max(50),
   categoryIds: z.array(z.string().min(1)).min(1, 'Select at least one category'),
   questionCount: z.number().int().min(5).max(30),
-  minPlayers: z.number().int().min(2).max(8).default(2),
+  minPlayers: z.number().int().min(1).max(8).default(1),
   maxPlayers: z.number().int().min(2).max(12).default(8),
   timePerQuestion: z.number().int().min(5).max(60).default(15),
   scoringMethod: ScoringMethodSchema.default('speed-bonus'),

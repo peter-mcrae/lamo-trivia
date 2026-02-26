@@ -179,7 +179,7 @@ export default function CreateGame() {
               onChange={(e) => setMinPlayers(Number(e.target.value))}
               className="w-full px-3 py-2.5 border border-lamo-border rounded-xl text-lamo-dark bg-white focus:outline-none focus:ring-2 focus:ring-lamo-blue/40"
             >
-              {[2, 3, 4, 5, 6, 7, 8].map((n) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>

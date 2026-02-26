@@ -2,7 +2,7 @@ import type { Avatar, TriviaCategory } from './types';
 
 export const GAME_DEFAULTS = {
   questionCount: 10,
-  minPlayers: 2,
+  minPlayers: 1,
   maxPlayers: 8,
   timePerQuestion: 15,
   scoringMethod: 'speed-bonus',
