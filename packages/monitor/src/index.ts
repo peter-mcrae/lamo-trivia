@@ -1,5 +1,5 @@
 interface Env {
-  TARGET_URL: string;
+  API: Fetcher;
 }
 
 interface StepResult {
@@ -17,7 +17,7 @@ interface MonitorResult {
   gameId?: string;
 }
 
-// Game config optimized for speed (~30s total game time)
+// Game config optimized for speed (~8s total game time)
 const MONITOR_GAME_CONFIG = {
   name: '[Monitor] Synthetic Test',
   categoryIds: ['general'],
@@ -35,6 +35,8 @@ const MONITOR_GAME_CONFIG = {
 const MONITOR_USERNAME = '_monitor_bot';
 const WS_TIMEOUT_MS = 30_000;
 const HTTP_TIMEOUT_MS = 10_000;
+// Internal host used for Service Binding requests (host value is irrelevant)
+const INTERNAL = 'https://api';
 
 // --- Message queue for reliable WebSocket message handling ---
 
@@ -138,7 +140,7 @@ async function runStep<T>(
 
 // --- Core monitor flow ---
 
-async function runMonitor(targetUrl: string): Promise<MonitorResult> {
+async function runMonitor(api: Fetcher): Promise<MonitorResult> {
   const steps: StepResult[] = [];
   const overallStart = Date.now();
   let gameId: string | undefined;
@@ -147,7 +149,7 @@ async function runMonitor(targetUrl: string): Promise<MonitorResult> {
   try {
     // Step 1: Health check
     const health = await runStep('health_check', async () => {
-      const res = await fetch(`${targetUrl}/api/health`);
+      const res = await api.fetch(`${INTERNAL}/api/health`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = (await res.json()) as { status: string };
       if (body.status !== 'ok') throw new Error(`Status: ${body.status}`);
@@ -158,7 +160,7 @@ async function runMonitor(targetUrl: string): Promise<MonitorResult> {
 
     // Step 2: Verify categories
     const categories = await runStep('fetch_categories', async () => {
-      const res = await fetch(`${targetUrl}/api/categories`);
+      const res = await api.fetch(`${INTERNAL}/api/categories`);
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const body = (await res.json()) as {
         categories: Array<{ id: string; questionCount: number }>;
@@ -174,7 +176,7 @@ async function runMonitor(targetUrl: string): Promise<MonitorResult> {
 
     // Step 3: Create game
     const createGame = await runStep('create_game', async () => {
-      const res = await fetch(`${targetUrl}/api/games`, {
+      const res = await api.fetch(`${INTERNAL}/api/games`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(MONITOR_GAME_CONFIG),
@@ -191,9 +193,9 @@ async function runMonitor(targetUrl: string): Promise<MonitorResult> {
     if (!createGame.stepResult.passed) throw new Error('Game creation failed');
     gameId = createGame.result.gameId;
 
-    // Step 4: Connect WebSocket (Workers use http(s) URL with Upgrade header)
+    // Step 4: Connect WebSocket via Service Binding
     const connectWs = await runStep('ws_connect', async () => {
-      const res = await fetch(`${targetUrl}/ws/game/${gameId}`, {
+      const res = await api.fetch(`${INTERNAL}/ws/game/${gameId}`, {
         headers: { Upgrade: 'websocket' },
       });
       const webSocket = res.webSocket;
@@ -236,7 +238,6 @@ async function runMonitor(targetUrl: string): Promise<MonitorResult> {
     if (!startGame.stepResult.passed) throw new Error('Start game failed');
 
     // Step 7: Play through all questions
-    // Timeout: 30s base + (5s timer + 2s buffer) per question
     const playTimeout =
       WS_TIMEOUT_MS + (MONITOR_GAME_CONFIG.timePerQuestion * 1000 + 2000) * MONITOR_GAME_CONFIG.questionCount;
 
@@ -310,12 +311,12 @@ function logResults(result: MonitorResult): void {
 
 export default {
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext): Promise<void> {
-    const result = await runMonitor(env.TARGET_URL);
+    const result = await runMonitor(env.API);
     logResults(result);
   },
 
   async fetch(_request: Request, env: Env): Promise<Response> {
-    const result = await runMonitor(env.TARGET_URL);
+    const result = await runMonitor(env.API);
     logResults(result);
     return Response.json(result, { status: result.success ? 200 : 503 });
   },

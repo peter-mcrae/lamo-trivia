@@ -9,5 +9,6 @@ crons = ["*/15 * * * *"]
 [observability]
 enabled = true
 
-[vars]
-TARGET_URL = "https://lamotrivia.app"
+[[services]]
+binding = "API"
+service = "lamo-trivia-api"
