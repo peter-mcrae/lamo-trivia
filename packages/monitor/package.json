@@ -1,0 +1,14 @@
+{
+  "name": "@lamo-trivia/monitor",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev --port 8686",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20241106.0",
+    "typescript": "^5.8.0",
+    "wrangler": "^4.68.1"
+  }
+}
