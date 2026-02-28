@@ -23,6 +23,8 @@ export const GAME_LIMITS = {
 } as const;
 
 export const GAME_EXPIRY_MS = 20 * 60 * 1000; // 20 minutes
+export const GROUP_GAME_MAX_AGE_MS = 2 * 60 * 60 * 1000; // 2 hours — catch-all for orphaned games
+export const GROUP_SWEEP_INTERVAL_MS = 30 * 60 * 1000; // 30 min — alarm re-check interval
 
 export const GROUP_LIMITS = {
   maxMembers: 50,

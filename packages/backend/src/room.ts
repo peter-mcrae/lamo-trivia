@@ -304,6 +304,13 @@ export class GameRoom {
     // After 3 second countdown, send first question
     await this.state.storage.setAlarm(Date.now() + 3000);
 
+    // Remove from lobby so it no longer appears as joinable
+    const lobbyId = this.env.GAME_LOBBY.idFromName('global');
+    const lobby = this.env.GAME_LOBBY.get(lobbyId);
+    await lobby.fetch(
+      new Request(`http://internal/games/${this.room.gameId}`, { method: 'DELETE' }),
+    );
+
     // Notify group if this is a group game
     await this.notifyGroupOfUpdate();
   }

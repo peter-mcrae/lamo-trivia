@@ -1,0 +1,14 @@
+name = "lamo-trivia-monitor"
+main = "src/index.ts"
+compatibility_date = "2024-11-06"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["*/15 * * * *"]
+
+[observability]
+enabled = true
+
+[[services]]
+binding = "API"
+service = "lamo-trivia-api"

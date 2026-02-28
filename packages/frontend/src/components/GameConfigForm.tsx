@@ -252,15 +252,15 @@ export function GameConfigForm({
         </label>
         <input
           type="range"
-          min={5}
+          min={1}
           max={60}
-          step={5}
+          step={1}
           value={timePerQuestion}
           onChange={(e) => setTimePerQuestion(Number(e.target.value))}
           className="w-full accent-lamo-blue"
         />
         <div className="flex justify-between text-xs text-lamo-gray-muted mt-1">
-          <span>5s</span>
+          <span>1s</span>
           <span>60s</span>
         </div>
       </div>
@@ -365,7 +365,7 @@ export function GameConfigForm({
           </label>
           <input
             type="range"
-            min={3}
+            min={1}
             max={15}
             step={1}
             value={timeBetweenQuestions}
@@ -373,7 +373,7 @@ export function GameConfigForm({
             className="w-full accent-lamo-blue"
           />
           <div className="flex justify-between text-xs text-lamo-gray-muted mt-1">
-            <span>3s</span>
+            <span>1s</span>
             <span>15s</span>
           </div>
         </div>

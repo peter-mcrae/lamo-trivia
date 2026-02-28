@@ -4,7 +4,8 @@
   "workspaces": [
     "packages/shared",
     "packages/backend",
-    "packages/frontend"
+    "packages/frontend",
+    "packages/monitor"
   ],
   "scripts": {
     "dev": "npm run dev:backend & npm run dev:frontend",
@@ -16,6 +17,8 @@
     "test:backend": "npm test --workspace=packages/backend",
     "test:frontend": "npm test --workspace=packages/frontend",
     "deploy:backend": "npm run deploy --workspace=packages/backend",
-    "deploy:frontend": "npm run deploy --workspace=packages/frontend"
+    "deploy:frontend": "npm run deploy --workspace=packages/frontend",
+    "dev:monitor": "npm run dev --workspace=packages/monitor",
+    "deploy:monitor": "npm run deploy --workspace=packages/monitor"
   }
 }

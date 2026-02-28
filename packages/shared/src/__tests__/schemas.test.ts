@@ -109,10 +109,10 @@ describe('GameConfigSchema', () => {
     expect(result.success).toBe(false);
   });
 
-  it('rejects timePerQuestion less than 5', () => {
+  it('rejects timePerQuestion less than 1', () => {
     const result = GameConfigSchema.safeParse({
       ...validConfig,
-      timePerQuestion: 4,
+      timePerQuestion: 0,
     });
     expect(result.success).toBe(false);
   });

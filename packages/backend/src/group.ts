@@ -1,5 +1,11 @@
 import type { GroupMember, GroupGame, GroupState } from '@lamo-trivia/shared';
-import { GroupClientMessageSchema, GAME_EXPIRY_MS, GROUP_LIMITS } from '@lamo-trivia/shared';
+import {
+  GroupClientMessageSchema,
+  GAME_EXPIRY_MS,
+  GROUP_LIMITS,
+  GROUP_GAME_MAX_AGE_MS,
+  GROUP_SWEEP_INTERVAL_MS,
+} from '@lamo-trivia/shared';
 
 interface StoredGroupState {
   id: string;
@@ -60,10 +66,29 @@ export class PrivateGroup {
         if (!this.group) {
           return Response.json({ error: 'Group not found' }, { status: 404 });
         }
+
+        // Enforce active game limit
+        const activeCount = Array.from(this.group.games.values()).filter(
+          (g) => g.phase === 'waiting' || g.phase === 'playing' || g.phase === 'starting',
+        ).length;
+        if (activeCount >= GROUP_LIMITS.maxActiveGames) {
+          return Response.json(
+            { error: 'Too many active games. Wait for some to finish.' },
+            { status: 400 },
+          );
+        }
+
         const game = (await request.json()) as GroupGame;
         this.group.games.set(game.gameId, game);
         await this.persist();
         this.broadcast({ type: 'game_created', game });
+
+        // Schedule sweep alarm if not already set
+        const existingAlarm = await this.state.storage.getAlarm();
+        if (!existingAlarm) {
+          await this.state.storage.setAlarm(Date.now() + GROUP_SWEEP_INTERVAL_MS);
+        }
+
         return Response.json({ ok: true });
       }
 
@@ -161,6 +186,34 @@ export class PrivateGroup {
 
   async webSocketError(ws: WebSocket): Promise<void> {
     await this.handleLeave(ws);
+  }
+
+  async alarm(): Promise<void> {
+    if (!this.group) return;
+
+    const now = Date.now();
+    let changed = false;
+
+    for (const [gameId, game] of this.group.games) {
+      const age = now - game.createdAt;
+      const isStale = game.phase !== 'playing' && age > GAME_EXPIRY_MS;
+      const isOrphaned = age > GROUP_GAME_MAX_AGE_MS;
+
+      if (isStale || isOrphaned) {
+        this.group.games.delete(gameId);
+        this.broadcast({ type: 'game_removed', gameId });
+        changed = true;
+      }
+    }
+
+    if (changed) {
+      await this.persist();
+    }
+
+    // Reschedule if games remain
+    if (this.group.games.size > 0) {
+      await this.state.storage.setAlarm(Date.now() + GROUP_SWEEP_INTERVAL_MS);
+    }
   }
 
   // --- Handlers ---

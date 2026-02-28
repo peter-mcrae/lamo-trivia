@@ -177,12 +177,18 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
         categoryIds: parsed.data.categoryIds,
         aiTopic: parsed.data.aiTopic,
       };
-      await group.fetch(
+      const groupRes = await group.fetch(
         new Request('http://internal/games', {
           method: 'POST',
           body: JSON.stringify(groupGame),
         }),
       );
+
+      // Propagate limit errors from group
+      if (!groupRes.ok) {
+        const errorData = (await groupRes.json()) as { error: string };
+        return Response.json({ error: errorData.error }, { status: groupRes.status });
+      }
 
       return Response.json({ gameId: lobbyData.gameId });
     }

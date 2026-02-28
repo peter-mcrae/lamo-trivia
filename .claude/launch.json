@@ -12,6 +12,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev:backend"],
       "port": 8787
+    },
+    {
+      "name": "monitor",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:monitor"],
+      "port": 8686
     }
   ]
 }
