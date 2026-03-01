@@ -33,6 +33,61 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </nav>
       <main>{children}</main>
+      <footer className="border-t border-lamo-border bg-lamo-bg mt-20">
+        <div className="max-w-6xl mx-auto px-6 py-12">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div>
+              <h3 className="font-semibold text-lamo-dark mb-4">LAMO Trivia</h3>
+              <p className="text-sm text-lamo-gray-muted mb-4">
+                Free online trivia games for family and friends. No sign-up required.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-lamo-dark mb-4">Learn More</h3>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link to="/about" className="text-lamo-gray hover:text-lamo-dark transition-colors">
+                    About
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/how-to-play" className="text-lamo-gray hover:text-lamo-dark transition-colors">
+                    How to Play
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h3 className="font-semibold text-lamo-dark mb-4">Categories</h3>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link to="/trivia/harry-potter" className="text-lamo-gray hover:text-lamo-dark transition-colors">
+                    Harry Potter
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/trivia/science" className="text-lamo-gray hover:text-lamo-dark transition-colors">
+                    Science
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/trivia/history" className="text-lamo-gray hover:text-lamo-dark transition-colors">
+                    History
+                  </Link>
+                </li>
+                <li>
+                  <Link to="/trivia/sports" className="text-lamo-gray hover:text-lamo-dark transition-colors">
+                    Sports
+                  </Link>
+                </li>
+              </ul>
+            </div>
+          </div>
+          <div className="mt-8 pt-8 border-t border-lamo-border text-center text-sm text-lamo-gray-muted">
+            <p>&copy; {new Date().getFullYear()} LAMO Trivia. All rights reserved.</p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }

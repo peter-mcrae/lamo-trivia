@@ -12,6 +12,9 @@ import CreateGroup from '@/pages/CreateGroup';
 import JoinGroup from '@/pages/JoinGroup';
 import GroupLobby from '@/pages/GroupLobby';
 import NotFound from '@/pages/NotFound';
+import About from '@/pages/About';
+import HowToPlay from '@/pages/HowToPlay';
+import CategoryPage from '@/pages/CategoryPage';
 
 function AppRoutes() {
   usePageTracking();
@@ -28,6 +31,9 @@ function AppRoutes() {
         <Route path="/group/new" element={<CreateGroup />} />
         <Route path="/group/join" element={<JoinGroup />} />
         <Route path="/group/:groupId" element={<GroupLobby />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/how-to-play" element={<HowToPlay />} />
+        <Route path="/trivia/:categoryId" element={<CategoryPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Layout>

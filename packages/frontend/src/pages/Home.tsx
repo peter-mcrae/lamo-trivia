@@ -1,9 +1,19 @@
 import { Link } from 'react-router-dom';
 import { TRIVIA_CATEGORIES } from '@lamo-trivia/shared';
+import { SEO } from '@/components/SEO';
 
 export default function Home() {
   return (
-    <div>
+    <>
+      <SEO
+        title="LAMO Trivia - Free Online Trivia Games for Family & Friends"
+        description="Play free online trivia games with family and friends. No sign-up required. Choose from Harry Potter, Science, History, Sports, and more categories. Create private groups or join public games instantly."
+        keywords="trivia games, online trivia, free trivia, family trivia, Harry Potter trivia, science trivia, history trivia, sports trivia, multiplayer trivia, trivia night"
+        canonical="https://lamotrivia.app"
+        ogTitle="LAMO Trivia - Free Online Trivia Games"
+        ogDescription="Play free online trivia games with family and friends. No sign-up required. Instant multiplayer trivia fun!"
+      />
+      <div>
       {/* Hero */}
       <section className="text-center pt-20 pb-16 px-6">
         <h1 className="text-6xl font-bold tracking-tight mb-4 animate-fade-in-up">
@@ -54,14 +64,15 @@ export default function Home() {
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {TRIVIA_CATEGORIES.map((cat) => (
-            <div
+            <Link
               key={cat.id}
-              className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-lamo-bg border border-lamo-border hover:scale-105 hover:shadow-md transition-all cursor-default"
+              to={`/trivia/${cat.id}`}
+              className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-lamo-bg border border-lamo-border hover:scale-105 hover:shadow-md transition-all cursor-pointer"
             >
               <span className="text-3xl">{cat.icon}</span>
               <span className="text-sm font-semibold text-lamo-dark">{cat.name}</span>
               <span className="text-xs text-lamo-gray-muted">{cat.questionCount} Qs</span>
-            </div>
+            </Link>
           ))}
           <Link
             to="/create"
@@ -97,6 +108,34 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* SEO Content Section */}
+      <section className="max-w-4xl mx-auto px-6 pb-20">
+        <h2 className="text-2xl font-bold text-lamo-dark text-center mb-8">
+          Free Online Trivia Games
+        </h2>
+        <div className="prose prose-lg max-w-none text-lamo-gray">
+          <p className="mb-4">
+            LAMO Trivia offers the best free online trivia experience for families and friends. 
+            Whether you're looking for <Link to="/trivia/harry-potter" className="text-lamo-blue hover:underline">Harry Potter trivia</Link>, 
+            {' '}<Link to="/trivia/science" className="text-lamo-blue hover:underline">science questions</Link>, 
+            {' '}<Link to="/trivia/history" className="text-lamo-blue hover:underline">history quizzes</Link>, 
+            or <Link to="/trivia/sports" className="text-lamo-blue hover:underline">sports trivia</Link>, 
+            we have something for everyone.
+          </p>
+          <p className="mb-4">
+            Our platform makes it easy to host virtual trivia nights, family game nights, or 
+            friendly competitions. With no sign-up required, you can start playing instantly. 
+            Simply <Link to="/create" className="text-lamo-blue hover:underline">create a game</Link>, 
+            share the code, and invite your friends to join.
+          </p>
+          <p>
+            New to trivia? Check out our <Link to="/how-to-play" className="text-lamo-blue hover:underline">complete guide</Link> 
+            {' '}or learn <Link to="/about" className="text-lamo-blue hover:underline">more about LAMO Trivia</Link>.
+          </p>
+        </div>
+      </section>
     </div>
+    </>
   );
 }
