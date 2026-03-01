@@ -19,7 +19,13 @@ export default function GroupLobby() {
   const [showNewGameModal, setShowNewGameModal] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
+  const [inviteNotification, setInviteNotification] = useState<{
+    gameId: string;
+    gameName: string;
+    inviterUsername: string;
+  } | null>(null);
   const joinedRef = useRef(false);
+  const inviteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { groupState, error, handleMessage } = useGroupState();
 
@@ -31,6 +37,16 @@ export default function GroupLobby() {
       }
       if (message.type === 'error' && message.code === 'MEMBER_EXISTS') {
         setShowRecovery(true);
+        return;
+      }
+      if (message.type === 'game_invite') {
+        setInviteNotification({
+          gameId: message.gameId,
+          gameName: message.gameName,
+          inviterUsername: message.inviterUsername,
+        });
+        if (inviteTimerRef.current) clearTimeout(inviteTimerRef.current);
+        inviteTimerRef.current = setTimeout(() => setInviteNotification(null), 15000);
         return;
       }
       handleMessage(message);
@@ -179,6 +195,26 @@ export default function GroupLobby() {
         </div>
         <Button onClick={() => setShowNewGameModal(true)}>New Game</Button>
       </div>
+
+      {/* Game invite notification */}
+      {inviteNotification && (
+        <div className="mb-4 px-4 py-3 bg-lamo-blue/10 border border-lamo-blue/20 rounded-xl flex items-center justify-between gap-3">
+          <p className="text-sm font-medium text-lamo-dark">
+            {inviteNotification.inviterUsername} invited you to join &ldquo;{inviteNotification.gameName}&rdquo;
+          </p>
+          <div className="flex items-center gap-2 shrink-0">
+            <Button onClick={() => navigate(`/game/${inviteNotification.gameId}`)}>
+              Join
+            </Button>
+            <button
+              onClick={() => setInviteNotification(null)}
+              className="text-xs text-lamo-gray-muted hover:text-lamo-dark transition-colors"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Online Members */}
       <div className="mb-8">

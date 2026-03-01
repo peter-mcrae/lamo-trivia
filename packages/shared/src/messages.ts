@@ -30,6 +30,7 @@ export type GroupClientMessage =
   | { type: 'join_group'; username: string; memberId?: string }
   | { type: 'recover_member'; username: string }
   | { type: 'leave_group' }
+  | { type: 'invite_to_game'; gameId: string; gameName: string }
   | { type: 'ping' };
 
 // Group Server -> Client
@@ -43,5 +44,6 @@ export type GroupServerMessage =
   | { type: 'game_created'; game: GroupGame }
   | { type: 'game_updated'; game: GroupGame }
   | { type: 'game_removed'; gameId: string }
+  | { type: 'game_invite'; gameId: string; gameName: string; inviterUsername: string }
   | { type: 'error'; message: string; code?: string }
   | { type: 'pong' };

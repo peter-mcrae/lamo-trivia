@@ -49,5 +49,6 @@ export const GroupClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('join_group'), username: z.string(), memberId: z.string().uuid().optional() }),
   z.object({ type: z.literal('recover_member'), username: z.string() }),
   z.object({ type: z.literal('leave_group') }),
+  z.object({ type: z.literal('invite_to_game'), gameId: z.string().min(1), gameName: z.string().min(1).max(50) }),
   z.object({ type: z.literal('ping') }),
 ]);

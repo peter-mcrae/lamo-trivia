@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { GAME_EXPIRY_MS } from '@lamo-trivia/shared';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -11,6 +11,8 @@ import { Timer } from '../components/Timer';
 import { ScoreBoard } from '../components/ScoreBoard';
 import { RematchModal } from '../components/RematchModal';
 import { Button } from '../components/ui/Button';
+import { GroupMembersCard } from '../components/GroupMembersCard';
+import { api } from '../lib/api';
 
 export default function GameRoom() {
   const { gameId } = useParams<{ gameId: string }>();
@@ -22,6 +24,7 @@ export default function GameRoom() {
   const [copied, setCopied] = useState(false);
   const [expiryTimeLeft, setExpiryTimeLeft] = useState<number | null>(null);
   const [showRematchModal, setShowRematchModal] = useState(false);
+  const [groupName, setGroupName] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const joinedRef = useRef(false);
   const groupIdRef = useRef<string | undefined>();
@@ -191,6 +194,13 @@ export default function GameRoom() {
     groupIdRef.current = gameState?.config.groupId;
   }, [gameState?.config.groupId]);
 
+  // Fetch group name when the game belongs to a group
+  useEffect(() => {
+    const groupId = gameState?.config.groupId;
+    if (!groupId) return;
+    api.getGroup(groupId).then((g) => setGroupName(g.name)).catch(() => {});
+  }, [gameState?.config.groupId]);
+
   const backPath = gameState?.config.groupId
     ? `/group/${gameState.config.groupId}`
     : '/lobby';
@@ -226,6 +236,31 @@ export default function GameRoom() {
 
   return (
     <div className="max-w-3xl mx-auto py-10 px-6">
+      {/* Group context */}
+      {gameState.config.groupId && (
+        <div className="mb-4">
+          <Link
+            to={`/group/${gameState.config.groupId}`}
+            className="inline-flex items-center gap-1.5 text-xs font-medium text-lamo-blue hover:text-lamo-blue/80 transition-colors"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-3.5 h-3.5">
+              <path fillRule="evenodd" d="M12.5 9.75A2.75 2.75 0 0 0 9.75 7H4.56l2.22 2.22a.75.75 0 1 1-1.06 1.06l-3.5-3.5a.75.75 0 0 1 0-1.06l3.5-3.5a.75.75 0 0 1 1.06 1.06L4.56 5.5h5.19a4.25 4.25 0 0 1 0 8.5h-1a.75.75 0 0 1 0-1.5h1a2.75 2.75 0 0 0 2.75-2.75Z" clipRule="evenodd" />
+            </svg>
+            {groupName ?? 'Group'}
+          </Link>
+        </div>
+      )}
+
+      {/* Group members online */}
+      {gameState.config.groupId && (gameState.phase === 'waiting' || gameState.phase === 'finished') && (
+        <GroupMembersCard
+          groupId={gameState.config.groupId}
+          gameId={gameState.id}
+          gameName={gameState.config.name}
+          gamePlayerUsernames={gameState.players.map((p) => p.username)}
+        />
+      )}
+
       {/* Error banner */}
       {error && (
         <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">

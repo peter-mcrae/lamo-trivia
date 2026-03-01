@@ -167,6 +167,9 @@ export class PrivateGroup {
         case 'leave_group':
           await this.handleLeave(ws);
           break;
+        case 'invite_to_game':
+          this.handleInvite(ws, parsed.data.gameId, parsed.data.gameName);
+          break;
         case 'ping':
           this.sendTo(ws, { type: 'pong' });
           break;
@@ -348,6 +351,23 @@ export class PrivateGroup {
         this.broadcast({ type: 'member_offline', username: member.username });
       }
     }
+  }
+
+  private handleInvite(ws: WebSocket, gameId: string, gameName: string): void {
+    if (!this.group) return;
+
+    const attachedId = ws.deserializeAttachment() as string | null;
+    if (!attachedId) return;
+
+    const member = this.group.members.find((m) => m.memberId === attachedId);
+    if (!member) return;
+
+    this.broadcastExcept(ws, {
+      type: 'game_invite',
+      gameId,
+      gameName,
+      inviterUsername: member.username,
+    });
   }
 
   // --- Helpers ---
