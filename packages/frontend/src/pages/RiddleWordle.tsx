@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { RIDDLES, RIDDLE_MAX_GUESSES } from '@lamo-trivia/shared';
+import { RIDDLES, RIDDLE_MAX_GUESSES, isValidWord } from '@lamo-trivia/shared';
 import { RiddleWordleGrid } from '../components/RiddleWordleGrid';
 import { RiddleWordleKeyboard } from '../components/RiddleWordleKeyboard';
 import { SEO } from '../components/SEO';
@@ -94,6 +94,13 @@ export default function RiddleWordle() {
         }
 
         const guess = currentGuess.toUpperCase();
+
+        // Dictionary check: must be a real English word (always allow the actual answer)
+        if (!isValidWord(guess) && guess !== answer) {
+          triggerShake('Not a valid word');
+          return;
+        }
+
         const result = evaluateGuess(guess, answer);
         const newGuesses = [...guesses, guess];
         const newStatuses = [...statuses, result];
