@@ -90,6 +90,17 @@ export function useGameState() {
     }
   }, []);
 
+  const reset = useCallback(() => {
+    setGameState(null);
+    setCurrentQuestion(null);
+    setQuestionIndex(0);
+    setTotalQuestions(0);
+    setSelectedAnswer(null);
+    setAnswerResult(null);
+    setCountdown(null);
+    setRankings(null);
+  }, []);
+
   return {
     gameState,
     currentQuestion,
@@ -102,5 +113,6 @@ export function useGameState() {
     setCountdown,
     rankings,
     handleMessage,
+    reset,
   };
 }

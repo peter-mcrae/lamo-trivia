@@ -41,6 +41,7 @@ export default function GameRoom() {
     setCountdown,
     rankings,
     handleMessage,
+    reset: resetGameState,
   } = useGameState();
 
   const onMessage = useCallback(
@@ -68,6 +69,16 @@ export default function GameRoom() {
     gameId: gameId!,
     onMessage,
   });
+
+  // Reset all state when navigating to a new game (e.g., Play Again)
+  useEffect(() => {
+    joinedRef.current = false;
+    resetGameState();
+    setError(null);
+    setStartingGame(false);
+    setShowRematchModal(false);
+    setExpiryTimeLeft(null);
+  }, [gameId, resetGameState]);
 
   // Join game once connected and have a username
   useEffect(() => {

@@ -306,4 +306,77 @@ describe('useGameState', () => {
     expect(result.current.gameState!.phase).toBe('finished');
     expect(result.current.gameState!.scores).toEqual(finalScores);
   });
+
+  it('reset clears all state back to initial values after a full game', () => {
+    const { result } = renderHook(() => useGameState());
+
+    // Simulate a full game: join → start → question → answer → finish
+    act(() => {
+      result.current.handleMessage({
+        type: 'game_state',
+        state: initialGameState,
+      } as any);
+    });
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'game_starting',
+        countdown: 3,
+      } as any);
+    });
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'question',
+        question: { text: 'Q?', options: ['A', 'B', 'C', 'D'], category: 'general' },
+        questionIndex: 2,
+        totalQuestions: 10,
+      } as any);
+    });
+
+    act(() => {
+      result.current.setSelectedAnswer(1);
+    });
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'answer_result',
+        correct: true,
+        correctIndex: 1,
+        scores: { p1: 100 },
+      } as any);
+    });
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'game_finished',
+        rankings: initialGameState.players,
+        finalScores: { p1: 100 },
+      } as any);
+    });
+
+    // Verify state is populated from the finished game
+    expect(result.current.gameState).not.toBeNull();
+    expect(result.current.gameState!.phase).toBe('finished');
+    expect(result.current.currentQuestion).not.toBeNull();
+    expect(result.current.questionIndex).toBe(2);
+    expect(result.current.totalQuestions).toBe(10);
+    expect(result.current.answerResult).not.toBeNull();
+    expect(result.current.rankings).not.toBeNull();
+
+    // Reset (simulates what happens on Play Again navigation)
+    act(() => {
+      result.current.reset();
+    });
+
+    // All state should be back to initial values
+    expect(result.current.gameState).toBeNull();
+    expect(result.current.currentQuestion).toBeNull();
+    expect(result.current.questionIndex).toBe(0);
+    expect(result.current.totalQuestions).toBe(0);
+    expect(result.current.selectedAnswer).toBeNull();
+    expect(result.current.answerResult).toBeNull();
+    expect(result.current.countdown).toBeNull();
+    expect(result.current.rankings).toBeNull();
+  });
 });
