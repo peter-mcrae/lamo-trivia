@@ -37,10 +37,12 @@ function getClientIP(request: Request): string {
   return request.headers.get('CF-Connecting-IP') ?? 'unknown';
 }
 
-const RATE_LIMITED = Response.json(
-  { error: 'Too many requests. Please try again later.' },
-  { status: 429 },
-);
+function rateLimitedResponse(): Response {
+  return Response.json(
+    { error: 'Too many requests. Please try again later.' },
+    { status: 429 },
+  );
+}
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
@@ -56,7 +58,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
 
     // POST /api/games — create a new game
     if (method === 'POST' && url.pathname === '/api/games') {
-      if (!gameCreateLimiter.check(getClientIP(request))) return RATE_LIMITED;
+      if (!gameCreateLimiter.check(getClientIP(request))) return rateLimitedResponse();
       const body = await request.json();
       const parsed = GameConfigSchema.safeParse(body);
       if (!parsed.success) {
@@ -87,7 +89,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
 
     // POST /api/username/check — check availability
     if (method === 'POST' && url.pathname === '/api/username/check') {
-      if (!usernameCheckLimiter.check(getClientIP(request))) return RATE_LIMITED;
+      if (!usernameCheckLimiter.check(getClientIP(request))) return rateLimitedResponse();
       const { username } = (await request.json()) as { username: string };
       const parsed = UsernameSchema.safeParse(username);
       if (!parsed.success) {
@@ -122,7 +124,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
 
     // POST /api/groups — create a new private group
     if (method === 'POST' && url.pathname === '/api/groups') {
-      if (!groupCreateLimiter.check(getClientIP(request))) return RATE_LIMITED;
+      if (!groupCreateLimiter.check(getClientIP(request))) return rateLimitedResponse();
       const body = (await request.json()) as { name: string };
       const parsed = GroupNameSchema.safeParse(body.name);
       if (!parsed.success) {
@@ -171,7 +173,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
 
     // POST /api/groups/:groupId/games — create a game within a group
     if (method === 'POST' && url.pathname.match(/^\/api\/groups\/[^/]+\/games$/)) {
-      if (!groupGameLimiter.check(getClientIP(request))) return RATE_LIMITED;
+      if (!groupGameLimiter.check(getClientIP(request))) return rateLimitedResponse();
       const groupId = url.pathname.split('/api/groups/')[1].split('/games')[0];
 
       // Validate group exists
