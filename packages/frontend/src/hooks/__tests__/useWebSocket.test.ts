@@ -104,27 +104,31 @@ describe('useWebSocket', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('send() sends JSON when connected', () => {
+  it('send() sends JSON and returns true when connected', () => {
     const { result } = renderHook(() => useWebSocket({ gameId: 'ABC-1234' }));
 
     act(() => latestWs().simulateOpen());
 
+    let sent = false;
     act(() => {
-      result.current.send({ type: 'join_game', gameId: 'ABC-1234', username: 'Player1' });
+      sent = result.current.send({ type: 'join_game', gameId: 'ABC-1234', username: 'Player1' });
     });
 
+    expect(sent).toBe(true);
     expect(latestWs().send).toHaveBeenCalledWith(
       JSON.stringify({ type: 'join_game', gameId: 'ABC-1234', username: 'Player1' }),
     );
   });
 
-  it('send() does nothing when not connected', () => {
+  it('send() returns false when not connected', () => {
     const { result } = renderHook(() => useWebSocket({ gameId: 'ABC-1234' }));
 
+    let sent = true;
     act(() => {
-      result.current.send({ type: 'join_game', gameId: 'ABC-1234', username: 'Player1' });
+      sent = result.current.send({ type: 'join_game', gameId: 'ABC-1234', username: 'Player1' });
     });
 
+    expect(sent).toBe(false);
     expect(latestWs().send).not.toHaveBeenCalled();
   });
 

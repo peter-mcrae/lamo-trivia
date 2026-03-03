@@ -54,10 +54,12 @@ export function useWebSocket({ gameId, onMessage, onOpen, onClose }: UseWebSocke
     };
   }, [gameId]);
 
-  const send = useCallback((message: ClientMessage) => {
+  const send = useCallback((message: ClientMessage): boolean => {
     if (wsRef.current?.readyState === WebSocket.OPEN) {
       wsRef.current.send(JSON.stringify(message));
+      return true;
     }
+    return false;
   }, []);
 
   return { connected, send };

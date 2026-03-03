@@ -83,8 +83,9 @@ export default function GameRoom() {
   // Join game once connected and have a username
   useEffect(() => {
     if (connected && hasUsername && !joinedRef.current) {
-      joinedRef.current = true;
-      send({ type: 'join_game', gameId: gameId!, username: username! });
+      if (send({ type: 'join_game', gameId: gameId!, username: username! })) {
+        joinedRef.current = true;
+      }
     }
   }, [connected, hasUsername, gameId, username, send]);
 
