@@ -16,6 +16,14 @@ export default {
     }
 
     try {
+      // Reject cross-origin WebSocket upgrades
+      if (request.headers.get('Upgrade') === 'websocket') {
+        const origin = request.headers.get('Origin');
+        if (origin && origin !== env.FRONTEND_URL) {
+          return new Response('Forbidden', { status: 403 });
+        }
+      }
+
       // WebSocket upgrade: /ws/game/:gameId
       if (url.pathname.startsWith('/ws/game/') && request.headers.get('Upgrade') === 'websocket') {
         const gameId = url.pathname.split('/ws/game/')[1];

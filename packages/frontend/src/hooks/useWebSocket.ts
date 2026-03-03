@@ -13,6 +13,8 @@ export function useWebSocket({ gameId, onMessage, onOpen, onClose }: UseWebSocke
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
+    setConnected(false);
+
     const apiUrl = import.meta.env.VITE_API_URL;
     let wsUrl: string;
     if (apiUrl) {
@@ -26,9 +28,10 @@ export function useWebSocket({ gameId, onMessage, onOpen, onClose }: UseWebSocke
       wsUrl = `${protocol}//${window.location.host}/ws/game/${gameId}`;
     }
     const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
 
     ws.onopen = () => {
-      setConnected(true);
+      if (wsRef.current === ws) setConnected(true);
       onOpen?.();
     };
 
@@ -42,11 +45,9 @@ export function useWebSocket({ gameId, onMessage, onOpen, onClose }: UseWebSocke
     };
 
     ws.onclose = () => {
-      setConnected(false);
+      if (wsRef.current === ws) setConnected(false);
       onClose?.();
     };
-
-    wsRef.current = ws;
 
     return () => {
       ws.close();

@@ -8,12 +8,22 @@ interface OpenAIChatResponse {
   }>;
 }
 
+/** Strip characters that could be used for prompt injection */
+function sanitizeTopic(raw: string): string {
+  return raw
+    .replace(/[\n\r\t`]/g, ' ')         // Remove newlines, tabs, backticks
+    .replace(/[^\x20-\x7E\u00A0-\uFFFF]/g, '') // Strip control characters
+    .replace(/\s+/g, ' ')               // Collapse whitespace
+    .trim();
+}
+
 export async function generateAIQuestions(
   apiKey: string,
   topic: string,
   count: number,
 ): Promise<Question[]> {
-  const prompt = `Generate exactly ${count} multiple-choice trivia questions about "${topic}".
+  const safeTopic = sanitizeTopic(topic);
+  const prompt = `Generate exactly ${count} multiple-choice trivia questions about "${safeTopic}".
 
 Return a JSON array where each object has:
 - "id": a unique string like "ai-1", "ai-2", etc.
@@ -56,7 +66,7 @@ Rules:
     const errorText = await response.text();
     // Log full error server-side (visible in Workers logs) but never expose to client
     console.error(`OpenAI API error (${response.status}): ${errorText}`);
-    throw new Error(`AI question generation failed (status ${response.status})`);
+    throw new Error('AI question generation failed — please try again');
   }
 
   const data = (await response.json()) as OpenAIChatResponse;
@@ -91,7 +101,8 @@ Rules:
       q.correctIndex < 0 ||
       q.correctIndex > 3
     ) {
-      throw new Error(`Invalid question structure: ${JSON.stringify(q)}`);
+      console.error('Invalid AI question structure', { topic: safeTopic, question: q });
+      throw new Error('AI returned invalid question format — please try again');
     }
     q.categoryId = 'ai';
   }

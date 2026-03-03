@@ -91,7 +91,7 @@ describe('generateAIQuestions', () => {
     mockFetch.mockResolvedValue(mockOKResponse(JSON.stringify(badQuestion)));
 
     await expect(generateAIQuestions('sk-test-key', 'trivia', 1)).rejects.toThrow(
-      'Invalid question structure',
+      'AI returned invalid question format',
     );
   });
 
@@ -100,7 +100,7 @@ describe('generateAIQuestions', () => {
     mockFetch.mockResolvedValue(mockOKResponse(JSON.stringify(badQuestion)));
 
     await expect(generateAIQuestions('sk-test-key', 'trivia', 1)).rejects.toThrow(
-      'Invalid question structure',
+      'AI returned invalid question format',
     );
   });
 
@@ -109,7 +109,7 @@ describe('generateAIQuestions', () => {
     mockFetch.mockResolvedValue(mockOKResponse(JSON.stringify(badQuestion)));
 
     await expect(generateAIQuestions('sk-test-key', 'trivia', 1)).rejects.toThrow(
-      'Invalid question structure',
+      'AI returned invalid question format',
     );
   });
 
@@ -119,7 +119,7 @@ describe('generateAIQuestions', () => {
     );
 
     await expect(generateAIQuestions('sk-test-key', 'trivia', 1)).rejects.toThrow(
-      'AI question generation failed (status 429)',
+      'AI question generation failed',
     );
 
     // The thrown error message should NOT contain the raw response body

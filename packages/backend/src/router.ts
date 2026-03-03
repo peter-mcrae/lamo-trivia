@@ -3,6 +3,45 @@ import { GameConfigSchema, UsernameSchema, GroupNameSchema, TRIVIA_CATEGORIES, g
 import type { GroupGame } from '@lamo-trivia/shared';
 import { seedQuestions, getCategoryCounts } from './questions';
 
+// --- In-memory rate limiter (per Worker isolate) ---
+
+class RateLimiter {
+  private windows = new Map<string, { count: number; start: number }>();
+
+  constructor(
+    private maxRequests: number,
+    private windowMs: number = 60_000,
+  ) {}
+
+  check(key: string): boolean {
+    const now = Date.now();
+    const entry = this.windows.get(key);
+
+    if (!entry || now - entry.start > this.windowMs) {
+      this.windows.set(key, { count: 1, start: now });
+      return true;
+    }
+
+    entry.count++;
+    if (entry.count > this.maxRequests) return false;
+    return true;
+  }
+}
+
+const gameCreateLimiter = new RateLimiter(10);       // 10/min per IP
+const groupCreateLimiter = new RateLimiter(5);       // 5/min per IP
+const usernameCheckLimiter = new RateLimiter(20);    // 20/min per IP
+const groupGameLimiter = new RateLimiter(10);        // 10/min per IP
+
+function getClientIP(request: Request): string {
+  return request.headers.get('CF-Connecting-IP') ?? 'unknown';
+}
+
+const RATE_LIMITED = Response.json(
+  { error: 'Too many requests. Please try again later.' },
+  { status: 429 },
+);
+
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
   const url = new URL(request.url);
   const method = request.method;
@@ -17,6 +56,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
 
     // POST /api/games — create a new game
     if (method === 'POST' && url.pathname === '/api/games') {
+      if (!gameCreateLimiter.check(getClientIP(request))) return RATE_LIMITED;
       const body = await request.json();
       const parsed = GameConfigSchema.safeParse(body);
       if (!parsed.success) {
@@ -47,6 +87,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
 
     // POST /api/username/check — check availability
     if (method === 'POST' && url.pathname === '/api/username/check') {
+      if (!usernameCheckLimiter.check(getClientIP(request))) return RATE_LIMITED;
       const { username } = (await request.json()) as { username: string };
       const parsed = UsernameSchema.safeParse(username);
       if (!parsed.success) {
@@ -81,6 +122,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
 
     // POST /api/groups — create a new private group
     if (method === 'POST' && url.pathname === '/api/groups') {
+      if (!groupCreateLimiter.check(getClientIP(request))) return RATE_LIMITED;
       const body = (await request.json()) as { name: string };
       const parsed = GroupNameSchema.safeParse(body.name);
       if (!parsed.success) {
@@ -129,6 +171,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
 
     // POST /api/groups/:groupId/games — create a game within a group
     if (method === 'POST' && url.pathname.match(/^\/api\/groups\/[^/]+\/games$/)) {
+      if (!groupGameLimiter.check(getClientIP(request))) return RATE_LIMITED;
       const groupId = url.pathname.split('/api/groups/')[1].split('/games')[0];
 
       // Validate group exists

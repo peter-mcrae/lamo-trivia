@@ -25,10 +25,15 @@ interface RoomState {
   startedAt?: number;
 }
 
+// Per-connection message rate limiting
+const WS_RATE_WINDOW_MS = 10_000; // 10-second window
+const WS_RATE_MAX_MESSAGES = 30;  // max 30 messages per window
+
 export class GameRoom {
   private state: DurableObjectState;
   private env: Env;
   private room: RoomState | null = null;
+  private wsRates = new Map<WebSocket, { count: number; start: number }>();
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -87,6 +92,21 @@ export class GameRoom {
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    // Per-connection message rate limiting
+    const now = Date.now();
+    const rate = this.wsRates.get(ws);
+    if (!rate || now - rate.start > WS_RATE_WINDOW_MS) {
+      this.wsRates.set(ws, { count: 1, start: now });
+    } else {
+      rate.count++;
+      if (rate.count > WS_RATE_MAX_MESSAGES) {
+        this.sendTo(ws, { type: 'error', message: 'Rate limit exceeded' });
+        ws.close(1008, 'Rate limit exceeded');
+        this.wsRates.delete(ws);
+        return;
+      }
+    }
+
     // Guard against oversized messages (max 2KB is plenty for any valid client message)
     const raw = typeof message === 'string' ? message : '';
     if (raw.length > 2048) {
@@ -135,6 +155,7 @@ export class GameRoom {
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
+    this.wsRates.delete(ws);
     await this.handleLeave(ws);
   }
 

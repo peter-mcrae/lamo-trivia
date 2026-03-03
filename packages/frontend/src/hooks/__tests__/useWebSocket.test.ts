@@ -144,6 +144,32 @@ describe('useWebSocket', () => {
     expect(latestWs().url).toContain('/ws/game/GAME-2');
   });
 
+  it('old WS onclose does not clobber new WS connected state (race condition)', () => {
+    const { result, rerender } = renderHook(
+      ({ gameId }) => useWebSocket({ gameId }),
+      { initialProps: { gameId: 'GAME-1' } },
+    );
+
+    const firstWs = latestWs();
+    // Prevent close() from firing onclose synchronously so we can simulate async
+    firstWs.close = vi.fn(() => { firstWs.readyState = MockWebSocket.CLOSED; });
+
+    act(() => firstWs.simulateOpen());
+    expect(result.current.connected).toBe(true);
+
+    // Navigate to new game — cleanup closes old WS (but onclose doesn't fire yet)
+    rerender({ gameId: 'GAME-2' });
+    const secondWs = latestWs();
+
+    // New WS connects first
+    act(() => secondWs.simulateOpen());
+    expect(result.current.connected).toBe(true);
+
+    // Old WS onclose fires late (async) — should NOT clobber connected state
+    act(() => firstWs.simulateClose());
+    expect(result.current.connected).toBe(true);
+  });
+
   it('closes WebSocket on unmount', () => {
     const { unmount } = renderHook(() => useWebSocket({ gameId: 'ABC-1234' }));
 
