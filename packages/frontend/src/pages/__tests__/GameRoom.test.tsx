@@ -26,7 +26,6 @@ vi.mock('@/lib/api', () => ({
 let wsSendSpy: ReturnType<typeof vi.fn>;
 let wsOnMessage: ((msg: ServerMessage) => void) | undefined;
 let wsConnected: boolean;
-let setWsConnected: (v: boolean) => void;
 
 vi.mock('@/hooks/useWebSocket', () => ({
   useWebSocket: ({ onMessage }: { gameId: string; onMessage?: (msg: ServerMessage) => void }) => {
