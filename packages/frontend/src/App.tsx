@@ -15,6 +15,7 @@ import NotFound from '@/pages/NotFound';
 import About from '@/pages/About';
 import HowToPlay from '@/pages/HowToPlay';
 import CategoryPage from '@/pages/CategoryPage';
+import RiddleWordle from '@/pages/RiddleWordle';
 
 function AppRoutes() {
   usePageTracking();
@@ -34,6 +35,7 @@ function AppRoutes() {
         <Route path="/about" element={<About />} />
         <Route path="/how-to-play" element={<HowToPlay />} />
         <Route path="/trivia/:categoryId" element={<CategoryPage />} />
+        <Route path="/riddle-wordle" element={<RiddleWordle />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Layout>
