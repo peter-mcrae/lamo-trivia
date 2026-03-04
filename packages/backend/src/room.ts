@@ -2,7 +2,7 @@ import type { Player, GameConfig, GamePhase, Question, ClientQuestion, GameState
 import { ClientMessageSchema, AVATARS, GAME_EXPIRY_MS } from '@lamo-trivia/shared';
 import { getOpenAIKey } from './env';
 import type { Env } from './env';
-import { getQuestions } from './questions';
+import { getQuestions, saveAIQuestionsToBank } from './questions';
 import { generateAIQuestions } from './questions/ai';
 import { calculateRoundScores } from './scoring';
 
@@ -289,6 +289,17 @@ export class GameRoom {
           this.room.config.aiTopic,
           this.room.config.questionCount,
         );
+        // Fire-and-forget: save to question bank for reuse
+        saveAIQuestionsToBank(
+          this.env.TRIVIA_KV,
+          this.room.config.aiTopic,
+          this.room.questions,
+        ).catch((err) => {
+          console.error('Failed to save AI questions to bank', {
+            topic: this.room?.config.aiTopic,
+            error: err instanceof Error ? err.message : String(err),
+          });
+        });
       } else {
         this.room.questions = await getQuestions(
           this.env.TRIVIA_KV,

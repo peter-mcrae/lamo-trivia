@@ -10,8 +10,37 @@ export type LetterStatus = 'correct' | 'present' | 'absent';
 
 type GameStatus = 'playing' | 'won' | 'lost';
 
+const SEEN_KEY = 'riddle-wordle-seen';
+
+function getSeenIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(SEEN_KEY);
+    return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function markSeen(id: string) {
+  try {
+    const seen = getSeenIds();
+    seen.add(id);
+    // Reset if all riddles have been seen
+    if (seen.size >= RIDDLES.length) {
+      localStorage.removeItem(SEEN_KEY);
+    } else {
+      localStorage.setItem(SEEN_KEY, JSON.stringify([...seen]));
+    }
+  } catch {
+    // localStorage unavailable — silently ignore
+  }
+}
+
 function getRandomRiddle() {
-  return RIDDLES[Math.floor(Math.random() * RIDDLES.length)];
+  const seen = getSeenIds();
+  const unseen = RIDDLES.filter((r) => !seen.has(r.id));
+  const pool = unseen.length > 0 ? unseen : RIDDLES;
+  return pool[Math.floor(Math.random() * pool.length)];
 }
 
 function evaluateGuess(guess: string, answer: string): LetterStatus[] {
@@ -112,9 +141,11 @@ export default function RiddleWordle() {
         if (guess === answer) {
           setGameStatus('won');
           setMessage('You solved it!');
+          markSeen(riddle.id);
         } else if (newGuesses.length >= RIDDLE_MAX_GUESSES) {
           setGameStatus('lost');
           setMessage(`The answer was: ${answer}`);
+          markSeen(riddle.id);
         }
         return;
       }

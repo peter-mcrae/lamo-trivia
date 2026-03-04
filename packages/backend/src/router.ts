@@ -1,7 +1,7 @@
 import { Env } from './env';
 import { GameConfigSchema, UsernameSchema, GroupNameSchema, TRIVIA_CATEGORIES, generateGroupId } from '@lamo-trivia/shared';
 import type { GroupGame } from '@lamo-trivia/shared';
-import { seedQuestions, getCategoryCounts } from './questions';
+import { seedQuestions, getCategoryCounts, getAIQuestionBankTopics } from './questions';
 
 // --- In-memory rate limiter (per Worker isolate) ---
 
@@ -236,6 +236,12 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       }
 
       return Response.json({ gameId: lobbyData.gameId });
+    }
+
+    // GET /api/ai-question-bank — list banked AI topics and counts
+    if (method === 'GET' && url.pathname === '/api/ai-question-bank') {
+      const topics = await getAIQuestionBankTopics(env.TRIVIA_KV);
+      return Response.json({ topics });
     }
 
     // GET /api/health
