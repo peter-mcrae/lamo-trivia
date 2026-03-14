@@ -5,6 +5,7 @@ const ADMIN_BASE = `${API_BASE}/admin`;
 
 async function adminFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${ADMIN_BASE}${path}`, {
+    credentials: 'include',
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     ...options,
   });
@@ -136,6 +137,7 @@ export const adminApi = {
   checkAccess: async (): Promise<boolean> => {
     try {
       const response = await fetch(`${ADMIN_BASE}/errors?limit=1`, {
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       });
       return response.ok;
