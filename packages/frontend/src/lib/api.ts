@@ -14,6 +14,11 @@ async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     ...options,
   });
+  // Detect HTML responses (e.g. SPA fallback serving index.html instead of API)
+  const contentType = response.headers.get('Content-Type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error('API is unreachable. The server returned an HTML page instead of JSON.');
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => ({ error: `Error ${response.status}` }));
     throw new Error((body as { error: string }).error || `API error: ${response.status}`);
