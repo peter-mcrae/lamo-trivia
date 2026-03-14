@@ -11,6 +11,8 @@ export interface Env {
   TRIVIA_KV: KVNamespace;
   R2_HUNT_PHOTOS: R2Bucket;
   FRONTEND_URL: string;
+  /** Admin panel URL (e.g. "https://admin.lamotrivia.app") — set for CORS */
+  ADMIN_URL?: string;
   /** Shared secret for authenticating POST /api/seed — set via wrangler secret put SEED_SECRET */
   SEED_SECRET?: string;
   /**

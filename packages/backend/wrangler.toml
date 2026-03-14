@@ -45,6 +45,7 @@ routes = [
 
 [vars]
 FRONTEND_URL = "https://lamotrivia.app"
+ADMIN_URL = "https://admin.lamotrivia.app"
 GA_MEASUREMENT_ID = "G-804RC3BG82"
 
 

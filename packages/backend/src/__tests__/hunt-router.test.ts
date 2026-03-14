@@ -1,8 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleRequest } from '../router';
+import { app } from '../app';
 import { createMockEnv, createMockKV } from './mocks';
 import type { Env } from '../env';
 import type { User, Session } from '@lamo-trivia/shared';
+
+function fetchApp(request: Request, env: Env) {
+  return app.fetch(request, env);
+}
 
 /** Build a mock Env with DOs that behave reasonably for hunt endpoints. */
 function createHuntMockEnv(overrides: Partial<Env> = {}): Env {
@@ -114,7 +118,7 @@ describe('POST /api/hunts — Create hunt', () => {
       body: JSON.stringify(validHuntConfig()),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(200);
     const data = (await response.json()) as any;
@@ -129,7 +133,7 @@ describe('POST /api/hunts — Create hunt', () => {
       body: JSON.stringify(validHuntConfig()),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
     expect(response.status).toBe(401);
   });
 
@@ -146,7 +150,7 @@ describe('POST /api/hunts — Create hunt', () => {
       body: JSON.stringify(config),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(400);
     const data = (await response.json()) as any;
@@ -165,7 +169,7 @@ describe('POST /api/hunts — Create hunt', () => {
       body: JSON.stringify(config),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(400);
   });
@@ -182,7 +186,7 @@ describe('POST /api/hunts — Create hunt', () => {
       body: JSON.stringify(config),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(400);
   });
@@ -199,7 +203,7 @@ describe('POST /api/hunts — Create hunt', () => {
         headers: authHeaders(),
         body: JSON.stringify(validHuntConfig()),
       });
-      await handleRequest(req, env);
+      await fetchApp(req, env);
     }
 
     // 11th request should be rate-limited
@@ -209,7 +213,7 @@ describe('POST /api/hunts — Create hunt', () => {
       body: JSON.stringify(validHuntConfig()),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(429);
     const data = (await response.json()) as any;
@@ -235,7 +239,7 @@ describe('POST /api/hunts/:huntId/photos — Photo upload', () => {
         body: formData,
         headers: { 'CF-Connecting-IP': '10.0.0.50' },
       });
-      await handleRequest(req, env);
+      await fetchApp(req, env);
     }
 
     const formData = new FormData();
@@ -247,7 +251,7 @@ describe('POST /api/hunts/:huntId/photos — Photo upload', () => {
       headers: { 'CF-Connecting-IP': '10.0.0.50' },
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(429);
   });
@@ -264,7 +268,7 @@ describe('POST /api/hunts/:huntId/photos — Photo upload', () => {
       headers: { 'CF-Connecting-IP': '10.0.0.100' },
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(400);
     const data = (await response.json()) as any;
@@ -285,7 +289,7 @@ describe('POST /api/hunts/:huntId/photos — Photo upload', () => {
       headers: { 'CF-Connecting-IP': '10.0.0.101' },
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(400);
     const data = (await response.json()) as any;
@@ -304,7 +308,7 @@ describe('POST /api/hunts/:huntId/photos — Photo upload', () => {
       headers: { 'CF-Connecting-IP': '10.0.0.102' },
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(400);
     const data = (await response.json()) as any;
@@ -323,7 +327,7 @@ describe('POST /api/groups/:groupId/hunts — Group hunt', () => {
       headers: { ...authHeaders(), 'CF-Connecting-IP': '10.0.0.200' },
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(200);
     const data = (await response.json()) as any;
