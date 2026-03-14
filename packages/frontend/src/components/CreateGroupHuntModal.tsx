@@ -52,6 +52,11 @@ export function CreateGroupHuntModal({ groupId, onHuntCreated, onClose }: Create
             </a>
           </div>
         ) : (
+          <>
+          <p className="text-sm text-lamo-gray mb-4">
+            Your balance: <strong className="text-lamo-dark">{user.credits} credits</strong>.{' '}
+            <a href="/credits" className="text-lamo-blue hover:underline">Buy more</a>
+          </p>
           <HuntConfigForm
             submitLabel="Create Hunt"
             submittingLabel="Creating..."
@@ -61,6 +66,7 @@ export function CreateGroupHuntModal({ groupId, onHuntCreated, onClose }: Create
             showCreditEstimate
             userCredits={user.credits}
           />
+          </>
         )}
       </div>
     </div>

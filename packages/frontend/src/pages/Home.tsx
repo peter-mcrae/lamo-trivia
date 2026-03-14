@@ -51,12 +51,12 @@ export default function Home() {
             <span className="text-sm text-lamo-gray-muted text-center">Solve riddles one letter at a time</span>
           </Link>
           <Link
-            to="/groups"
+            to="/hunt/create"
             className="group flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 hover:border-orange-400 hover:scale-105 hover:shadow-lg transition-all"
           >
             <span className="text-5xl group-hover:scale-110 transition-transform">🔍</span>
             <span className="text-lg font-bold text-lamo-dark">Scavenger Hunt</span>
-            <span className="text-sm text-lamo-gray-muted text-center">Create a group, find items, snap photos</span>
+            <span className="text-sm text-lamo-gray-muted text-center">Find items, snap photos, AI verifies</span>
           </Link>
         </div>
         <div className="flex gap-4 justify-center mt-6 animate-fade-in-up">
@@ -142,7 +142,7 @@ export default function Home() {
             <Link to="/trivia/history" className="text-lamo-blue hover:underline">history</Link>, and{' '}
             <Link to="/trivia/sports" className="text-lamo-blue hover:underline">sports</Link>.
             Challenge yourself with <Link to="/riddle-wordle" className="text-lamo-blue hover:underline">Riddle Wordle</Link>,
-            or create a <Link to="/groups" className="text-lamo-blue hover:underline">Scavenger Hunt</Link> in a private group with AI-powered photo verification.
+            or create a <Link to="/hunt/create" className="text-lamo-blue hover:underline">Scavenger Hunt</Link> in a private group with AI-powered photo verification.
           </p>
           <p className="mb-4">
             Just <Link to="/create" className="text-lamo-blue hover:underline">create a game</Link>,

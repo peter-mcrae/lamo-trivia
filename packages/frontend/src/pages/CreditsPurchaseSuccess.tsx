@@ -27,7 +27,7 @@ export default function CreditsPurchaseSuccess() {
           to="/groups"
           className="px-6 py-2.5 bg-lamo-primary text-white font-medium rounded-lg hover:bg-lamo-primary/90 transition-colors"
         >
-          My Groups
+          Go to My Groups
         </Link>
       </div>
     </div>
