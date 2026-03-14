@@ -5,6 +5,7 @@ import type { Env } from './env';
 import { getQuestions, saveAIQuestionsToBank } from './questions';
 import { generateAIQuestions } from './questions/ai';
 import { calculateRoundScores } from './scoring';
+import { logEvent } from './analytics';
 
 type AlarmAction = 'expire_game' | 'send_question' | 'end_question' | 'show_next_or_finish' | 'cleanup_game';
 
@@ -363,6 +364,18 @@ export class GameRoom {
 
     await this.persist();
 
+    logEvent(this.env, 'game_started', {
+      gameId: this.room.gameId,
+      gameMode: 'trivia',
+      playerCount: this.room.players.length,
+      questionCount: this.room.questions.length,
+      categoryIds: this.room.config.categoryIds,
+      aiTopic: this.room.config.aiTopic ?? null,
+      scoringMethod: this.room.config.scoringMethod,
+      timePerQuestion: this.room.config.timePerQuestion,
+      isGroupGame: !!this.room.config.groupId,
+    }).catch(() => {});
+
     this.broadcast({ type: 'game_starting', countdown: 3 });
 
     // After 3 second countdown, send first question
@@ -554,6 +567,19 @@ export class GameRoom {
     );
 
     await this.persist();
+
+    logEvent(this.env, 'game_finished', {
+      gameId: this.room.gameId,
+      gameMode: 'trivia',
+      playerCount: this.room.players.length,
+      durationMs: Date.now() - (this.room.startedAt ?? this.room.createdAt),
+      questionCount: this.room.questions.length,
+      rankings: rankings.slice(0, 10).map((p) => ({
+        username: p.username,
+        score: this.room!.scores[p.id] || 0,
+      })),
+      isGroupGame: !!this.room.config.groupId,
+    }).catch(() => {});
 
     this.broadcast({
       type: 'game_finished',
