@@ -115,4 +115,10 @@ export const api = {
 
   getHuntPhotoUrl: (huntId: string, photoFileName: string) =>
     `${API_BASE}/hunts/${huntId}/photos/${photoFileName}`,
+
+  redeemCoupon: (code: string) =>
+    fetchJSON<{ credits: number; newBalance: number }>('/coupons/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ code }),
+    }),
 };

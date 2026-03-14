@@ -7,6 +7,7 @@ const navItems = [
   { to: '/admin/users', label: 'Users', end: false },
   { to: '/admin/analytics', label: 'Analytics', end: false },
   { to: '/admin/errors', label: 'Errors', end: false },
+  { to: '/admin/coupons', label: 'Coupons', end: false },
 ];
 
 export function AdminLayout() {

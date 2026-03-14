@@ -1,4 +1,4 @@
-import type { User, CreditTransaction } from '@lamo-trivia/shared';
+import type { User, CreditTransaction, Coupon } from '@lamo-trivia/shared';
 import { API_BASE, getAuthHeaders } from './api';
 
 const ADMIN_BASE = `${API_BASE}/admin`;
@@ -94,6 +94,43 @@ export const adminApi = {
 
   forceLogout: (token: string) =>
     adminFetch<{ ok: boolean }>(`/sessions/${encodeURIComponent(token)}`, { method: 'DELETE' }),
+
+  // Coupons
+  listCoupons: (params?: { cursor?: string; limit?: number }) => {
+    const qs = new URLSearchParams();
+    if (params?.cursor) qs.set('cursor', params.cursor);
+    if (params?.limit) qs.set('limit', String(params.limit));
+    const query = qs.toString();
+    return adminFetch<{ coupons: Coupon[]; cursor: string | null; complete: boolean }>(
+      `/coupons${query ? `?${query}` : ''}`,
+    );
+  },
+
+  createCoupon: (opts: {
+    code?: string;
+    credits: number;
+    maxUses?: number;
+    expiresInDays?: number;
+    note?: string;
+  }) =>
+    adminFetch<{ coupon: Coupon }>('/coupons', {
+      method: 'POST',
+      body: JSON.stringify(opts),
+    }),
+
+  sendCoupon: (code: string, opts: { to: string; senderName?: string; message?: string }) =>
+    adminFetch<{ ok: boolean; sentTo: string }>(
+      `/coupons/${encodeURIComponent(code)}/send`,
+      {
+        method: 'POST',
+        body: JSON.stringify(opts),
+      },
+    ),
+
+  deleteCoupon: (code: string) =>
+    adminFetch<{ ok: boolean }>(`/coupons/${encodeURIComponent(code)}`, {
+      method: 'DELETE',
+    }),
 
   /** Lightweight auth check — calls the cheapest admin endpoint */
   checkAccess: async (): Promise<boolean> => {

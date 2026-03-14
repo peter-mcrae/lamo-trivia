@@ -28,6 +28,7 @@ import AdminUsers from '@/pages/admin/AdminUsers';
 import AdminUserDetail from '@/pages/admin/AdminUserDetail';
 import AdminAnalytics from '@/pages/admin/AdminAnalytics';
 import AdminErrors from '@/pages/admin/AdminErrors';
+import AdminCoupons from '@/pages/admin/AdminCoupons';
 
 function AppRoutes() {
   usePageTracking();
@@ -41,6 +42,7 @@ function AppRoutes() {
         <Route path="users/:email" element={<AdminUserDetail />} />
         <Route path="analytics" element={<AdminAnalytics />} />
         <Route path="errors" element={<AdminErrors />} />
+        <Route path="coupons" element={<AdminCoupons />} />
       </Route>
 
       {/* Public routes */}

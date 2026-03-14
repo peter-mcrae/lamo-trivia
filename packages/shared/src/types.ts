@@ -263,7 +263,19 @@ export interface MagicCode {
   attempts: number;
 }
 
-export type CreditTransactionType = 'purchase' | 'deduction' | 'refund' | 'admin_credit' | 'admin_debit';
+export type CreditTransactionType = 'purchase' | 'deduction' | 'refund' | 'admin_credit' | 'admin_debit' | 'coupon';
+
+export interface Coupon {
+  code: string;
+  credits: number;
+  maxUses: number;
+  usedCount: number;
+  usedBy: string[];
+  expiresAt: number | null;
+  createdAt: number;
+  createdBy: string;
+  note: string;
+}
 
 export interface CreditTransaction {
   type: CreditTransactionType;

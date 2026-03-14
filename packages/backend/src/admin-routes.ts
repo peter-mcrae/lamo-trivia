@@ -2,6 +2,10 @@ import type { Env } from './env';
 import type { AdminIdentity } from './admin-auth';
 import type { User, CreditTransaction } from '@lamo-trivia/shared';
 import { getUser, updateUser, getCreditTransactions, addCreditTransaction } from './auth';
+import {
+  createCoupon, listCoupons, getCoupon, deleteCoupon,
+  sendCouponEmail, isValidCouponCode,
+} from './coupons';
 
 // --- Input validation helpers ---
 
@@ -125,6 +129,30 @@ export async function handleAdminRequest(
   // GET /api/admin/errors — list recent errors
   if (method === 'GET' && path === '/errors') {
     return handleListErrors(url, env);
+  }
+
+  // --- Coupon management ---
+
+  // GET /api/admin/coupons — list all coupons
+  if (method === 'GET' && path === '/coupons') {
+    return handleListCoupons(url, env);
+  }
+
+  // POST /api/admin/coupons — create a coupon
+  if (method === 'POST' && path === '/coupons') {
+    return handleCreateCoupon(request, env, admin);
+  }
+
+  // POST /api/admin/coupons/:code/send — email a coupon
+  if (method === 'POST' && path.match(/^\/coupons\/[^/]+\/send$/)) {
+    const code = decodeURIComponent(path.replace('/coupons/', '').replace('/send', ''));
+    return handleSendCoupon(code, request, env, admin);
+  }
+
+  // DELETE /api/admin/coupons/:code — delete a coupon
+  if (method === 'DELETE' && path.startsWith('/coupons/')) {
+    const code = decodeURIComponent(path.replace('/coupons/', ''));
+    return handleDeleteCoupon(code, env);
   }
 
   // DELETE /api/admin/sessions/:token — force logout
@@ -361,5 +389,134 @@ async function handleForceLogout(token: string, env: Env): Promise<Response> {
   }
 
   await env.TRIVIA_KV.delete(`session:${token}`);
+  return Response.json({ ok: true });
+}
+
+// --- Coupon handlers ---
+
+async function handleListCoupons(url: URL, env: Env): Promise<Response> {
+  const cursor = url.searchParams.get('cursor') || undefined;
+  const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 100);
+  const result = await listCoupons(env, cursor, limit);
+  return Response.json(result);
+}
+
+async function handleCreateCoupon(
+  request: Request,
+  env: Env,
+  admin: AdminIdentity,
+): Promise<Response> {
+  const body = (await request.json()) as {
+    code?: string;
+    credits?: number;
+    maxUses?: number;
+    expiresInDays?: number;
+    note?: string;
+  };
+
+  // Validate credits
+  if (typeof body.credits !== 'number' || !Number.isInteger(body.credits) || body.credits < 1 || body.credits > 10_000) {
+    return Response.json({ error: 'credits must be an integer between 1 and 10,000' }, { status: 400 });
+  }
+
+  // Validate maxUses
+  const maxUses = body.maxUses ?? 1;
+  if (!Number.isInteger(maxUses) || maxUses < 1 || maxUses > 10_000) {
+    return Response.json({ error: 'maxUses must be between 1 and 10,000' }, { status: 400 });
+  }
+
+  // Validate custom code if provided
+  if (body.code && !isValidCouponCode(body.code)) {
+    return Response.json({ error: 'Invalid coupon code format' }, { status: 400 });
+  }
+
+  // Validate note
+  const note = (body.note || '').trim();
+  if (note.length > 500) {
+    return Response.json({ error: 'note must be 500 characters or fewer' }, { status: 400 });
+  }
+
+  // Calculate expiry
+  let expiresAt: number | null = null;
+  if (body.expiresInDays && body.expiresInDays > 0) {
+    expiresAt = Date.now() + body.expiresInDays * 24 * 60 * 60 * 1000;
+  }
+
+  try {
+    const coupon = await createCoupon(env, {
+      code: body.code,
+      credits: body.credits,
+      maxUses,
+      expiresAt,
+      note,
+      createdBy: admin.email,
+    });
+    return Response.json({ coupon });
+  } catch (err) {
+    return Response.json(
+      { error: err instanceof Error ? err.message : 'Failed to create coupon' },
+      { status: 400 },
+    );
+  }
+}
+
+async function handleSendCoupon(
+  code: string,
+  request: Request,
+  env: Env,
+  admin: AdminIdentity,
+): Promise<Response> {
+  const body = (await request.json()) as {
+    to?: string;
+    senderName?: string;
+    message?: string;
+  };
+
+  if (!body.to || typeof body.to !== 'string' || !body.to.includes('@')) {
+    return Response.json({ error: 'Valid recipient email (to) is required' }, { status: 400 });
+  }
+
+  const senderName = (body.senderName || 'LAMO Trivia').trim();
+  if (senderName.length > 100) {
+    return Response.json({ error: 'senderName too long' }, { status: 400 });
+  }
+
+  const message = body.message?.trim();
+  if (message && message.length > 500) {
+    return Response.json({ error: 'message must be 500 characters or fewer' }, { status: 400 });
+  }
+
+  const coupon = await getCoupon(env, code);
+  if (!coupon) {
+    return Response.json({ error: 'Coupon not found' }, { status: 404 });
+  }
+
+  try {
+    await sendCouponEmail(env, {
+      to: body.to.trim(),
+      couponCode: coupon.code,
+      credits: coupon.credits,
+      senderName,
+      personalMessage: message,
+    });
+    return Response.json({ ok: true, sentTo: body.to.trim() });
+  } catch (err) {
+    return Response.json(
+      { error: err instanceof Error ? err.message : 'Failed to send email' },
+      { status: 500 },
+    );
+  }
+}
+
+async function handleDeleteCoupon(code: string, env: Env): Promise<Response> {
+  if (!isValidCouponCode(code)) {
+    return Response.json({ error: 'Invalid coupon code' }, { status: 400 });
+  }
+
+  const deleted = await deleteCoupon(env, code);
+  if (!deleted) {
+    return Response.json({ error: 'Coupon not found' }, { status: 404 });
+  }
+
   return Response.json({ ok: true });
 }
