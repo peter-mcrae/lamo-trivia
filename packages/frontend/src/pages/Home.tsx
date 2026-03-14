@@ -83,6 +83,14 @@ export default function Home() {
             <span className="text-xs text-lamo-gray-muted">Any topic!</span>
           </Link>
           <Link
+            to="/hunt/create"
+            className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border border-dashed border-orange-300 hover:scale-105 hover:shadow-md transition-all cursor-pointer"
+          >
+            <span className="text-3xl">🔍</span>
+            <span className="text-sm font-semibold text-lamo-dark">Scavenger Hunt</span>
+            <span className="text-xs text-lamo-gray-muted">Find & snap!</span>
+          </Link>
+          <Link
             to="/riddle-wordle"
             className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-gradient-to-br from-green-50 to-yellow-50 border border-dashed border-green-300 hover:scale-105 hover:shadow-md transition-all cursor-pointer"
           >

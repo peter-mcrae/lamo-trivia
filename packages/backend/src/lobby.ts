@@ -1,4 +1,4 @@
-import type { GameListing, GameConfig } from '@lamo-trivia/shared';
+import type { GameListing, GameConfig, GameMode } from '@lamo-trivia/shared';
 import { GAME_EXPIRY_MS, generateGameId } from '@lamo-trivia/shared';
 
 export class GameLobby {
@@ -26,26 +26,27 @@ export class GameLobby {
       }
 
       if (request.method === 'POST' && url.pathname === '/games') {
-        const config = (await request.json()) as GameConfig;
+        const config = (await request.json()) as GameConfig & { gameMode?: GameMode };
         const gameId = generateGameId();
         const listing: GameListing = {
           id: gameId,
           name: config.name,
           hostUsername: '',
-          categoryIds: config.categoryIds,
-          questionCount: config.questionCount,
+          categoryIds: config.categoryIds || [],
+          questionCount: config.questionCount || 0,
           playerCount: 0,
           minPlayers: config.minPlayers,
           maxPlayers: config.maxPlayers,
-          timePerQuestion: config.timePerQuestion,
-          scoringMethod: config.scoringMethod,
-          streakBonus: config.streakBonus,
-          showAnswers: config.showAnswers,
+          timePerQuestion: config.timePerQuestion || 0,
+          scoringMethod: config.scoringMethod || 'speed-bonus',
+          streakBonus: config.streakBonus || false,
+          showAnswers: config.showAnswers ?? true,
           isPrivate: config.isPrivate,
           groupId: config.groupId,
           phase: 'waiting',
           createdAt: Date.now(),
           aiTopic: config.aiTopic,
+          gameMode: config.gameMode || 'trivia',
         };
         this.games.set(gameId, listing);
         await this.state.storage.put('games', this.games);

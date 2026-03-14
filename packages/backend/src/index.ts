@@ -2,9 +2,10 @@ import { Env } from './env';
 import { GameLobby } from './lobby';
 import { GameRoom } from './room';
 import { PrivateGroup } from './group';
+import { ScavengerHuntRoom } from './hunt-room';
 import { handleRequest } from './router';
 
-export { GameLobby, GameRoom, PrivateGroup };
+export { GameLobby, GameRoom, PrivateGroup, ScavengerHuntRoom };
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
@@ -32,6 +33,17 @@ export default {
         }
         const roomId = env.GAME_ROOM.idFromName(gameId);
         const room = env.GAME_ROOM.get(roomId);
+        return room.fetch(request);
+      }
+
+      // WebSocket upgrade: /ws/hunt/:huntId
+      if (url.pathname.startsWith('/ws/hunt/') && request.headers.get('Upgrade') === 'websocket') {
+        const huntId = url.pathname.split('/ws/hunt/')[1];
+        if (!huntId) {
+          return new Response('Missing hunt ID', { status: 400 });
+        }
+        const roomId = env.SCAVENGER_HUNT_ROOM.idFromName(huntId);
+        const room = env.SCAVENGER_HUNT_ROOM.get(roomId);
         return room.fetch(request);
       }
 

@@ -27,7 +27,12 @@ export default function Lobby() {
   }, []);
 
   const handleJoin = (gameId: string) => {
-    navigate(`/game/${gameId}`);
+    const game = games.find((g) => g.id === gameId);
+    if (game?.gameMode === 'scavenger-hunt') {
+      navigate(`/hunt/${gameId}`);
+    } else {
+      navigate(`/game/${gameId}`);
+    }
   };
 
   // Only show games that are still waiting for players
@@ -37,12 +42,20 @@ export default function Lobby() {
     <div className="max-w-3xl mx-auto py-10 px-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-lamo-dark">Game Lobby</h2>
-        <Link
-          to="/create"
-          className="px-5 py-2 bg-lamo-blue text-white text-sm font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors"
-        >
-          Create Game
-        </Link>
+        <div className="flex gap-2">
+          <Link
+            to="/create"
+            className="px-5 py-2 bg-lamo-blue text-white text-sm font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors"
+          >
+            Create Game
+          </Link>
+          <Link
+            to="/hunt/create"
+            className="px-5 py-2 border border-lamo-border text-lamo-dark text-sm font-semibold rounded-pill hover:bg-lamo-bg transition-colors"
+          >
+            Create Hunt
+          </Link>
+        </div>
       </div>
 
       {loading ? (

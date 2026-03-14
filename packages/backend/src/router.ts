@@ -1,6 +1,9 @@
 import { Env } from './env';
-import { GameConfigSchema, UsernameSchema, GroupNameSchema, TRIVIA_CATEGORIES, generateGroupId } from '@lamo-trivia/shared';
-import type { GroupGame } from '@lamo-trivia/shared';
+import {
+  GameConfigSchema, HuntConfigSchema, UsernameSchema, GroupNameSchema,
+  TRIVIA_CATEGORIES, generateGroupId, HUNT_LIMITS,
+} from '@lamo-trivia/shared';
+import type { GroupGame, HuntConfig } from '@lamo-trivia/shared';
 import { seedQuestions, getCategoryCounts, getAIQuestionBankTopics } from './questions';
 
 // --- In-memory rate limiter (per Worker isolate) ---
@@ -32,6 +35,7 @@ const gameCreateLimiter = new RateLimiter(10);       // 10/min per IP
 const groupCreateLimiter = new RateLimiter(5);       // 5/min per IP
 const usernameCheckLimiter = new RateLimiter(20);    // 20/min per IP
 const groupGameLimiter = new RateLimiter(10);        // 10/min per IP
+const photoUploadLimiter = new RateLimiter(20);      // 20/min per IP
 
 function getClientIP(request: Request): string {
   return request.headers.get('CF-Connecting-IP') ?? 'unknown';
@@ -69,7 +73,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       const lobbyRes = await lobby.fetch(
         new Request('http://internal/games', {
           method: 'POST',
-          body: JSON.stringify(parsed.data),
+          body: JSON.stringify({ ...parsed.data, gameMode: 'trivia' }),
         }),
       );
       const lobbyData = (await lobbyRes.json()) as { gameId: string };
@@ -221,6 +225,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
         createdAt: Date.now(),
         categoryIds: parsed.data.categoryIds,
         aiTopic: parsed.data.aiTopic,
+        gameMode: 'trivia',
       };
       const groupRes = await group.fetch(
         new Request('http://internal/games', {
@@ -242,6 +247,151 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     if (method === 'GET' && url.pathname === '/api/ai-question-bank') {
       const topics = await getAIQuestionBankTopics(env.TRIVIA_KV);
       return Response.json({ topics });
+    }
+
+    // --- Scavenger Hunt Endpoints ---
+
+    // POST /api/hunts — create a scavenger hunt
+    if (method === 'POST' && url.pathname === '/api/hunts') {
+      if (!gameCreateLimiter.check(getClientIP(request))) return rateLimitedResponse();
+      const body = await request.json();
+      const parsed = HuntConfigSchema.safeParse(body);
+      if (!parsed.success) {
+        return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+      }
+
+      // Create lobby listing
+      const lobbyId = env.GAME_LOBBY.idFromName('global');
+      const lobby = env.GAME_LOBBY.get(lobbyId);
+      const lobbyRes = await lobby.fetch(
+        new Request('http://internal/games', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...parsed.data,
+            gameMode: 'scavenger-hunt',
+          }),
+        }),
+      );
+      const lobbyData = (await lobbyRes.json()) as { gameId: string };
+      const huntId = lobbyData.gameId;
+
+      // Configure the ScavengerHuntRoom DO
+      const roomId = env.SCAVENGER_HUNT_ROOM.idFromName(huntId);
+      const room = env.SCAVENGER_HUNT_ROOM.get(roomId);
+      await room.fetch(
+        new Request('http://internal/config', {
+          method: 'POST',
+          body: JSON.stringify({ ...parsed.data, huntId }),
+        }),
+      );
+
+      return Response.json({ huntId });
+    }
+
+    // POST /api/hunts/:huntId/photos — upload a photo for verification
+    if (method === 'POST' && url.pathname.match(/^\/api\/hunts\/[^/]+\/photos$/)) {
+      if (!photoUploadLimiter.check(getClientIP(request))) return rateLimitedResponse();
+      const huntId = url.pathname.split('/api/hunts/')[1].split('/photos')[0];
+
+      // Parse multipart form data
+      const formData = await request.formData();
+      const file = formData.get('file') as File | null;
+      const itemId = formData.get('itemId') as string | null;
+
+      if (!file || !itemId) {
+        return Response.json({ error: 'Missing file or itemId' }, { status: 400 });
+      }
+
+      // Validate file size
+      if (file.size > HUNT_LIMITS.maxPhotoSizeBytes) {
+        return Response.json({ error: 'Photo too large (max 5MB)' }, { status: 400 });
+      }
+
+      // Validate content type
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        return Response.json({ error: 'Invalid file type. Use JPEG, PNG, or WebP.' }, { status: 400 });
+      }
+
+      const uploadId = crypto.randomUUID();
+      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const key = `${huntId}/${uploadId}.${ext}`;
+
+      // Store in R2
+      await env.R2_HUNT_PHOTOS.put(key, await file.arrayBuffer(), {
+        httpMetadata: { contentType: file.type },
+      });
+
+      return Response.json({ uploadId: `${uploadId}.${ext}` });
+    }
+
+    // POST /api/groups/:groupId/hunts — create a hunt within a group
+    if (method === 'POST' && url.pathname.match(/^\/api\/groups\/[^/]+\/hunts$/)) {
+      if (!groupGameLimiter.check(getClientIP(request))) return rateLimitedResponse();
+      const groupId = url.pathname.split('/api/groups/')[1].split('/hunts')[0];
+
+      // Validate group exists
+      const doId = env.PRIVATE_GROUP.idFromName(groupId);
+      const group = env.PRIVATE_GROUP.get(doId);
+      const checkRes = await group.fetch(new Request('http://internal/state'));
+      if (!checkRes.ok) return Response.json({ error: 'Group not found' }, { status: 404 });
+
+      const body = await request.json();
+      const parsed = HuntConfigSchema.safeParse({ ...(body as object), isPrivate: true, groupId });
+      if (!parsed.success) {
+        return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+      }
+
+      // Create lobby listing
+      const lobbyId = env.GAME_LOBBY.idFromName('global');
+      const lobby = env.GAME_LOBBY.get(lobbyId);
+      const lobbyRes = await lobby.fetch(
+        new Request('http://internal/games', {
+          method: 'POST',
+          body: JSON.stringify({
+            ...parsed.data,
+            gameMode: 'scavenger-hunt',
+          }),
+        }),
+      );
+      const lobbyData = (await lobbyRes.json()) as { gameId: string };
+      const huntId = lobbyData.gameId;
+
+      // Configure the ScavengerHuntRoom DO
+      const roomId = env.SCAVENGER_HUNT_ROOM.idFromName(huntId);
+      const room = env.SCAVENGER_HUNT_ROOM.get(roomId);
+      await room.fetch(
+        new Request('http://internal/config', {
+          method: 'POST',
+          body: JSON.stringify({ ...parsed.data, huntId }),
+        }),
+      );
+
+      // Register in group
+      const groupGame: GroupGame = {
+        gameId: huntId,
+        name: parsed.data.name,
+        hostUsername: '',
+        playerCount: 0,
+        maxPlayers: parsed.data.maxPlayers,
+        phase: 'waiting',
+        createdAt: Date.now(),
+        categoryIds: [],
+        gameMode: 'scavenger-hunt',
+      };
+      const groupRes = await group.fetch(
+        new Request('http://internal/games', {
+          method: 'POST',
+          body: JSON.stringify(groupGame),
+        }),
+      );
+
+      if (!groupRes.ok) {
+        const errorData = (await groupRes.json()) as { error: string };
+        return Response.json({ error: errorData.error }, { status: groupRes.status });
+      }
+
+      return Response.json({ huntId });
     }
 
     // GET /api/health

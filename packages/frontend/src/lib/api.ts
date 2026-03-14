@@ -1,5 +1,5 @@
 import type { GameListing, TriviaCategory } from '@lamo-trivia/shared';
-import type { GameConfigInput } from '@lamo-trivia/shared';
+import type { GameConfigInput, HuntConfigInput } from '@lamo-trivia/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
@@ -47,6 +47,35 @@ export const api = {
 
   createGroupGame: (groupId: string, config: GameConfigInput) =>
     fetchJSON<{ gameId: string }>(`/groups/${groupId}/games`, {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+
+  // Scavenger Hunts
+  createHunt: (config: HuntConfigInput) =>
+    fetchJSON<{ huntId: string }>('/hunts', {
+      method: 'POST',
+      body: JSON.stringify(config),
+    }),
+
+  uploadHuntPhoto: async (huntId: string, file: Blob, itemId: string) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('itemId', itemId);
+
+    const response = await fetch(`${API_BASE}/hunts/${huntId}/photos`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Upload failed' }));
+      throw new Error((error as { error: string }).error || 'Upload failed');
+    }
+    return response.json() as Promise<{ uploadId: string }>;
+  },
+
+  createGroupHunt: (groupId: string, config: HuntConfigInput) =>
+    fetchJSON<{ huntId: string }>(`/groups/${groupId}/hunts`, {
       method: 'POST',
       body: JSON.stringify(config),
     }),

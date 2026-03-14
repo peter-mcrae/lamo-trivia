@@ -150,7 +150,19 @@ export function createMockEnv(overrides: Partial<Env> = {}): Env {
         fetch: async () => Response.json({ ok: true }),
       }),
     } as unknown as DurableObjectNamespace,
+    SCAVENGER_HUNT_ROOM: {
+      idFromName: () => ({ toString: () => 'hunt-room-id' }),
+      get: () => ({
+        fetch: async () => Response.json({ ok: true }),
+      }),
+    } as unknown as DurableObjectNamespace,
     TRIVIA_KV: createMockKV(),
+    R2_HUNT_PHOTOS: {
+      put: async () => {},
+      get: async () => null,
+      delete: async () => {},
+      list: async () => ({ objects: [], truncated: false }),
+    } as unknown as R2Bucket,
     FRONTEND_URL: 'http://localhost:5173',
     ...overrides,
   };

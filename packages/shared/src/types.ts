@@ -72,6 +72,7 @@ export interface GameListing {
   phase: GamePhase;
   createdAt: number;
   aiTopic?: string;
+  gameMode: GameMode;
 }
 
 export interface GroupMember {
@@ -91,6 +92,7 @@ export interface GroupGame {
   createdAt: number;
   categoryIds: string[];
   aiTopic?: string;
+  gameMode: GameMode;
 }
 
 export interface GroupState {
@@ -107,4 +109,120 @@ export interface TriviaCategory {
   description: string;
   icon: string;
   questionCount: number;
+}
+
+// --- Game Mode ---
+
+export type GameMode = 'trivia' | 'scavenger-hunt';
+
+// --- Scavenger Hunt Types ---
+
+export interface HuntClue {
+  id: string;
+  text: string;
+  pointCost: number;
+}
+
+export interface HuntItem {
+  id: string;
+  description: string;
+  basePoints: number;
+  clues: HuntClue[];
+}
+
+export type HuntItemStatus = 'searching' | 'pending_review' | 'found' | 'rejected';
+
+export interface HuntItemProgress {
+  itemId: string;
+  status: HuntItemStatus;
+  cluesRevealed: string[];
+  attemptsUsed: number;
+  foundAt?: number;
+  photoUrl?: string;
+}
+
+export interface HuntPlayerProgress {
+  playerId: string;
+  items: Record<string, HuntItemProgress>;
+  totalScore: number;
+}
+
+export interface HuntConfig {
+  name: string;
+  items: HuntItem[];
+  durationMinutes: number;
+  maxRetries: number;
+  basePointsPerItem: number;
+  hintPointCost: number;
+  minPlayers: number;
+  maxPlayers: number;
+  isPrivate: boolean;
+  groupId?: string;
+}
+
+export interface HuntState {
+  id: string;
+  config: HuntConfig;
+  phase: GamePhase;
+  hostId: string;
+  players: Player[];
+  progress: Record<string, HuntPlayerProgress>;
+  createdAt: number;
+  startedAt?: number;
+  endsAt?: number;
+}
+
+export interface HuntTeamSummary {
+  playerId: string;
+  username: string;
+  avatar: Avatar;
+  totalScore: number;
+  itemsFound: number;
+  totalItems: number;
+  itemStatuses: Record<string, HuntItemStatus>;
+  totalAttempts: number;
+}
+
+export interface ClientHuntState {
+  id: string;
+  config: HuntConfig;
+  phase: GamePhase;
+  hostId: string;
+  players: Player[];
+  myProgress: HuntPlayerProgress;
+  timeRemaining: number;
+  createdAt: number;
+  startedAt?: number;
+  endsAt?: number;
+  allTeams?: HuntTeamSummary[];
+}
+
+export interface HuntAppeal {
+  playerId: string;
+  playerUsername: string;
+  itemId: string;
+  itemDescription: string;
+  photoUrl: string;
+  timestamp: number;
+}
+
+export interface HuntResultsRanking {
+  player: Player;
+  score: number;
+  itemsFound: number;
+  totalItems: number;
+}
+
+export interface HuntResultsItemDetail {
+  itemId: string;
+  description: string;
+  found: boolean;
+  pointsEarned: number;
+  cluesUsed: number;
+  attempts: number;
+}
+
+export interface HuntResults {
+  rankings: HuntResultsRanking[];
+  itemBreakdown: Record<string, HuntResultsItemDetail[]>;
 }

@@ -52,3 +52,49 @@ export const GroupClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('invite_to_game'), gameId: z.string().min(1), gameName: z.string().min(1).max(50) }),
   z.object({ type: z.literal('ping') }),
 ]);
+
+// --- Scavenger Hunt Schemas ---
+
+export const HuntClueSchema = z.object({
+  id: z.string().min(1),
+  text: z.string().min(1).max(200),
+  pointCost: z.number().int().min(0).max(500).default(200),
+});
+
+export const HuntItemSchema = z.object({
+  id: z.string().min(1),
+  description: z.string().min(1).max(300),
+  basePoints: z.number().int().min(100).max(5000).default(1000),
+  clues: z.array(HuntClueSchema).max(3).default([]),
+});
+
+export const HuntConfigSchema = z.object({
+  name: z.string().min(1).max(50),
+  items: z.array(HuntItemSchema).min(1).max(15),
+  durationMinutes: z.number().int().min(5).max(60).default(30),
+  maxRetries: z.number().int().min(1).max(5).default(3),
+  basePointsPerItem: z.number().int().min(100).max(5000).default(1000),
+  hintPointCost: z.number().int().min(0).max(500).default(200),
+  minPlayers: z.number().int().min(1).max(8).default(1),
+  maxPlayers: z.number().int().min(2).max(12).default(8),
+  isPrivate: z.boolean().default(false),
+  groupId: z.string().min(1).optional(),
+}).refine(
+  (data) => data.minPlayers <= data.maxPlayers,
+  { message: 'Min players must be less than or equal to max players', path: ['minPlayers'] },
+);
+
+export type HuntConfigInput = z.infer<typeof HuntConfigSchema>;
+
+export const HuntClientMessageSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('join_hunt'), huntId: z.string(), username: UsernameSchema }),
+  z.object({ type: z.literal('rejoin_hunt'), huntId: z.string(), username: UsernameSchema }),
+  z.object({ type: z.literal('leave_hunt') }),
+  z.object({ type: z.literal('start_hunt') }),
+  z.object({ type: z.literal('reveal_clue'), itemId: z.string(), clueId: z.string() }),
+  z.object({ type: z.literal('submit_photo'), itemId: z.string(), uploadId: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/, 'Invalid upload ID format') }),
+  z.object({ type: z.literal('approve_appeal'), playerId: z.string(), itemId: z.string() }),
+  z.object({ type: z.literal('reject_appeal'), playerId: z.string(), itemId: z.string() }),
+  z.object({ type: z.literal('claim_host') }),
+  z.object({ type: z.literal('ping') }),
+]);
