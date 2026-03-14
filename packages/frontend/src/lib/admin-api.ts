@@ -9,6 +9,11 @@ async function adminFetch<T>(path: string, options?: RequestInit): Promise<T> {
     headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
     ...options,
   });
+  // Detect HTML responses (e.g. SPA fallback serving index.html instead of API)
+  const contentType = response.headers.get('Content-Type') || '';
+  if (!contentType.includes('application/json')) {
+    throw new Error('Admin API is unreachable. The server returned an HTML page instead of JSON.');
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => ({ error: `Error ${response.status}` }));
     throw new Error((body as { error: string }).error || `Admin API error: ${response.status}`);
@@ -140,7 +145,11 @@ export const adminApi = {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       });
-      return response.ok;
+      if (!response.ok) return false;
+      // Verify the response is actually JSON (not an HTML SPA fallback)
+      const contentType = response.headers.get('Content-Type') || '';
+      if (!contentType.includes('application/json')) return false;
+      return true;
     } catch {
       return false;
     }
