@@ -969,6 +969,9 @@ export class ScavengerHuntRoom {
     this.room.phase = 'finished';
     this.room.nextAlarmAction = 'cleanup_hunt';
 
+    // Clear any pending appeals since the hunt is over
+    this.room.pendingAppeals = [];
+
     const results = this.buildResults();
 
     await this.saveHistory(results);
@@ -1012,7 +1015,11 @@ export class ScavengerHuntRoom {
       itemBreakdown[player.id] = this.room.items.map((item) => {
         const itemProg = progress.items[item.id];
         const cluesUsed = itemProg?.cluesRevealed.length || 0;
-        const hintDeductions = cluesUsed * this.room!.config.hintPointCost;
+        // Use actual per-clue costs instead of flat config cost for accuracy
+        const hintDeductions = itemProg?.cluesRevealed.reduce((sum, clueId) => {
+          const clue = item.clues.find((c) => c.id === clueId);
+          return sum + (clue?.pointCost ?? this.room!.config.hintPointCost);
+        }, 0) ?? 0;
         const found = itemProg?.status === 'found';
         const pointsEarned = found ? item.basePoints - hintDeductions : -hintDeductions;
 

@@ -28,6 +28,14 @@ export function useHuntWebSocket({ huntId, onMessage, onOpen, onClose }: UseHunt
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
 
+  // Use refs for callbacks to avoid stale closures
+  const onMessageRef = useRef(onMessage);
+  onMessageRef.current = onMessage;
+  const onOpenRef = useRef(onOpen);
+  onOpenRef.current = onOpen;
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
   const connect = useCallback(() => {
     if (unmountedRef.current) return;
 
@@ -39,13 +47,13 @@ export function useHuntWebSocket({ huntId, onMessage, onOpen, onClose }: UseHunt
         setConnected(true);
         reconnectAttemptRef.current = 0;
       }
-      onOpen?.();
+      onOpenRef.current?.();
     };
 
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data) as HuntServerMessage;
-        onMessage?.(message);
+        onMessageRef.current?.(message);
       } catch {
         console.error('Failed to parse WebSocket message');
       }
@@ -55,7 +63,7 @@ export function useHuntWebSocket({ huntId, onMessage, onOpen, onClose }: UseHunt
       if (wsRef.current === ws) {
         setConnected(false);
       }
-      onClose?.();
+      onCloseRef.current?.();
 
       // Auto-reconnect with exponential backoff
       if (!unmountedRef.current && wsRef.current === ws) {
@@ -64,7 +72,7 @@ export function useHuntWebSocket({ huntId, onMessage, onOpen, onClose }: UseHunt
         reconnectTimerRef.current = setTimeout(connect, delay);
       }
     };
-  }, [huntId, onMessage, onOpen, onClose]);
+  }, [huntId]);
 
   useEffect(() => {
     unmountedRef.current = false;

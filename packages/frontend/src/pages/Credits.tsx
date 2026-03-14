@@ -1,28 +1,19 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { CREDIT_PRICING } from '@lamo-trivia/shared';
 import type { CreditTransaction } from '@lamo-trivia/shared';
-
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+import { API_BASE, getAuthHeaders } from '@/lib/api';
 
 export default function Credits() {
   const { user, loading, logout } = useAuthContext();
-  const navigate = useNavigate();
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [buying, setBuying] = useState(false);
-
-  useEffect(() => {
-    if (!loading && !user) {
-      navigate('/login');
-    }
-  }, [user, loading, navigate]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
-    const token = localStorage.getItem('lamo_auth_token');
     fetch(`${API_BASE}/credits/transactions`, {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: getAuthHeaders(),
     })
       .then((r) => r.json())
       .then((d: { transactions: CreditTransaction[] }) => setTransactions(d.transactions))
@@ -31,13 +22,13 @@ export default function Credits() {
 
   const handleBuy = async () => {
     setBuying(true);
+    setError(null);
     try {
-      const token = localStorage.getItem('lamo_auth_token');
       const res = await fetch(`${API_BASE}/checkout`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(),
         },
       });
       if (!res.ok) {
@@ -47,12 +38,12 @@ export default function Credits() {
       }
       const data = (await res.json()) as { url: string };
       if (!data.url) {
-        console.error('No checkout URL in response', data);
         throw new Error('No checkout URL returned');
       }
       window.location.href = data.url;
     } catch (err) {
       console.error('Buy credits error', err);
+      setError('Failed to start checkout. Please try again.');
       setBuying(false);
     }
   };
@@ -80,6 +71,12 @@ export default function Credits() {
         <p className="text-4xl font-bold text-lamo-dark">{user.credits}</p>
         <p className="text-sm text-lamo-gray mt-1">credits</p>
       </div>
+
+      {error && (
+        <div className="mb-6 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
+          {error}
+        </div>
+      )}
 
       {/* Buy */}
       <div className="bg-lamo-bg rounded-xl border border-lamo-border p-6 mb-8">

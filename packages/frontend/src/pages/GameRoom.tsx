@@ -27,6 +27,7 @@ export default function GameRoom() {
   const [groupName, setGroupName] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const joinedRef = useRef(false);
+  const hadGameStateRef = useRef(false);
   const groupIdRef = useRef<string | undefined>();
 
   const {
@@ -68,6 +69,10 @@ export default function GameRoom() {
   const { connected, send } = useWebSocket({
     gameId: gameId!,
     onMessage,
+    onClose: () => {
+      // Reset joinedRef so we rejoin on reconnect
+      joinedRef.current = false;
+    },
   });
 
   // Reset all state when navigating to a new game (e.g., Play Again)
@@ -80,10 +85,17 @@ export default function GameRoom() {
     setExpiryTimeLeft(null);
   }, [gameId, resetGameState]);
 
-  // Join game once connected and have a username
+  // Track whether we've had game state (for reconnection detection)
+  useEffect(() => {
+    if (gameState) hadGameStateRef.current = true;
+  }, [gameState]);
+
+  // Join or rejoin game once connected and have a username
   useEffect(() => {
     if (connected && hasUsername && !joinedRef.current) {
-      if (send({ type: 'join_game', gameId: gameId!, username: username! })) {
+      // If we previously had game state, this is a reconnection
+      const messageType = hadGameStateRef.current ? 'rejoin_game' : 'join_game';
+      if (send({ type: messageType, gameId: gameId!, username: username! })) {
         joinedRef.current = true;
       }
     }

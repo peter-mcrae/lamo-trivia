@@ -126,6 +126,9 @@ export class GameRoom {
         case 'join_game':
           await this.handleJoin(ws, parsed.data.username);
           break;
+        case 'rejoin_game':
+          await this.handleRejoin(ws, parsed.data.username);
+          break;
         case 'leave_game':
           await this.handleLeave(ws);
           break;
@@ -237,12 +240,41 @@ export class GameRoom {
     await this.notifyGroupOfUpdate();
   }
 
+  private async handleRejoin(ws: WebSocket, username: string): Promise<void> {
+    if (!this.room) {
+      this.sendTo(ws, { type: 'error', message: 'Game not found', code: 'GAME_NOT_FOUND' });
+      return;
+    }
+
+    const existingPlayer = this.room.players.find(
+      (p) => p.username.toLowerCase() === username.toLowerCase(),
+    );
+
+    if (!existingPlayer) {
+      this.sendTo(ws, { type: 'error', message: 'No player found with that username', code: 'PLAYER_NOT_FOUND' });
+      return;
+    }
+
+    // Attach this WebSocket to the existing player
+    ws.serializeAttachment(existingPlayer.id);
+
+    // Send full current game state
+    this.sendTo(ws, { type: 'game_state', state: this.getClientGameState() });
+  }
+
   private async handleLeave(ws: WebSocket): Promise<void> {
     if (!this.room) return;
 
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
+    // During active game, preserve player state for reconnection
+    if (this.room.phase === 'playing' || this.room.phase === 'finished' || this.room.phase === 'starting') {
+      // Don't remove player or scores — they can rejoin
+      return;
+    }
+
+    // During waiting phase, fully remove the player
     const wasHost = this.room.hostId === playerId;
 
     this.room.players = this.room.players.filter((p) => p.id !== playerId);

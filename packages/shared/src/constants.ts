@@ -12,7 +12,7 @@ export const GAME_DEFAULTS = {
 } as const;
 
 export const SCORING_METHODS = [
-  { id: 'speed-bonus', name: 'Speed Bonus', description: 'Faster correct answers earn more points' },
+  { id: 'speed-bonus', name: 'Speed Bonus', description: 'Points for correct answers with streak multiplier' },
   { id: 'correct-only', name: 'Correct Only', description: 'Flat points per correct answer, no time pressure' },
 ] as const;
 

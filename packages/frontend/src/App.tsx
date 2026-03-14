@@ -2,12 +2,12 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { CookieBanner } from '@/components/CookieBanner';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import Home from '@/pages/Home';
 import Lobby from '@/pages/Lobby';
 import CreateGame from '@/pages/CreateGame';
 import GameRoom from '@/pages/GameRoom';
-import Results from '@/pages/Results';
 import Groups from '@/pages/Groups';
 import CreateGroup from '@/pages/CreateGroup';
 import JoinGroup from '@/pages/JoinGroup';
@@ -33,7 +33,6 @@ function AppRoutes() {
         <Route path="/lobby" element={<Lobby />} />
         <Route path="/create" element={<CreateGame />} />
         <Route path="/game/:gameId" element={<GameRoom />} />
-        <Route path="/results/:gameId" element={<Results />} />
         <Route path="/groups" element={<Groups />} />
         <Route path="/group/new" element={<CreateGroup />} />
         <Route path="/group/join" element={<JoinGroup />} />
@@ -43,10 +42,10 @@ function AppRoutes() {
         <Route path="/trivia/:categoryId" element={<CategoryPage />} />
         <Route path="/riddle-wordle" element={<RiddleWordle />} />
         <Route path="/hunt/create" element={<CreateHunt />} />
-<Route path="/hunt/:huntId" element={<HuntRoom />} />
+        <Route path="/hunt/:huntId" element={<HuntRoom />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/credits" element={<Credits />} />
-        <Route path="/credits/success" element={<CreditsPurchaseSuccess />} />
+        <Route path="/credits" element={<ProtectedRoute><Credits /></ProtectedRoute>} />
+        <Route path="/credits/success" element={<ProtectedRoute><CreditsPurchaseSuccess /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Layout>

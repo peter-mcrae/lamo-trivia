@@ -1,10 +1,11 @@
 import type { GameListing, TriviaCategory, HuntHistorySummary, HuntHistoryEntry } from '@lamo-trivia/shared';
 import type { GameConfigInput, HuntConfigInput } from '@lamo-trivia/shared';
 
-const API_BASE = import.meta.env.VITE_API_URL || '/api';
+export const API_BASE = import.meta.env.VITE_API_URL || '/api';
+export const AUTH_TOKEN_KEY = 'lamo_auth_token';
 
-function getAuthHeaders(): Record<string, string> {
-  const token = localStorage.getItem('lamo_auth_token');
+export function getAuthHeaders(): Record<string, string> {
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
@@ -14,7 +15,8 @@ async function fetchJSON<T>(path: string, options?: RequestInit): Promise<T> {
     ...options,
   });
   if (!response.ok) {
-    throw new Error(`API error: ${response.status}`);
+    const body = await response.json().catch(() => ({ error: `Error ${response.status}` }));
+    throw new Error((body as { error: string }).error || `API error: ${response.status}`);
   }
   return response.json();
 }
@@ -73,6 +75,7 @@ export const api = {
 
     const response = await fetch(`${API_BASE}/hunts/${huntId}/photos`, {
       method: 'POST',
+      headers: getAuthHeaders(),
       body: formData,
     });
     if (!response.ok) {
@@ -98,7 +101,7 @@ export const api = {
   deleteHuntHistory: async (huntId: string, hostSecret: string) => {
     const response = await fetch(`${API_BASE}/hunts/${huntId}/history`, {
       method: 'DELETE',
-      headers: { 'X-Host-Secret': hostSecret },
+      headers: { 'X-Host-Secret': hostSecret, ...getAuthHeaders() },
     });
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Delete failed' }));

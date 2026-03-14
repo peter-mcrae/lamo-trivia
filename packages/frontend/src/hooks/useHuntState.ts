@@ -254,6 +254,10 @@ export function useHuntState() {
       case 'time_warning':
         setTimeWarning(message.secondsRemaining);
         break;
+
+      case 'credits_deducted':
+        // Acknowledged — credits info is informational for the host
+        break;
     }
   }, []);
 

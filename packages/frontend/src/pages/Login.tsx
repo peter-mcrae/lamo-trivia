@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 export default function Login() {
   const { sendCode, verifyCode } = useAuthContext();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
@@ -32,7 +33,7 @@ export default function Login() {
     setSending(true);
     try {
       await verifyCode(email, code);
-      navigate('/credits');
+      navigate(searchParams.get('returnTo') || '/credits');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid code');
     } finally {
