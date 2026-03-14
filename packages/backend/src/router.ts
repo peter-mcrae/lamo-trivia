@@ -11,6 +11,7 @@ import {
   deleteSession, getCreditTransactions, timingSafeEqual,
 } from './auth';
 import { createCheckoutSession, verifyWebhookSignature, handleCheckoutCompleted } from './stripe';
+import { logEvent } from './analytics';
 
 // --- In-memory rate limiter (per Worker isolate) ---
 
@@ -202,6 +203,18 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
         }),
       );
 
+      logEvent(env, 'game_created', {
+        gameId: lobbyData.gameId,
+        gameMode: 'trivia',
+        name: parsed.data.name,
+        categoryIds: parsed.data.categoryIds,
+        questionCount: parsed.data.questionCount,
+        maxPlayers: parsed.data.maxPlayers,
+        aiTopic: parsed.data.aiTopic ?? null,
+        isPrivate: parsed.data.isPrivate,
+        isGroupGame: false,
+      }).catch(() => {});
+
       return Response.json(lobbyData);
     }
 
@@ -386,6 +399,19 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
         return Response.json({ error: errorData.error }, { status: groupRes.status });
       }
 
+      logEvent(env, 'game_created', {
+        gameId: lobbyData.gameId,
+        gameMode: 'trivia',
+        name: parsed.data.name,
+        categoryIds: parsed.data.categoryIds,
+        questionCount: parsed.data.questionCount,
+        maxPlayers: parsed.data.maxPlayers,
+        aiTopic: parsed.data.aiTopic ?? null,
+        isPrivate: true,
+        isGroupGame: true,
+        groupId,
+      }).catch(() => {});
+
       return Response.json({ gameId: lobbyData.gameId });
     }
 
@@ -443,6 +469,17 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
           body: JSON.stringify({ ...parsed.data, huntId, hostEmail: user.email }),
         }),
       );
+
+      logEvent(env, 'hunt_created', {
+        huntId,
+        name: parsed.data.name,
+        itemCount: parsed.data.items.length,
+        maxPlayers: parsed.data.maxPlayers,
+        durationMinutes: parsed.data.durationMinutes,
+        maxRetries: parsed.data.maxRetries,
+        isPrivate: parsed.data.isPrivate,
+        isGroupGame: false,
+      }).catch(() => {});
 
       return Response.json({ huntId });
     }
@@ -563,6 +600,18 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
         const errorData = (await groupRes.json()) as { error: string };
         return Response.json({ error: errorData.error }, { status: groupRes.status });
       }
+
+      logEvent(env, 'hunt_created', {
+        huntId,
+        name: parsed.data.name,
+        itemCount: parsed.data.items.length,
+        maxPlayers: parsed.data.maxPlayers,
+        durationMinutes: parsed.data.durationMinutes,
+        maxRetries: parsed.data.maxRetries,
+        isPrivate: true,
+        isGroupGame: true,
+        groupId,
+      }).catch(() => {});
 
       return Response.json({ huntId });
     }
@@ -687,6 +736,64 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       await env.TRIVIA_KV.delete(`hunt-history:${huntId}`);
 
       return Response.json({ ok: true });
+    }
+
+    // GET /api/analytics/summary — aggregated analytics (admin-only, gated by SEED_SECRET)
+    if (method === 'GET' && url.pathname === '/api/analytics/summary') {
+      const authHeader = request.headers.get('Authorization');
+      const expectedSecret = env.SEED_SECRET;
+      if (!expectedSecret || !authHeader) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const expectedValue = `Bearer ${expectedSecret}`;
+      if (authHeader.length !== expectedValue.length || !(await timingSafeEqual(authHeader, expectedValue))) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      // Optional query params for filtering
+      const eventType = url.searchParams.get('type');   // e.g. 'game_finished'
+      const datePrefix = url.searchParams.get('date');  // e.g. '2026-03' or '2026-03-14'
+
+      let prefix = 'evt:';
+      if (eventType) prefix += `${eventType}:`;
+      if (eventType && datePrefix) prefix += `${datePrefix}`;
+
+      // List matching keys (paginated, up to 10 pages = 10k events max)
+      const events: Array<{ key: string; metadata: unknown }> = [];
+      let cursor: string | undefined;
+      const maxPages = 10;
+      let page = 0;
+
+      do {
+        const listResult = await env.TRIVIA_KV.list({
+          prefix,
+          ...(cursor ? { cursor } : {}),
+        });
+
+        for (const k of listResult.keys) {
+          if (k.metadata) {
+            events.push({ key: k.name, metadata: k.metadata });
+          }
+        }
+
+        cursor = listResult.list_complete ? undefined : listResult.cursor;
+        page++;
+      } while (cursor && page < maxPages);
+
+      // Build summary counts by event type
+      const counts: Record<string, number> = {};
+      for (const evt of events) {
+        const meta = evt.metadata as { type?: string };
+        const t = meta.type || 'unknown';
+        counts[t] = (counts[t] || 0) + 1;
+      }
+
+      return Response.json({
+        totalEvents: events.length,
+        counts,
+        events: events.slice(0, 200),
+        truncated: events.length > 200,
+      });
     }
 
     // GET /api/health

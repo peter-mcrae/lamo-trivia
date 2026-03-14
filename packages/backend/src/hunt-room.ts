@@ -7,7 +7,8 @@ import type {
 import { HuntClientMessageSchema, HuntConfigSchema, AVATARS, HUNT_EXPIRY_MS } from '@lamo-trivia/shared';
 import { getAnthropicKey } from './env';
 import type { Env } from './env';
-import { verifyHuntPhoto } from './vision';
+import { verifyAndCompare } from './vision';
+import { logEvent } from './analytics';
 import { getUser, updateUser, addCreditTransaction } from './auth';
 
 type AlarmAction =
@@ -461,6 +462,16 @@ export class ScavengerHuntRoom {
 
     await this.persist();
 
+    logEvent(this.env, 'hunt_started', {
+      huntId: this.room.huntId,
+      playerCount: this.room.players.length,
+      itemCount: this.room.items.length,
+      durationMinutes: this.room.config.durationMinutes,
+      maxRetries: this.room.config.maxRetries,
+      creditsDeducted: this.room.creditsDeducted ?? 0,
+      isGroupGame: !!this.room.config.groupId,
+    }).catch(() => {});
+
     this.broadcast({ type: 'hunt_starting', countdown: 3 });
 
     // Use alarm for the 3-second countdown (durable across hibernation)
@@ -613,7 +624,30 @@ export class ScavengerHuntRoom {
       const photoBytes = await photoObj.arrayBuffer();
       const contentType = photoObj.httpMetadata?.contentType || 'image/jpeg';
 
-      const result = await verifyHuntPhoto(apiKey, item.description, photoBytes, contentType);
+      const { sonnetResult: result, comparison } = await verifyAndCompare(
+        apiKey, item.description, photoBytes, contentType,
+      );
+
+      // Fire-and-forget: log photo verification + vision comparison events
+      logEvent(this.env, 'photo_verified', {
+        huntId: this.room.huntId,
+        model: 'claude-sonnet-4-20250514',
+        accepted: result.accepted,
+        confidence: result.confidence,
+        latencyMs: comparison.sonnetLatencyMs,
+      }).catch(() => {});
+
+      logEvent(this.env, 'vision_comparison', {
+        huntId: this.room.huntId,
+        sonnetAccepted: result.accepted,
+        sonnetConfidence: result.confidence,
+        sonnetLatencyMs: comparison.sonnetLatencyMs,
+        haikuAccepted: comparison.haikuResult?.accepted ?? null,
+        haikuConfidence: comparison.haikuResult?.confidence ?? null,
+        haikuLatencyMs: comparison.haikuLatencyMs,
+        haikuError: comparison.haikuError ?? null,
+        agreement: comparison.agreement,
+      }).catch(() => {});
 
       // Re-read state in case it changed during async call
       if (!this.room) return;
@@ -959,6 +993,19 @@ export class ScavengerHuntRoom {
 
     await this.saveHistory(results);
     await this.persist();
+
+    logEvent(this.env, 'hunt_finished', {
+      huntId: this.room.huntId,
+      playerCount: this.room.players.length,
+      itemCount: this.room.items.length,
+      durationMs: Date.now() - (this.room.startedAt ?? this.room.createdAt),
+      rankings: results.rankings.map((r) => ({
+        username: r.player.username,
+        score: r.score,
+        itemsFound: r.itemsFound,
+      })),
+      isGroupGame: !!this.room.config.groupId,
+    }).catch(() => {});
 
     this.broadcast({ type: 'hunt_finished', results });
     await this.notifyGroupOfUpdate();
