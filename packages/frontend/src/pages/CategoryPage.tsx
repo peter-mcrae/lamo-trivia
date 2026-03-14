@@ -124,6 +124,14 @@ export default function CategoryPage() {
               {category.questionCount}+ Questions Available
             </span>
           </div>
+          <div className="flex justify-center mt-6">
+            <Link
+              to="/create"
+              className="inline-flex items-center px-6 py-3 bg-lamo-blue text-white font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors"
+            >
+              Play {category.name} Trivia
+            </Link>
+          </div>
         </div>
 
         <div className="prose prose-lg max-w-none">

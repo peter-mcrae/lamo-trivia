@@ -21,10 +21,10 @@ export default function Home() {
           <span className="text-lamo-dark">Games</span>
         </h1>
         <p className="text-xl text-lamo-dark font-medium max-w-md mx-auto mb-2 animate-fade-in-up">
-          Family game night, anywhere, anytime.
+          Challenge your friends. No app needed.
         </p>
         <p className="text-base text-lamo-gray-muted max-w-md mx-auto animate-fade-in-up">
-          No downloads. Just fun.
+          Free. Instant. Zero downloads.
         </p>
       </section>
 
@@ -56,7 +56,7 @@ export default function Home() {
           >
             <span className="text-5xl group-hover:scale-110 transition-transform">🔍</span>
             <span className="text-lg font-bold text-lamo-dark">Scavenger Hunt</span>
-            <span className="text-sm text-lamo-gray-muted text-center">Find items, snap photos, AI verifies</span>
+            <span className="text-sm text-lamo-gray-muted text-center">Find items, snap photos, race the clock</span>
           </Link>
         </div>
         <div className="flex gap-4 justify-center mt-6 animate-fade-in-up">

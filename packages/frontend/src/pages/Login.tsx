@@ -45,7 +45,7 @@ export default function Login() {
     <div className="max-w-md mx-auto px-6 py-16">
       <h1 className="text-2xl font-bold text-lamo-dark mb-2">Sign In</h1>
       <p className="text-lamo-gray-muted mb-8">
-        Sign in to purchase credits for scavenger hunts.
+        Sign in to unlock scavenger hunts and track your stats.
       </p>
 
       {step === 'email' ? (
