@@ -8,6 +8,7 @@ import { HuntClientMessageSchema, HuntConfigSchema, AVATARS, HUNT_EXPIRY_MS } fr
 import { getAnthropicKey } from './env';
 import type { Env } from './env';
 import { verifyHuntPhoto } from './vision';
+import { getUser, updateUser, addCreditTransaction } from './auth';
 
 type AlarmAction =
   | 'expire_hunt'
@@ -22,6 +23,8 @@ interface HuntRoomState {
   config: HuntConfig;
   phase: GamePhase;
   hostId: string;
+  hostEmail?: string;
+  creditsDeducted?: number;
   players: Player[];
   items: HuntItem[];
   progress: Record<string, HuntPlayerProgress>;
@@ -67,11 +70,13 @@ export class ScavengerHuntRoom {
           return Response.json({ error: 'Invalid hunt config' }, { status: 400 });
         }
         const config = parsed.data as HuntConfig;
+        const hostEmail = typeof body.hostEmail === 'string' ? body.hostEmail : undefined;
         this.room = {
           huntId,
           config,
           phase: 'waiting',
           hostId: '',
+          hostEmail,
           players: [],
           items: config.items,
           progress: {},
@@ -386,6 +391,50 @@ export class ScavengerHuntRoom {
         message: `Need at least ${this.room.config.minPlayers} teams to start`,
       });
       return;
+    }
+
+    // Deduct credits from host
+    if (this.room.hostEmail) {
+      const creditsNeeded = this.room.items.length * this.room.config.maxRetries * participantCount;
+
+      // Use a KV lock key to prevent concurrent deductions for this hunt
+      const lockKey = `credit-lock:${this.room.huntId}`;
+      const lockExists = await this.env.TRIVIA_KV.get(lockKey);
+      if (lockExists) {
+        this.sendTo(ws, { type: 'error', message: 'Hunt is already starting' });
+        return;
+      }
+      await this.env.TRIVIA_KV.put(lockKey, '1', { expirationTtl: 60 });
+
+      const host = await getUser(this.room.hostEmail, this.env);
+      if (!host || host.credits < creditsNeeded) {
+        await this.env.TRIVIA_KV.delete(lockKey);
+        this.sendTo(ws, {
+          type: 'error',
+          message: 'Not enough credits to start this hunt',
+        });
+        return;
+      }
+
+      host.credits -= creditsNeeded;
+      await updateUser(host, this.env);
+
+      await addCreditTransaction(host.userId, {
+        type: 'deduction',
+        amount: creditsNeeded,
+        timestamp: Date.now(),
+        details: `Hunt "${this.room.config.name}" — ${this.room.items.length} items × ${this.room.config.maxRetries} retries × ${participantCount} teams`,
+        huntId: this.room.huntId,
+      }, this.env);
+
+      this.room.creditsDeducted = creditsNeeded;
+
+      // Notify host of deduction
+      this.sendTo(ws, {
+        type: 'credits_deducted',
+        amount: creditsNeeded,
+        remaining: host.credits,
+      });
     }
 
     // Initialize progress for all players except the host (host observes, doesn't play)

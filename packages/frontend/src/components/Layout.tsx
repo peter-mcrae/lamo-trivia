@@ -1,7 +1,9 @@
 import { Link } from 'react-router-dom';
 import type { ReactNode } from 'react';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 export function Layout({ children }: { children: ReactNode }) {
+  const { user } = useAuthContext();
   return (
     <div className="min-h-screen bg-white">
       <nav className="flex items-center justify-between px-6 h-[52px] bg-lamo-bg-hero/[0.92] backdrop-blur-xl border-b border-lamo-border sticky top-0 z-50">
@@ -35,6 +37,12 @@ export function Layout({ children }: { children: ReactNode }) {
             className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors"
           >
             History
+          </Link>
+          <Link
+            to={user ? '/credits' : '/login'}
+            className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors"
+          >
+            {user ? `${user.credits} Credits` : 'Sign In'}
           </Link>
         </div>
       </nav>

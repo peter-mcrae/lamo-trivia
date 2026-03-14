@@ -91,6 +91,20 @@ export const HUNT_LIMITS = {
 
 export const HUNT_EXPIRY_MS = 90 * 60 * 1000; // 90 minutes — longer than trivia since hunts run up to 60 min
 
+// --- Credit System & Auth Constants ---
+
+export const CREDIT_PRICING = {
+  creditsPerPurchase: 50,
+  priceInCents: 500,
+} as const;
+
+export const AUTH_CONSTANTS = {
+  sessionTTL: 30 * 24 * 60 * 60, // 30 days in seconds
+  magicCodeTTL: 10 * 60, // 10 minutes in seconds
+  maxCodeAttempts: 5,
+  maxCodesPerHour: 5,
+} as const;
+
 export const TRIVIA_CATEGORIES: TriviaCategory[] = [
   { id: 'harry-potter', name: 'Harry Potter', description: 'The Wizarding World', icon: '⚡', questionCount: 230 },
   { id: 'general', name: 'General Knowledge', description: 'A bit of everything', icon: '🧠', questionCount: 50 },

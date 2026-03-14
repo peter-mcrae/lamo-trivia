@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { CookieBanner } from '@/components/CookieBanner';
+import { AuthProvider } from '@/contexts/AuthContext';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import Home from '@/pages/Home';
 import Lobby from '@/pages/Lobby';
@@ -20,6 +21,9 @@ import CreateHunt from '@/pages/CreateHunt';
 import HuntRoom from '@/pages/HuntRoom';
 import HuntHistory from '@/pages/HuntHistory';
 import HuntHistoryDetail from '@/pages/HuntHistoryDetail';
+import Login from '@/pages/Login';
+import Credits from '@/pages/Credits';
+import CreditsPurchaseSuccess from '@/pages/CreditsPurchaseSuccess';
 
 function AppRoutes() {
   usePageTracking();
@@ -44,6 +48,9 @@ function AppRoutes() {
         <Route path="/hunts/history" element={<HuntHistory />} />
         <Route path="/hunt/:huntId/history" element={<HuntHistoryDetail />} />
         <Route path="/hunt/:huntId" element={<HuntRoom />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/credits" element={<Credits />} />
+        <Route path="/credits/success" element={<CreditsPurchaseSuccess />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </Layout>
@@ -53,8 +60,10 @@ function AppRoutes() {
 function App() {
   return (
     <BrowserRouter>
-      <AppRoutes />
-      <CookieBanner />
+      <AuthProvider>
+        <AppRoutes />
+        <CookieBanner />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

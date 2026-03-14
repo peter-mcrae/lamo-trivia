@@ -10,6 +10,8 @@ interface HuntConfigFormProps {
   onSubmit: (config: HuntConfigInput) => void | Promise<void>;
   submitting: boolean;
   error?: string;
+  showCreditEstimate?: boolean;
+  userCredits?: number;
 }
 
 function createEmptyItem(): HuntItem {
@@ -83,6 +85,8 @@ export function HuntConfigForm({
   onSubmit,
   submitting,
   error: externalError,
+  showCreditEstimate,
+  userCredits,
 }: HuntConfigFormProps) {
   const [internalError, setInternalError] = useState('');
   const [promptCopied, setPromptCopied] = useState(false);
@@ -383,13 +387,35 @@ export function HuntConfigForm({
         </div>
       </div>
 
+      {/* Credit Estimate */}
+      {showCreditEstimate && (
+        <div className={`p-4 rounded-xl border ${
+          userCredits != null && userCredits < items.length * maxRetries * maxPlayers
+            ? 'border-red-200 bg-red-50'
+            : 'border-lamo-border bg-lamo-bg'
+        }`}>
+          <p className="text-sm font-medium text-lamo-dark">
+            Estimated credits needed:{' '}
+            <strong>{items.length * maxRetries * maxPlayers}</strong>
+          </p>
+          <p className="text-xs text-lamo-gray-muted mt-1">
+            {items.length} items &times; {maxRetries} retries &times; {maxPlayers} max teams
+          </p>
+          {userCredits != null && userCredits < items.length * maxRetries * maxPlayers && (
+            <p className="text-xs text-red-500 mt-1">
+              Not enough credits. You have {userCredits}.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Error */}
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
       {/* Submit */}
       <button
         type="submit"
-        disabled={submitting}
+        disabled={submitting || (showCreditEstimate && userCredits != null && userCredits < items.length * maxRetries * maxPlayers)}
         className="w-full px-6 py-3 bg-lamo-blue text-white font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors disabled:opacity-50"
       >
         {submitting ? submittingLabel : submitLabel}

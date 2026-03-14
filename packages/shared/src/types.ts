@@ -240,6 +240,39 @@ export interface HuntHistorySummary {
   finishedAt: number;
 }
 
+// --- Credit System & Auth Types ---
+
+export interface User {
+  userId: string;
+  email: string;
+  credits: number;
+  createdAt: number;
+  stripeCustomerId?: string;
+}
+
+export interface Session {
+  userId: string;
+  email: string;
+  expiresAt: number;
+}
+
+export interface MagicCode {
+  code: string;
+  expiresAt: number;
+  attempts: number;
+}
+
+export type CreditTransactionType = 'purchase' | 'deduction' | 'refund';
+
+export interface CreditTransaction {
+  type: CreditTransactionType;
+  amount: number;
+  timestamp: number;
+  details: string;
+  huntId?: string;
+  stripeSessionId?: string;
+}
+
 export interface HuntHistoryEntry {
   huntId: string;
   config: {
