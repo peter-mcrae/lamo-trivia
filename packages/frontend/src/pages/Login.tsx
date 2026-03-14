@@ -33,7 +33,12 @@ export default function Login() {
     setSending(true);
     try {
       await verifyCode(email, code);
-      navigate(searchParams.get('returnTo') || '/credits');
+      const returnTo = searchParams.get('returnTo');
+      // Validate returnTo is a safe relative path to prevent open redirects
+      const safeReturnTo = returnTo && returnTo.startsWith('/') && !returnTo.startsWith('//')
+        ? returnTo
+        : '/credits';
+      navigate(safeReturnTo);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Invalid code');
     } finally {
