@@ -86,6 +86,21 @@ export const HuntConfigSchema = z.object({
 
 export type HuntConfigInput = z.infer<typeof HuntConfigSchema>;
 
+// --- Auth Schemas ---
+
+export const EmailSchema = z.string().email('Invalid email address').max(254);
+
+export const MagicCodeSchema = z.string().length(6).regex(/^\d{6}$/, 'Code must be 6 digits');
+
+export const SendCodeRequestSchema = z.object({
+  email: EmailSchema,
+});
+
+export const VerifyCodeRequestSchema = z.object({
+  email: EmailSchema,
+  code: MagicCodeSchema,
+});
+
 export const HuntClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('join_hunt'), huntId: z.string(), username: UsernameSchema }),
   z.object({ type: z.literal('rejoin_hunt'), huntId: z.string(), username: UsernameSchema }),

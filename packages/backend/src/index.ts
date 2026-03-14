@@ -83,6 +83,6 @@ function corsHeaders(origin: string): Record<string, string> {
   return {
     'Access-Control-Allow-Origin': origin,
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, X-Host-Secret',
+    'Access-Control-Allow-Headers': 'Content-Type, X-Host-Secret, Authorization',
   };
 }

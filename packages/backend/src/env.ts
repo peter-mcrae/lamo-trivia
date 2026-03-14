@@ -22,6 +22,12 @@ export interface Env {
   OPENAI_API_KEY?: SecretStoreSecret | string;
   /** Anthropic API key for Claude vision (scavenger hunt photo verification) */
   ANTHROPIC_API_KEY?: SecretStoreSecret | string;
+  /** Resend API key for sending magic code emails */
+  RESEND_API_KEY?: SecretStoreSecret | string;
+  /** Stripe secret key */
+  STRIPE_SECRET_KEY?: SecretStoreSecret | string;
+  /** Stripe webhook signing secret */
+  STRIPE_WEBHOOK_SECRET?: string;
 }
 
 /** Resolve OPENAI_API_KEY from Secret Store, classic secret, or .dev.vars */
@@ -62,4 +68,22 @@ export async function getAnthropicKey(env: Env): Promise<string> {
   }
 
   throw new Error('ANTHROPIC_API_KEY binding has unexpected type');
+}
+
+/** Resolve RESEND_API_KEY */
+export async function getResendKey(env: Env): Promise<string> {
+  const key = env.RESEND_API_KEY;
+  if (!key) throw new Error('RESEND_API_KEY is not configured');
+  if (typeof key === 'string') return key;
+  if (typeof key.get === 'function') return key.get();
+  throw new Error('RESEND_API_KEY binding has unexpected type');
+}
+
+/** Resolve STRIPE_SECRET_KEY */
+export async function getStripeKey(env: Env): Promise<string> {
+  const key = env.STRIPE_SECRET_KEY;
+  if (!key) throw new Error('STRIPE_SECRET_KEY is not configured');
+  if (typeof key === 'string') return key;
+  if (typeof key.get === 'function') return key.get();
+  throw new Error('STRIPE_SECRET_KEY binding has unexpected type');
 }

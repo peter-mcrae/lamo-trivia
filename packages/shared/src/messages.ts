@@ -90,5 +90,6 @@ export type HuntServerMessage =
   | { type: 'host_message'; message: string }
   | { type: 'hunt_expired'; message: string }
   | { type: 'time_warning'; secondsRemaining: number }
+  | { type: 'credits_deducted'; amount: number; remaining: number }
   | { type: 'error'; message: string; code?: string }
   | { type: 'pong' };

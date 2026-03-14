@@ -1,10 +1,16 @@
 import { Env } from './env';
 import {
   GameConfigSchema, HuntConfigSchema, UsernameSchema, GroupNameSchema,
+  SendCodeRequestSchema, VerifyCodeRequestSchema,
   TRIVIA_CATEGORIES, generateGroupId, HUNT_LIMITS,
 } from '@lamo-trivia/shared';
 import type { GroupGame, HuntConfig, HuntHistoryEntry, HuntHistorySummary } from '@lamo-trivia/shared';
 import { seedQuestions, getCategoryCounts, getAIQuestionBankTopics } from './questions';
+import {
+  sendMagicCode, verifyMagicCode, createSession, getSessionUser,
+  deleteSession, getCreditTransactions,
+} from './auth';
+import { createCheckoutSession, verifyWebhookSignature, handleCheckoutCompleted } from './stripe';
 
 // --- In-memory rate limiter (per Worker isolate) ---
 
@@ -37,6 +43,7 @@ const usernameCheckLimiter = new RateLimiter(20);    // 20/min per IP
 const groupGameLimiter = new RateLimiter(10);        // 10/min per IP
 const photoUploadLimiter = new RateLimiter(20);      // 20/min per IP
 const huntHistoryLimiter = new RateLimiter(30);      // 30/min per IP
+const authCodeLimiter = new RateLimiter(5, 3600_000); // 5/hr per email
 
 function getClientIP(request: Request): string {
   return request.headers.get('CF-Connecting-IP') ?? 'unknown';
@@ -54,6 +61,90 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   const method = request.method;
 
   try {
+    // --- Auth Routes ---
+
+    // POST /api/auth/send-code
+    if (method === 'POST' && url.pathname === '/api/auth/send-code') {
+      const body = await request.json();
+      const parsed = SendCodeRequestSchema.safeParse(body);
+      if (!parsed.success) {
+        return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+      }
+      if (!authCodeLimiter.check(parsed.data.email)) return rateLimitedResponse();
+      await sendMagicCode(parsed.data.email, env);
+      return Response.json({ ok: true });
+    }
+
+    // POST /api/auth/verify-code
+    if (method === 'POST' && url.pathname === '/api/auth/verify-code') {
+      const body = await request.json();
+      const parsed = VerifyCodeRequestSchema.safeParse(body);
+      if (!parsed.success) {
+        return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+      }
+      const valid = await verifyMagicCode(parsed.data.email, parsed.data.code, env);
+      if (!valid) {
+        return Response.json({ error: 'Invalid or expired code' }, { status: 401 });
+      }
+      const { token, user } = await createSession(parsed.data.email, env);
+      return Response.json({ token, user });
+    }
+
+    // GET /api/auth/me
+    if (method === 'GET' && url.pathname === '/api/auth/me') {
+      const user = await getSessionUser(request, env);
+      return Response.json({ user: user ?? null });
+    }
+
+    // POST /api/auth/logout
+    if (method === 'POST' && url.pathname === '/api/auth/logout') {
+      await deleteSession(request, env);
+      return Response.json({ ok: true });
+    }
+
+    // --- Stripe / Credits Routes ---
+
+    // POST /api/checkout — create Stripe Checkout session
+    if (method === 'POST' && url.pathname === '/api/checkout') {
+      const user = await getSessionUser(request, env);
+      if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      const checkoutUrl = await createCheckoutSession(user, env);
+      return Response.json({ url: checkoutUrl });
+    }
+
+    // POST /api/webhooks/stripe — Stripe webhook
+    if (method === 'POST' && url.pathname === '/api/webhooks/stripe') {
+      const sig = request.headers.get('stripe-signature');
+      if (!sig || !env.STRIPE_WEBHOOK_SECRET) {
+        return Response.json({ error: 'Missing signature' }, { status: 400 });
+      }
+      const payload = await request.text();
+      const valid = await verifyWebhookSignature(payload, sig, env.STRIPE_WEBHOOK_SECRET);
+      if (!valid) {
+        return Response.json({ error: 'Invalid signature' }, { status: 400 });
+      }
+      const event = JSON.parse(payload);
+      if (event.type === 'checkout.session.completed') {
+        await handleCheckoutCompleted(event, env);
+      }
+      return Response.json({ received: true });
+    }
+
+    // GET /api/credits/balance
+    if (method === 'GET' && url.pathname === '/api/credits/balance') {
+      const user = await getSessionUser(request, env);
+      if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      return Response.json({ credits: user.credits });
+    }
+
+    // GET /api/credits/transactions
+    if (method === 'GET' && url.pathname === '/api/credits/transactions') {
+      const user = await getSessionUser(request, env);
+      if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      const transactions = await getCreditTransactions(user.userId, env);
+      return Response.json({ transactions });
+    }
+
     // GET /api/games — list public games
     if (method === 'GET' && url.pathname === '/api/games') {
       const lobbyId = env.GAME_LOBBY.idFromName('global');
@@ -252,13 +343,27 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
 
     // --- Scavenger Hunt Endpoints ---
 
-    // POST /api/hunts — create a scavenger hunt
+    // POST /api/hunts — create a scavenger hunt (requires auth + credits)
     if (method === 'POST' && url.pathname === '/api/hunts') {
       if (!gameCreateLimiter.check(getClientIP(request))) return rateLimitedResponse();
+
+      const user = await getSessionUser(request, env);
+      if (!user) return Response.json({ error: 'Sign in to create a scavenger hunt' }, { status: 401 });
+
       const body = await request.json();
       const parsed = HuntConfigSchema.safeParse(body);
       if (!parsed.success) {
         return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+      }
+
+      // Validate minimum credits (items x retries x maxPlayers)
+      const minCredits = parsed.data.items.length * parsed.data.maxRetries * parsed.data.maxPlayers;
+      if (user.credits < minCredits) {
+        return Response.json({
+          error: `Not enough credits. Need ${minCredits}, have ${user.credits}.`,
+          creditsNeeded: minCredits,
+          creditsAvailable: user.credits,
+        }, { status: 402 });
       }
 
       // Create lobby listing
@@ -282,7 +387,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       await room.fetch(
         new Request('http://internal/config', {
           method: 'POST',
-          body: JSON.stringify({ ...parsed.data, huntId }),
+          body: JSON.stringify({ ...parsed.data, huntId, hostEmail: user.email }),
         }),
       );
 
@@ -326,9 +431,13 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       return Response.json({ uploadId: `${uploadId}.${ext}` });
     }
 
-    // POST /api/groups/:groupId/hunts — create a hunt within a group
+    // POST /api/groups/:groupId/hunts — create a hunt within a group (requires auth + credits)
     if (method === 'POST' && url.pathname.match(/^\/api\/groups\/[^/]+\/hunts$/)) {
       if (!groupGameLimiter.check(getClientIP(request))) return rateLimitedResponse();
+
+      const user = await getSessionUser(request, env);
+      if (!user) return Response.json({ error: 'Sign in to create a scavenger hunt' }, { status: 401 });
+
       const groupId = url.pathname.split('/api/groups/')[1].split('/hunts')[0];
 
       // Validate group exists
@@ -341,6 +450,16 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       const parsed = HuntConfigSchema.safeParse({ ...(body as object), isPrivate: true, groupId });
       if (!parsed.success) {
         return Response.json({ error: parsed.error.flatten() }, { status: 400 });
+      }
+
+      // Validate minimum credits
+      const minCredits = parsed.data.items.length * parsed.data.maxRetries * parsed.data.maxPlayers;
+      if (user.credits < minCredits) {
+        return Response.json({
+          error: `Not enough credits. Need ${minCredits}, have ${user.credits}.`,
+          creditsNeeded: minCredits,
+          creditsAvailable: user.credits,
+        }, { status: 402 });
       }
 
       // Create lobby listing
@@ -364,7 +483,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       await room.fetch(
         new Request('http://internal/config', {
           method: 'POST',
-          body: JSON.stringify({ ...parsed.data, huntId }),
+          body: JSON.stringify({ ...parsed.data, huntId, hostEmail: user.email }),
         }),
       );
 

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { handleRequest } from '../router';
-import { createMockEnv } from './mocks';
+import { createMockEnv, createMockKV } from './mocks';
 import type { Env } from '../env';
+import type { User, Session } from '@lamo-trivia/shared';
 
 /** Build a mock Env with DOs that behave reasonably for hunt endpoints. */
 function createHuntMockEnv(overrides: Partial<Env> = {}): Env {
@@ -50,6 +51,31 @@ function createHuntMockEnv(overrides: Partial<Env> = {}): Env {
   });
 }
 
+const TEST_TOKEN = 'test-session-token';
+const TEST_EMAIL = 'test@example.com';
+const TEST_USER_ID = 'test-user-id';
+
+/** Seed a mock KV with an authenticated user who has plenty of credits. */
+async function seedAuth(kv: KVNamespace, credits = 500) {
+  const user: User = {
+    userId: TEST_USER_ID,
+    email: TEST_EMAIL,
+    credits,
+    createdAt: Date.now(),
+  };
+  const session: Session = {
+    userId: TEST_USER_ID,
+    email: TEST_EMAIL,
+    expiresAt: Date.now() + 86400000,
+  };
+  await kv.put(`user:${TEST_EMAIL}`, JSON.stringify(user));
+  await kv.put(`session:${TEST_TOKEN}`, JSON.stringify(session));
+}
+
+function authHeaders(extra: Record<string, string> = {}): Record<string, string> {
+  return { Authorization: `Bearer ${TEST_TOKEN}`, ...extra };
+}
+
 /** Minimal valid hunt config that satisfies HuntConfigSchema. */
 function validHuntConfig() {
   return {
@@ -79,9 +105,12 @@ function validHuntConfig() {
 
 describe('POST /api/hunts — Create hunt', () => {
   it('creates hunt with valid config and returns huntId', async () => {
-    const env = createHuntMockEnv();
+    const kv = createMockKV();
+    await seedAuth(kv);
+    const env = createHuntMockEnv({ TRIVIA_KV: kv });
     const request = new Request('http://localhost/api/hunts', {
       method: 'POST',
+      headers: authHeaders(),
       body: JSON.stringify(validHuntConfig()),
     });
 
@@ -93,13 +122,27 @@ describe('POST /api/hunts — Create hunt', () => {
     expect(typeof data.huntId).toBe('string');
   });
 
-  it('rejects invalid config with missing name', async () => {
+  it('rejects unauthenticated requests', async () => {
     const env = createHuntMockEnv();
+    const request = new Request('http://localhost/api/hunts', {
+      method: 'POST',
+      body: JSON.stringify(validHuntConfig()),
+    });
+
+    const response = await handleRequest(request, env);
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects invalid config with missing name', async () => {
+    const kv = createMockKV();
+    await seedAuth(kv);
+    const env = createHuntMockEnv({ TRIVIA_KV: kv });
     const config = validHuntConfig();
     (config as any).name = '';
 
     const request = new Request('http://localhost/api/hunts', {
       method: 'POST',
+      headers: authHeaders(),
       body: JSON.stringify(config),
     });
 
@@ -111,11 +154,14 @@ describe('POST /api/hunts — Create hunt', () => {
   });
 
   it('rejects invalid config with no items', async () => {
-    const env = createHuntMockEnv();
+    const kv = createMockKV();
+    await seedAuth(kv);
+    const env = createHuntMockEnv({ TRIVIA_KV: kv });
     const config = { ...validHuntConfig(), items: [] };
 
     const request = new Request('http://localhost/api/hunts', {
       method: 'POST',
+      headers: authHeaders(),
       body: JSON.stringify(config),
     });
 
@@ -125,11 +171,14 @@ describe('POST /api/hunts — Create hunt', () => {
   });
 
   it('rejects when minPlayers > maxPlayers', async () => {
-    const env = createHuntMockEnv();
+    const kv = createMockKV();
+    await seedAuth(kv);
+    const env = createHuntMockEnv({ TRIVIA_KV: kv });
     const config = { ...validHuntConfig(), minPlayers: 8, maxPlayers: 2 };
 
     const request = new Request('http://localhost/api/hunts', {
       method: 'POST',
+      headers: authHeaders(),
       body: JSON.stringify(config),
     });
 
@@ -139,12 +188,15 @@ describe('POST /api/hunts — Create hunt', () => {
   });
 
   it('rate limits creation', async () => {
-    const env = createHuntMockEnv();
+    const kv = createMockKV();
+    await seedAuth(kv);
+    const env = createHuntMockEnv({ TRIVIA_KV: kv });
 
     // Exhaust the rate limiter (10 per minute per IP)
     for (let i = 0; i < 10; i++) {
       const req = new Request('http://localhost/api/hunts', {
         method: 'POST',
+        headers: authHeaders(),
         body: JSON.stringify(validHuntConfig()),
       });
       await handleRequest(req, env);
@@ -153,6 +205,7 @@ describe('POST /api/hunts — Create hunt', () => {
     // 11th request should be rate-limited
     const request = new Request('http://localhost/api/hunts', {
       method: 'POST',
+      headers: authHeaders(),
       body: JSON.stringify(validHuntConfig()),
     });
 
@@ -261,11 +314,13 @@ describe('POST /api/hunts/:huntId/photos — Photo upload', () => {
 
 describe('POST /api/groups/:groupId/hunts — Group hunt', () => {
   it('creates hunt in group with valid config', async () => {
-    const env = createHuntMockEnv();
+    const kv = createMockKV();
+    await seedAuth(kv);
+    const env = createHuntMockEnv({ TRIVIA_KV: kv });
     const request = new Request('http://localhost/api/groups/test-group-id/hunts', {
       method: 'POST',
       body: JSON.stringify(validHuntConfig()),
-      headers: { 'CF-Connecting-IP': '10.0.0.200' },
+      headers: { ...authHeaders(), 'CF-Connecting-IP': '10.0.0.200' },
     });
 
     const response = await handleRequest(request, env);
