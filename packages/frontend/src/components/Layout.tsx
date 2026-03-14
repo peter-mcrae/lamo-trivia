@@ -33,12 +33,6 @@ export function Layout({ children }: { children: ReactNode }) {
             Groups
           </Link>
           <Link
-            to="/hunts/history"
-            className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors"
-          >
-            History
-          </Link>
-          <Link
             to={user ? '/credits' : '/login'}
             className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors"
           >
