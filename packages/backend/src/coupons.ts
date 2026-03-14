@@ -209,7 +209,7 @@ export async function sendCouponEmail(
       ${messageHtml}
       <div style="background: #f8f9fa; border: 2px dashed #6c63ff; border-radius: 12px; padding: 24px; text-align: center; margin: 24px 0;">
         <p style="color: #666; margin: 0 0 8px 0; font-size: 14px;">Your coupon code</p>
-        <p style="font-size: 28px; font-weight: bold; color: #1a1a2e; letter-spacing: 2px; margin: 0;">${opts.couponCode}</p>
+        <p style="font-size: 28px; font-weight: bold; color: #1a1a2e; letter-spacing: 2px; margin: 0;">${opts.couponCode.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
         <p style="color: #666; margin: 8px 0 0 0; font-size: 14px;">${opts.credits} credits</p>
       </div>
       <p style="font-size: 14px; color: #666;">
