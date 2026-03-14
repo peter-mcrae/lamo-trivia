@@ -796,6 +796,51 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       });
     }
 
+    // POST /api/analytics/backfill-hunt-groups — one-time backfill of groupId in hunt history metadata
+    if (method === 'POST' && url.pathname === '/api/analytics/backfill-hunt-groups') {
+      const authHeader = request.headers.get('Authorization');
+      const expectedSecret = env.SEED_SECRET;
+      if (!expectedSecret || !authHeader) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const expectedValue = `Bearer ${expectedSecret}`;
+      if (authHeader.length !== expectedValue.length || !(await timingSafeEqual(authHeader, expectedValue))) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+
+      const listResult = await env.TRIVIA_KV.list<HuntHistorySummary>({ prefix: 'hunt-history:' });
+      let updated = 0;
+      let skipped = 0;
+
+      for (const key of listResult.keys) {
+        // Skip entries that already have groupId in metadata
+        if (key.metadata?.groupId) {
+          skipped++;
+          continue;
+        }
+
+        // Read the full entry to check for groupId
+        const entry = await env.TRIVIA_KV.get<HuntHistoryEntry>(key.name, 'json');
+        if (!entry?.groupId) {
+          skipped++;
+          continue;
+        }
+
+        // Re-write with updated metadata including groupId
+        const updatedMetadata: HuntHistorySummary = {
+          ...key.metadata!,
+          groupId: entry.groupId,
+        };
+        await env.TRIVIA_KV.put(key.name, JSON.stringify(entry), {
+          expirationTtl: 90 * 24 * 60 * 60,
+          metadata: updatedMetadata,
+        });
+        updated++;
+      }
+
+      return Response.json({ ok: true, updated, skipped });
+    }
+
     // GET /api/health
     if (method === 'GET' && url.pathname === '/api/health') {
       return Response.json({ status: 'ok', timestamp: Date.now() });
