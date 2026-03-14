@@ -83,11 +83,50 @@ export async function verifyWebhookSignature(
   );
 
   const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(signedPayload));
-  const computed = Array.from(new Uint8Array(sig))
-    .map((b) => b.toString(16).padStart(2, '0'))
-    .join('');
+  const computedBuf = new Uint8Array(sig);
 
-  return parts.signatures.includes(computed);
+  // Constant-time comparison against each candidate signature
+  for (const candidate of parts.signatures) {
+    const candidateBytes = hexToBytes(candidate);
+    if (!candidateBytes || candidateBytes.byteLength !== computedBuf.byteLength) continue;
+    if (await constantTimeEqual(computedBuf, candidateBytes)) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/** Constant-time byte comparison */
+async function constantTimeEqual(a: Uint8Array, b: Uint8Array): Promise<boolean> {
+  if (a.byteLength !== b.byteLength) return false;
+  // Workers runtime
+  if (typeof crypto.subtle.timingSafeEqual === 'function') {
+    return crypto.subtle.timingSafeEqual(a, b);
+  }
+  // Fallback via HMAC
+  const key = await crypto.subtle.importKey(
+    'raw', new Uint8Array(32),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
+  );
+  const [macA, macB] = await Promise.all([
+    crypto.subtle.sign('HMAC', key, a),
+    crypto.subtle.sign('HMAC', key, b),
+  ]);
+  const viewA = new Uint8Array(macA);
+  const viewB = new Uint8Array(macB);
+  let result = 0;
+  for (let i = 0; i < viewA.length; i++) result |= viewA[i] ^ viewB[i];
+  return result === 0;
+}
+
+/** Convert hex string to Uint8Array, returns null on invalid input */
+function hexToBytes(hex: string): Uint8Array | null {
+  if (hex.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(hex)) return null;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substring(i, i + 2), 16);
+  }
+  return bytes;
 }
 
 // --- Webhook handler ---
@@ -97,20 +136,30 @@ export async function handleCheckoutCompleted(
   env: Env,
 ): Promise<void> {
   const session = event.data.object;
+
+  // Only credit when payment is actually received
+  if (session.payment_status !== 'paid') {
+    console.log('Checkout completed but payment not yet received', session.id);
+    return;
+  }
+
   const email = session.metadata?.email ?? session.customer_email;
   if (!email) {
     console.error('Webhook missing email', session.id);
     return;
   }
 
-  // Idempotency check
+  // Idempotency: write the key FIRST to prevent double-crediting from concurrent retries
   const idempotencyKey = `stripe-fulfilled:${session.id}`;
   const existing = await env.TRIVIA_KV.get(idempotencyKey);
   if (existing) return;
+  await env.TRIVIA_KV.put(idempotencyKey, 'processing', { expirationTtl: 30 * 24 * 60 * 60 });
 
   const user = await getUser(email, env);
   if (!user) {
     console.error('Webhook user not found', email);
+    // Remove idempotency key so it can be retried when user exists
+    await env.TRIVIA_KV.delete(idempotencyKey);
     return;
   }
 
@@ -133,8 +182,8 @@ export async function handleCheckoutCompleted(
     stripeSessionId: session.id,
   }, env);
 
-  // Mark as fulfilled (keep for 30 days to prevent replays)
-  await env.TRIVIA_KV.put(idempotencyKey, '1', { expirationTtl: 30 * 24 * 60 * 60 });
+  // Mark as fulfilled
+  await env.TRIVIA_KV.put(idempotencyKey, 'fulfilled', { expirationTtl: 30 * 24 * 60 * 60 });
 }
 
 // --- Stripe types (minimal) ---

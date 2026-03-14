@@ -2,10 +2,63 @@ import { Env, getResendKey } from './env';
 import { AUTH_CONSTANTS } from '@lamo-trivia/shared';
 import type { User, Session, MagicCode, CreditTransaction } from '@lamo-trivia/shared';
 
+/** Normalize email for consistent KV keys */
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+/** Generate a cryptographically secure 6-digit code */
+function generateSecureCode(): string {
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return String(100000 + (array[0] % 900000));
+}
+
+/** Generate a 256-bit cryptographically secure token */
+function generateSecureToken(): string {
+  const bytes = new Uint8Array(32);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes).map((b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+/** Constant-time string comparison to prevent timing attacks */
+async function timingSafeEqual(a: string, b: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const aBuf = encoder.encode(a);
+  const bBuf = encoder.encode(b);
+  if (aBuf.byteLength !== bBuf.byteLength) return false;
+
+  // Workers runtime has crypto.subtle.timingSafeEqual
+  if (typeof crypto.subtle.timingSafeEqual === 'function') {
+    return crypto.subtle.timingSafeEqual(aBuf, bBuf);
+  }
+
+  // Fallback: constant-time comparison via HMAC (works in Node.js test env)
+  const key = await crypto.subtle.importKey(
+    'raw',
+    new Uint8Array(32),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const [macA, macB] = await Promise.all([
+    crypto.subtle.sign('HMAC', key, aBuf),
+    crypto.subtle.sign('HMAC', key, bBuf),
+  ]);
+  const viewA = new Uint8Array(macA);
+  const viewB = new Uint8Array(macB);
+  let result = 0;
+  for (let i = 0; i < viewA.length; i++) {
+    result |= viewA[i] ^ viewB[i];
+  }
+  return result === 0;
+}
+
 // --- Magic Code ---
 
 export async function sendMagicCode(email: string, env: Env): Promise<void> {
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  email = normalizeEmail(email);
+  const code = generateSecureCode();
   const magicCode: MagicCode = {
     code,
     expiresAt: Date.now() + AUTH_CONSTANTS.magicCodeTTL * 1000,
@@ -42,6 +95,7 @@ export async function verifyMagicCode(
   code: string,
   env: Env,
 ): Promise<boolean> {
+  email = normalizeEmail(email);
   const raw = await env.TRIVIA_KV.get(`magic:${email}`);
   if (!raw) return false;
 
@@ -57,7 +111,8 @@ export async function verifyMagicCode(
     return false;
   }
 
-  if (magicCode.code !== code) {
+  const match = await timingSafeEqual(magicCode.code, code);
+  if (!match) {
     magicCode.attempts++;
     await env.TRIVIA_KV.put(`magic:${email}`, JSON.stringify(magicCode), {
       expirationTtl: AUTH_CONSTANTS.magicCodeTTL,
@@ -76,6 +131,8 @@ export async function createSession(
   email: string,
   env: Env,
 ): Promise<{ token: string; user: User }> {
+  email = normalizeEmail(email);
+
   // Get or create user
   let user = await getUser(email, env);
   if (!user) {
@@ -88,7 +145,7 @@ export async function createSession(
     await env.TRIVIA_KV.put(`user:${email}`, JSON.stringify(user));
   }
 
-  const token = crypto.randomUUID();
+  const token = generateSecureToken();
   const session: Session = {
     userId: user.userId,
     email,
@@ -135,6 +192,7 @@ export async function deleteSession(
 // --- User helpers ---
 
 export async function getUser(email: string, env: Env): Promise<User | null> {
+  email = normalizeEmail(email);
   const raw = await env.TRIVIA_KV.get(`user:${email}`);
   if (!raw) return null;
   return JSON.parse(raw) as User;
@@ -167,3 +225,6 @@ export async function getCreditTransactions(
   const raw = await env.TRIVIA_KV.get(`transactions:${userId}`);
   return raw ? JSON.parse(raw) : [];
 }
+
+// Exported for use in router.ts
+export { timingSafeEqual };

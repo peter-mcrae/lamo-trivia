@@ -17,10 +17,10 @@ export default {
     }
 
     try {
-      // Reject cross-origin WebSocket upgrades
+      // Reject cross-origin WebSocket upgrades (require matching Origin header)
       if (request.headers.get('Upgrade') === 'websocket') {
         const origin = request.headers.get('Origin');
-        if (origin && origin !== env.FRONTEND_URL) {
+        if (!origin || origin !== env.FRONTEND_URL) {
           return new Response('Forbidden', { status: 403 });
         }
       }

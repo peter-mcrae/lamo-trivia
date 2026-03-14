@@ -8,11 +8,13 @@ import type { GroupGame, HuntConfig, HuntHistoryEntry, HuntHistorySummary } from
 import { seedQuestions, getCategoryCounts, getAIQuestionBankTopics } from './questions';
 import {
   sendMagicCode, verifyMagicCode, createSession, getSessionUser,
-  deleteSession, getCreditTransactions,
+  deleteSession, getCreditTransactions, timingSafeEqual,
 } from './auth';
 import { createCheckoutSession, verifyWebhookSignature, handleCheckoutCompleted } from './stripe';
 
 // --- In-memory rate limiter (per Worker isolate) ---
+
+const MAX_RATE_LIMITER_ENTRIES = 10_000;
 
 class RateLimiter {
   private windows = new Map<string, { count: number; start: number }>();
@@ -27,6 +29,14 @@ class RateLimiter {
     const entry = this.windows.get(key);
 
     if (!entry || now - entry.start > this.windowMs) {
+      // Evict stale entries if map is too large
+      if (this.windows.size >= MAX_RATE_LIMITER_ENTRIES) {
+        for (const [k, v] of this.windows) {
+          if (now - v.start > this.windowMs) this.windows.delete(k);
+        }
+        // If still too large after eviction, clear all
+        if (this.windows.size >= MAX_RATE_LIMITER_ENTRIES) this.windows.clear();
+      }
       this.windows.set(key, { count: 1, start: now });
       return true;
     }
@@ -44,6 +54,7 @@ const groupGameLimiter = new RateLimiter(10);        // 10/min per IP
 const photoUploadLimiter = new RateLimiter(20);      // 20/min per IP
 const huntHistoryLimiter = new RateLimiter(30);      // 30/min per IP
 const authCodeLimiter = new RateLimiter(5, 3600_000); // 5/hr per email
+const authVerifyLimiter = new RateLimiter(20);       // 20/min per IP
 
 function getClientIP(request: Request): string {
   return request.headers.get('CF-Connecting-IP') ?? 'unknown';
@@ -54,6 +65,11 @@ function rateLimitedResponse(): Response {
     { error: 'Too many requests. Please try again later.' },
     { status: 429 },
   );
+}
+
+/** Validate photo filename format to prevent path traversal */
+function isValidPhotoFilename(name: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/.test(name);
 }
 
 export async function handleRequest(request: Request, env: Env): Promise<Response> {
@@ -77,6 +93,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
 
     // POST /api/auth/verify-code
     if (method === 'POST' && url.pathname === '/api/auth/verify-code') {
+      if (!authVerifyLimiter.check(getClientIP(request))) return rateLimitedResponse();
       const body = await request.json();
       const parsed = VerifyCodeRequestSchema.safeParse(body);
       if (!parsed.success) {
@@ -210,7 +227,11 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
     if (method === 'POST' && url.pathname === '/api/seed') {
       const authHeader = request.headers.get('Authorization');
       const expectedSecret = env.SEED_SECRET;
-      if (!expectedSecret || !authHeader || authHeader !== `Bearer ${expectedSecret}`) {
+      if (!expectedSecret || !authHeader) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      const expectedValue = `Bearer ${expectedSecret}`;
+      if (authHeader.length !== expectedValue.length || !(await timingSafeEqual(authHeader, expectedValue))) {
         return Response.json({ error: 'Unauthorized' }, { status: 401 });
       }
       const categories = (await request.json()) as Record<string, unknown[]>;
@@ -360,9 +381,8 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       const minCredits = parsed.data.items.length * parsed.data.maxRetries * parsed.data.maxPlayers;
       if (user.credits < minCredits) {
         return Response.json({
-          error: `Not enough credits. Need ${minCredits}, have ${user.credits}.`,
+          error: 'Not enough credits to create this hunt',
           creditsNeeded: minCredits,
-          creditsAvailable: user.credits,
         }, { status: 402 });
       }
 
@@ -394,9 +414,13 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       return Response.json({ huntId });
     }
 
-    // POST /api/hunts/:huntId/photos — upload a photo for verification
+    // POST /api/hunts/:huntId/photos — upload a photo for verification (requires auth)
     if (method === 'POST' && url.pathname.match(/^\/api\/hunts\/[^/]+\/photos$/)) {
       if (!photoUploadLimiter.check(getClientIP(request))) return rateLimitedResponse();
+
+      const user = await getSessionUser(request, env);
+      if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+
       const huntId = url.pathname.split('/api/hunts/')[1].split('/photos')[0];
 
       // Parse multipart form data
@@ -456,9 +480,8 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       const minCredits = parsed.data.items.length * parsed.data.maxRetries * parsed.data.maxPlayers;
       if (user.credits < minCredits) {
         return Response.json({
-          error: `Not enough credits. Need ${minCredits}, have ${user.credits}.`,
+          error: 'Not enough credits to create this hunt',
           creditsNeeded: minCredits,
-          creditsAvailable: user.credits,
         }, { status: 402 });
       }
 
@@ -543,6 +566,11 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
         return Response.json({ error: 'Invalid photo path' }, { status: 400 });
       }
 
+      // Validate filename format to prevent path traversal
+      if (!isValidPhotoFilename(photoFileName)) {
+        return Response.json({ error: 'Invalid photo filename' }, { status: 400 });
+      }
+
       const r2Key = `${huntId}/${photoFileName}`;
       const object = await env.R2_HUNT_PHOTOS.get(r2Key);
 
@@ -590,7 +618,8 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       }
 
       const entry = JSON.parse(raw) as HuntHistoryEntry;
-      if (entry.hostSecret !== providedSecret) {
+      // Constant-time comparison to prevent timing attacks
+      if (!(await timingSafeEqual(entry.hostSecret, providedSecret))) {
         return Response.json({ error: 'Unauthorized' }, { status: 403 });
       }
 

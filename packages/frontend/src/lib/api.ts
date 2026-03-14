@@ -70,6 +70,7 @@ export const api = {
 
     const response = await fetch(`${API_BASE}/hunts/${huntId}/photos`, {
       method: 'POST',
+      headers: getAuthHeaders(),
       body: formData,
     });
     if (!response.ok) {

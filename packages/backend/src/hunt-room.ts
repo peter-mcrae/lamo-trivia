@@ -396,11 +396,22 @@ export class ScavengerHuntRoom {
     // Deduct credits from host
     if (this.room.hostEmail) {
       const creditsNeeded = this.room.items.length * this.room.config.maxRetries * participantCount;
+
+      // Use a KV lock key to prevent concurrent deductions for this hunt
+      const lockKey = `credit-lock:${this.room.huntId}`;
+      const lockExists = await this.env.TRIVIA_KV.get(lockKey);
+      if (lockExists) {
+        this.sendTo(ws, { type: 'error', message: 'Hunt is already starting' });
+        return;
+      }
+      await this.env.TRIVIA_KV.put(lockKey, '1', { expirationTtl: 60 });
+
       const host = await getUser(this.room.hostEmail, this.env);
       if (!host || host.credits < creditsNeeded) {
+        await this.env.TRIVIA_KV.delete(lockKey);
         this.sendTo(ws, {
           type: 'error',
-          message: `Not enough credits. Need ${creditsNeeded}, have ${host?.credits ?? 0}.`,
+          message: 'Not enough credits to start this hunt',
         });
         return;
       }

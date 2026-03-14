@@ -252,8 +252,26 @@ describe('POST /api/hunts/:huntId/photos — Photo upload', () => {
     expect(response.status).toBe(429);
   });
 
-  it('rejects missing file', async () => {
+  it('rejects unauthenticated uploads', async () => {
     const env = createHuntMockEnv();
+    const formData = new FormData();
+    formData.append('file', new File(['photo-data'], 'test.jpg', { type: 'image/jpeg' }));
+    formData.append('itemId', 'item-1');
+
+    const request = new Request('http://localhost/api/hunts/HUNT-123/photos', {
+      method: 'POST',
+      body: formData,
+      headers: { 'CF-Connecting-IP': '10.0.0.99' },
+    });
+
+    const response = await handleRequest(request, env);
+    expect(response.status).toBe(401);
+  });
+
+  it('rejects missing file', async () => {
+    const kv = createMockKV();
+    await seedAuth(kv);
+    const env = createHuntMockEnv({ TRIVIA_KV: kv });
     const formData = new FormData();
     formData.append('itemId', 'item-1');
     // No file appended
@@ -261,7 +279,7 @@ describe('POST /api/hunts/:huntId/photos — Photo upload', () => {
     const request = new Request('http://localhost/api/hunts/HUNT-123/photos', {
       method: 'POST',
       body: formData,
-      headers: { 'CF-Connecting-IP': '10.0.0.100' },
+      headers: { ...authHeaders(), 'CF-Connecting-IP': '10.0.0.100' },
     });
 
     const response = await handleRequest(request, env);
@@ -272,7 +290,9 @@ describe('POST /api/hunts/:huntId/photos — Photo upload', () => {
   });
 
   it('rejects oversized files (>5MB)', async () => {
-    const env = createHuntMockEnv();
+    const kv = createMockKV();
+    await seedAuth(kv);
+    const env = createHuntMockEnv({ TRIVIA_KV: kv });
     // Create a file larger than 5MB
     const largeData = new Uint8Array(6 * 1024 * 1024); // 6MB
     const formData = new FormData();
@@ -282,7 +302,7 @@ describe('POST /api/hunts/:huntId/photos — Photo upload', () => {
     const request = new Request('http://localhost/api/hunts/HUNT-123/photos', {
       method: 'POST',
       body: formData,
-      headers: { 'CF-Connecting-IP': '10.0.0.101' },
+      headers: { ...authHeaders(), 'CF-Connecting-IP': '10.0.0.101' },
     });
 
     const response = await handleRequest(request, env);
@@ -293,7 +313,9 @@ describe('POST /api/hunts/:huntId/photos — Photo upload', () => {
   });
 
   it('rejects invalid file types', async () => {
-    const env = createHuntMockEnv();
+    const kv = createMockKV();
+    await seedAuth(kv);
+    const env = createHuntMockEnv({ TRIVIA_KV: kv });
     const formData = new FormData();
     formData.append('file', new File(['not-an-image'], 'doc.pdf', { type: 'application/pdf' }));
     formData.append('itemId', 'item-1');
@@ -301,7 +323,7 @@ describe('POST /api/hunts/:huntId/photos — Photo upload', () => {
     const request = new Request('http://localhost/api/hunts/HUNT-123/photos', {
       method: 'POST',
       body: formData,
-      headers: { 'CF-Connecting-IP': '10.0.0.102' },
+      headers: { ...authHeaders(), 'CF-Connecting-IP': '10.0.0.102' },
     });
 
     const response = await handleRequest(request, env);
