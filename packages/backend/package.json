@@ -10,7 +10,8 @@
     "seed:remote": "npx tsx scripts/seed.ts --remote"
   },
   "dependencies": {
-    "@lamo-trivia/shared": "*"
+    "@lamo-trivia/shared": "*",
+    "hono": "^4.12.8"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20241106.0",

@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleRequest } from '../router';
+import { app } from '../app';
 import { createMockEnv } from './mocks';
 import type { Env } from '../env';
+
+function fetchApp(request: Request, env: Env) {
+  return app.fetch(request, env);
+}
 
 describe('Router - Seed endpoint auth', () => {
   it('POST /api/seed without Authorization header returns 401', async () => {
@@ -11,7 +15,7 @@ describe('Router - Seed endpoint auth', () => {
       body: JSON.stringify({}),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(401);
     const data = (await response.json()) as any;
@@ -26,7 +30,7 @@ describe('Router - Seed endpoint auth', () => {
       body: JSON.stringify({}),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(401);
     const data = (await response.json()) as any;
@@ -55,7 +59,7 @@ describe('Router - Seed endpoint auth', () => {
       body: JSON.stringify(seedData),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(200);
     const data = (await response.json()) as any;
@@ -71,7 +75,7 @@ describe('Router - Seed endpoint auth', () => {
       body: JSON.stringify({}),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(401);
   });
@@ -80,7 +84,7 @@ describe('Router - Seed endpoint auth', () => {
     const env = createMockEnv();
     const request = new Request('http://localhost/api/health', { method: 'GET' });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(200);
     const data = (await response.json()) as any;
@@ -92,7 +96,7 @@ describe('Router - Seed endpoint auth', () => {
     const env = createMockEnv();
     const request = new Request('http://localhost/api/nonexistent', { method: 'GET' });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(404);
   });
@@ -181,7 +185,7 @@ describe('Router - Group endpoints', () => {
       body: JSON.stringify({ name: 'McRae Family' }),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(401);
   });
@@ -194,7 +198,7 @@ describe('Router - Group endpoints', () => {
       body: JSON.stringify({ name: 'McRae Family' }),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(200);
     const data = (await response.json()) as any;
@@ -212,7 +216,7 @@ describe('Router - Group endpoints', () => {
       body: JSON.stringify({ name: '' }),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(400);
   });
@@ -225,7 +229,7 @@ describe('Router - Group endpoints', () => {
       body: JSON.stringify({ name: 'x'.repeat(51) }),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(400);
   });
@@ -238,7 +242,7 @@ describe('Router - Group endpoints', () => {
       method: 'GET',
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(200);
     const data = (await response.json()) as any;
@@ -261,7 +265,7 @@ describe('Router - Group endpoints', () => {
       method: 'GET',
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(404);
   });
@@ -280,7 +284,7 @@ describe('Router - Group endpoints', () => {
       }),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(200);
     const data = (await response.json()) as any;
@@ -298,7 +302,7 @@ describe('Router - Group endpoints', () => {
       }),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(400);
   });
@@ -322,7 +326,7 @@ describe('Router - Group endpoints', () => {
       }),
     });
 
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
 
     expect(response.status).toBe(404);
   });

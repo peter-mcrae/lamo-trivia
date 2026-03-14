@@ -5,19 +5,23 @@
     "packages/shared",
     "packages/backend",
     "packages/frontend",
+    "packages/admin",
     "packages/monitor"
   ],
   "scripts": {
     "dev": "npm run dev:backend & npm run dev:frontend",
     "dev:backend": "npm run dev --workspace=packages/backend",
     "dev:frontend": "npm run dev --workspace=packages/frontend",
+    "dev:admin": "npm run dev --workspace=packages/admin",
     "build": "npm run build --workspace=packages/frontend",
+    "build:admin": "npm run build --workspace=packages/admin",
     "test": "npm test --workspaces --if-present",
     "test:shared": "npm test --workspace=packages/shared",
     "test:backend": "npm test --workspace=packages/backend",
     "test:frontend": "npm test --workspace=packages/frontend",
     "deploy:backend": "npm run deploy --workspace=packages/backend",
     "deploy:frontend": "npm run deploy --workspace=packages/frontend",
+    "deploy:admin": "npm run deploy --workspace=packages/admin",
     "dev:monitor": "npm run dev --workspace=packages/monitor",
     "deploy:monitor": "npm run deploy --workspace=packages/monitor"
   }

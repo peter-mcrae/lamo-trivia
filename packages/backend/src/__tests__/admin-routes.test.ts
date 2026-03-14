@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleRequest } from '../router';
+import { app } from '../app';
 import { createMockEnv } from './mocks';
 import type { Env } from '../env';
 
@@ -14,6 +14,10 @@ function adminRequest(path: string, opts: RequestInit = {}, secret = 'admin-secr
   });
 }
 
+function fetchApp(request: Request, env: Env) {
+  return app.fetch(request, env);
+}
+
 describe('Admin Routes', () => {
   let env: Env;
 
@@ -25,19 +29,19 @@ describe('Admin Routes', () => {
   describe('Authentication', () => {
     it('returns 401 without Authorization header', async () => {
       const request = new Request('http://localhost/api/admin/users');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(401);
     });
 
     it('returns 401 with wrong token', async () => {
       const request = adminRequest('/api/admin/users', {}, 'wrong-token');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(401);
     });
 
     it('returns 200 with correct token', async () => {
       const request = adminRequest('/api/admin/users');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(200);
     });
   });
@@ -45,7 +49,7 @@ describe('Admin Routes', () => {
   describe('GET /api/admin/users', () => {
     it('returns empty user list when no users exist', async () => {
       const request = adminRequest('/api/admin/users');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
       expect(data.users).toEqual([]);
       expect(data.complete).toBe(true);
@@ -56,7 +60,7 @@ describe('Admin Routes', () => {
       await env.TRIVIA_KV.put('user:test@example.com', JSON.stringify(user));
 
       const request = adminRequest('/api/admin/users');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
       expect(data.users).toHaveLength(1);
       expect(data.users[0].email).toBe('test@example.com');
@@ -69,7 +73,7 @@ describe('Admin Routes', () => {
       await env.TRIVIA_KV.put('user:bob@example.com', JSON.stringify(u2));
 
       const request = adminRequest('/api/admin/users?search=alice');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
       expect(data.users).toHaveLength(1);
       expect(data.users[0].email).toBe('alice@example.com');
@@ -79,7 +83,7 @@ describe('Admin Routes', () => {
   describe('GET /api/admin/users/:email', () => {
     it('returns 404 for non-existent user', async () => {
       const request = adminRequest('/api/admin/users/nonexistent@example.com');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(404);
     });
 
@@ -88,7 +92,7 @@ describe('Admin Routes', () => {
       await env.TRIVIA_KV.put('user:test@example.com', JSON.stringify(user));
 
       const request = adminRequest('/api/admin/users/test%40example.com');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
       expect(data.user.email).toBe('test@example.com');
       expect(data.transactions).toEqual([]);
@@ -104,7 +108,7 @@ describe('Admin Routes', () => {
         method: 'POST',
         body: JSON.stringify({ amount: 25, reason: 'Bonus credits' }),
       });
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
       expect(data.newBalance).toBe(75);
 
@@ -129,7 +133,7 @@ describe('Admin Routes', () => {
         method: 'POST',
         body: JSON.stringify({ amount: -20, reason: 'Deduction' }),
       });
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
     });
 
@@ -141,7 +145,7 @@ describe('Admin Routes', () => {
         method: 'POST',
         body: JSON.stringify({ amount: 0, reason: 'Test' }),
       });
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
     });
 
@@ -153,7 +157,7 @@ describe('Admin Routes', () => {
         method: 'POST',
         body: JSON.stringify({ amount: 5 }),
       });
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
     });
 
@@ -162,7 +166,7 @@ describe('Admin Routes', () => {
         method: 'POST',
         body: JSON.stringify({ amount: 5, reason: 'Test' }),
       });
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(404);
     });
   });
@@ -170,7 +174,7 @@ describe('Admin Routes', () => {
   describe('GET /api/admin/analytics/overview', () => {
     it('returns aggregate counts', async () => {
       const request = adminRequest('/api/admin/analytics/overview');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
       expect(data.totalUsers).toBe(0);
       expect(data.eventCounts).toEqual({});
@@ -186,7 +190,7 @@ describe('Admin Routes', () => {
       await env.TRIVIA_KV.put('error:2026-01-01:xyz', '{}');
 
       const request = adminRequest('/api/admin/analytics/overview');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
       expect(data.totalUsers).toBe(2);
       expect(data.eventCounts.game_created).toBe(1);
@@ -201,7 +205,7 @@ describe('Admin Routes', () => {
       });
 
       const request = adminRequest('/api/admin/analytics/events');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
       expect(data.events).toHaveLength(1);
       expect(data.events[0].metadata.type).toBe('game_created');
@@ -216,7 +220,7 @@ describe('Admin Routes', () => {
       });
 
       const request = adminRequest('/api/admin/analytics/events?type=game_created');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
       expect(data.events).toHaveLength(1);
       expect(data.events[0].metadata.type).toBe('game_created');
@@ -230,7 +234,7 @@ describe('Admin Routes', () => {
       });
 
       const request = adminRequest('/api/admin/errors');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
       expect(data.errors).toHaveLength(1);
       expect(data.errors[0].metadata.msg).toBe('test');
@@ -244,7 +248,7 @@ describe('Admin Routes', () => {
       await env.TRIVIA_KV.put(`session:${validToken}`, JSON.stringify({ email: 'test@test.com' }));
 
       const request = adminRequest(`/api/admin/sessions/${validToken}`, { method: 'DELETE' });
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
       expect(data.ok).toBe(true);
 
@@ -254,13 +258,13 @@ describe('Admin Routes', () => {
 
     it('rejects short token', async () => {
       const request = adminRequest('/api/admin/sessions/short', { method: 'DELETE' });
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
     });
 
     it('rejects non-hex token', async () => {
       const request = adminRequest(`/api/admin/sessions/${'z'.repeat(64)}`, { method: 'DELETE' });
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
     });
   });
@@ -268,7 +272,7 @@ describe('Admin Routes', () => {
   describe('GET /api/admin/games/active', () => {
     it('fetches all games from lobby DO', async () => {
       const request = adminRequest('/api/admin/games/active');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
       // Default mock returns { games: [] }
       expect(data.games).toEqual([]);
@@ -278,31 +282,31 @@ describe('Admin Routes', () => {
   describe('Input validation', () => {
     it('rejects invalid email parameter with special chars', async () => {
       const request = adminRequest('/api/admin/users/%3Cscript%3Ealert(1)%3C%2Fscript%3E');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
     });
 
     it('rejects invalid search parameter', async () => {
       const request = adminRequest('/api/admin/users?search=<script>alert(1)</script>');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
     });
 
     it('rejects invalid event type', async () => {
       const request = adminRequest('/api/admin/analytics/events?type=invalid_type');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
     });
 
     it('rejects invalid date format', async () => {
       const request = adminRequest('/api/admin/analytics/events?type=game_created&date=not-a-date');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
     });
 
     it('accepts valid date format YYYY-MM-DD', async () => {
       const request = adminRequest('/api/admin/analytics/events?type=game_created&date=2026-01-15');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(200);
     });
 
@@ -314,7 +318,7 @@ describe('Admin Routes', () => {
         method: 'POST',
         body: JSON.stringify({ amount: 2_000_000, reason: 'Too much' }),
       });
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
     });
   });
@@ -322,7 +326,7 @@ describe('Admin Routes', () => {
   describe('Admin route 404', () => {
     it('returns 404 for unknown admin paths', async () => {
       const request = adminRequest('/api/admin/unknown');
-      const response = await handleRequest(request, env);
+      const response = await fetchApp(request, env);
       expect(response.status).toBe(404);
     });
   });

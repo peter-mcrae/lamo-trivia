@@ -3,7 +3,7 @@ import { GameLobby } from './lobby';
 import { GameRoom } from './room';
 import { PrivateGroup } from './group';
 import { ScavengerHuntRoom } from './hunt-room';
-import { handleRequest } from './router';
+import { app } from './app';
 import { logError } from './errors';
 
 export { GameLobby, GameRoom, PrivateGroup, ScavengerHuntRoom };
@@ -14,14 +14,14 @@ export default {
 
     // CORS preflight
     if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders(env.FRONTEND_URL) });
+      return new Response(null, { headers: corsHeaders(env) });
     }
 
     try {
       // Reject cross-origin WebSocket upgrades (require matching Origin header)
       if (request.headers.get('Upgrade') === 'websocket') {
         const origin = request.headers.get('Origin');
-        if (!origin || origin !== env.FRONTEND_URL) {
+        if (!origin || !isAllowedOrigin(origin, env)) {
           return new Response('Forbidden', { status: 403 });
         }
       }
@@ -59,10 +59,10 @@ export default {
         return group.fetch(request);
       }
 
-      // HTTP API routes
-      const response = await handleRequest(request, env);
+      // HTTP API routes — delegate to Hono app
+      const response = await app.fetch(request, env);
       const headers = new Headers(response.headers);
-      for (const [k, v] of Object.entries(corsHeaders(env.FRONTEND_URL))) {
+      for (const [k, v] of Object.entries(corsHeaders(env))) {
         headers.set(k, v);
       }
       return new Response(response.body, { status: response.status, headers });
@@ -70,15 +70,25 @@ export default {
       logError(env, { route: url.pathname, method: request.method }, err);
       return new Response('Internal Server Error', {
         status: 500,
-        headers: corsHeaders(env.FRONTEND_URL),
+        headers: corsHeaders(env),
       });
     }
   },
 };
 
-function corsHeaders(origin: string): Record<string, string> {
+function isAllowedOrigin(origin: string, env: Env): boolean {
+  if (origin === env.FRONTEND_URL) return true;
+  if (env.ADMIN_URL && origin === env.ADMIN_URL) return true;
+  return false;
+}
+
+function corsHeaders(env: Env): Record<string, string> {
+  // In production, ADMIN_URL will be set; include both origins
+  // CORS spec only allows one origin, so we'd need to vary — for now
+  // the frontend origin is the primary one. The admin SPA uses service
+  // bindings (same-origin), so CORS isn't needed for admin API calls.
   return {
-    'Access-Control-Allow-Origin': origin,
+    'Access-Control-Allow-Origin': env.FRONTEND_URL,
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Host-Secret, Authorization',
     'X-Content-Type-Options': 'nosniff',

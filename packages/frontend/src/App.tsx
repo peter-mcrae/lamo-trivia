@@ -1,6 +1,5 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
-import { AdminLayout } from '@/components/AdminLayout';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { usePageTracking } from '@/hooks/usePageTracking';
@@ -22,29 +21,12 @@ import HuntRoom from '@/pages/HuntRoom';
 import Login from '@/pages/Login';
 import Credits from '@/pages/Credits';
 import CreditsPurchaseSuccess from '@/pages/CreditsPurchaseSuccess';
-import AdminDashboard from '@/pages/admin/AdminDashboard';
-import AdminUsers from '@/pages/admin/AdminUsers';
-import AdminUserDetail from '@/pages/admin/AdminUserDetail';
-import AdminAnalytics from '@/pages/admin/AdminAnalytics';
-import AdminErrors from '@/pages/admin/AdminErrors';
-import AdminCoupons from '@/pages/admin/AdminCoupons';
 
 function AppRoutes() {
   usePageTracking();
 
   return (
     <Routes>
-      {/* Admin routes — separate layout, no public nav/footer */}
-      <Route path="/admin" element={<AdminLayout />}>
-        <Route index element={<AdminDashboard />} />
-        <Route path="users" element={<AdminUsers />} />
-        <Route path="users/:email" element={<AdminUserDetail />} />
-        <Route path="analytics" element={<AdminAnalytics />} />
-        <Route path="errors" element={<AdminErrors />} />
-        <Route path="coupons" element={<AdminCoupons />} />
-      </Route>
-
-      {/* Public routes */}
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/lobby" element={<Lobby />} />
