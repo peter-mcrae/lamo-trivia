@@ -87,7 +87,12 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
         return Response.json({ error: parsed.error.flatten() }, { status: 400 });
       }
       if (!authCodeLimiter.check(parsed.data.email)) return rateLimitedResponse();
-      await sendMagicCode(parsed.data.email, env);
+      try {
+        await sendMagicCode(parsed.data.email, env);
+      } catch (err) {
+        console.error('send-code error:', err instanceof Error ? err.message : err);
+        return Response.json({ error: 'Failed to send login code. Please try again later.' }, { status: 500 });
+      }
       return Response.json({ ok: true });
     }
 
