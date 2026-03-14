@@ -14,6 +14,7 @@ import {
 import { redeemCoupon } from './coupons';
 import { createCheckoutSession, verifyWebhookSignature, handleCheckoutCompleted } from './stripe';
 import { logEvent } from './analytics';
+import { sendToGA } from './ga';
 import { logError } from './errors';
 import { verifyAdminAccess } from './admin-auth';
 import { handleAdminRequest } from './admin-routes';
@@ -61,6 +62,7 @@ const photoUploadLimiter = new RateLimiter(20);      // 20/min per IP
 const huntHistoryLimiter = new RateLimiter(30);      // 30/min per IP
 const authCodeLimiter = new RateLimiter(5, 3600_000); // 5/hr per email
 const authVerifyLimiter = new RateLimiter(20);       // 20/min per IP
+const trackingLimiter = new RateLimiter(60);          // 60/min per IP
 
 function getClientIP(request: Request): string {
   return request.headers.get('CF-Connecting-IP') ?? 'unknown';
@@ -90,6 +92,28 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
         return Response.json({ error: 'Unauthorized' }, { status: 401 });
       }
       return handleAdminRequest(request, url, method, env, admin);
+    }
+
+    // --- Analytics beacon ---
+
+    // POST /api/t — lightweight page view tracking
+    if (method === 'POST' && url.pathname === '/api/t') {
+      if (!trackingLimiter.check(getClientIP(request))) {
+        return new Response(null, { status: 204 });
+      }
+      try {
+        const { p, t, cid } = await request.json() as { p?: string; t?: string; cid?: string };
+        if (p && cid) {
+          sendToGA(env, cid, [{
+            name: 'page_view',
+            params: {
+              page_location: `https://lamotrivia.app${p}`,
+              page_title: t || '',
+            },
+          }]).catch(() => {});
+        }
+      } catch { /* ignore malformed body */ }
+      return new Response(null, { status: 204 });
     }
 
     // --- Auth Routes ---

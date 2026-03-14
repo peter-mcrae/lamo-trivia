@@ -1,7 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { AdminLayout } from '@/components/AdminLayout';
-import { CookieBanner } from '@/components/CookieBanner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { usePageTracking } from '@/hooks/usePageTracking';
@@ -75,7 +74,6 @@ function App() {
     <BrowserRouter>
       <AuthProvider>
         <AppRoutes />
-        <CookieBanner />
       </AuthProvider>
     </BrowserRouter>
   );

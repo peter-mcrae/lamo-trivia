@@ -32,6 +32,10 @@ export interface Env {
   CF_ACCESS_TEAM_DOMAIN?: string;
   /** Cloudflare Access application audience tag for admin panel */
   CF_ACCESS_AUD?: string;
+  /** GA4 Measurement ID (e.g. "G-804RC3BG82") for server-side analytics */
+  GA_MEASUREMENT_ID?: string;
+  /** GA4 Measurement Protocol API secret — set via wrangler secret put GA_API_SECRET */
+  GA_API_SECRET?: string;
 }
 
 /** Resolve OPENAI_API_KEY from Secret Store, classic secret, or .dev.vars */
