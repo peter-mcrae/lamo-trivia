@@ -77,7 +77,7 @@ export async function sendMagicCode(email: string, env: Env): Promise<void> {
       'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      from: 'LAMO Trivia <noreply@lamotriva.app>',
+      from: 'LAMO Trivia <noreply@lamotrivia.app>',
       to: [email],
       subject: 'Your login code',
       html: `<p>Your login code is: <strong>${code}</strong></p><p>This code expires in 10 minutes.</p>`,
