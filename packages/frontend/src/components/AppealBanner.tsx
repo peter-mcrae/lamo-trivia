@@ -1,12 +1,14 @@
 import type { HuntAppeal } from '@lamo-trivia/shared';
+import { api } from '../lib/api';
 
 interface AppealBannerProps {
+  huntId: string;
   appeals: HuntAppeal[];
   onApprove: (playerId: string, itemId: string) => void;
   onReject: (playerId: string, itemId: string) => void;
 }
 
-export function AppealBanner({ appeals, onApprove, onReject }: AppealBannerProps) {
+export function AppealBanner({ huntId, appeals, onApprove, onReject }: AppealBannerProps) {
   if (appeals.length === 0) return null;
 
   return (
@@ -37,7 +39,7 @@ export function AppealBanner({ appeals, onApprove, onReject }: AppealBannerProps
           {appeal.photoUrl && (
             <div className="mb-3 rounded-lg overflow-hidden bg-black">
               <img
-                src={appeal.photoUrl}
+                src={api.getHuntPhotoUrl(huntId, appeal.photoUrl.split('/').pop()!)}
                 alt="Appeal photo"
                 className="w-full max-h-40 object-contain"
               />

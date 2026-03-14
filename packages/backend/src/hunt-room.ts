@@ -1,7 +1,8 @@
 import type {
   Player, GamePhase, Avatar, HuntConfig, HuntItem, HuntItemProgress,
   HuntPlayerProgress, HuntAppeal, HuntResults, HuntResultsItemDetail,
-  ClientHuntState, HuntTeamSummary, HuntItemStatus,
+  ClientHuntState, HuntTeamSummary, HuntItemStatus, HuntHistoryEntry,
+  HuntHistorySummary,
 } from '@lamo-trivia/shared';
 import { HuntClientMessageSchema, HuntConfigSchema, AVATARS, HUNT_EXPIRY_MS } from '@lamo-trivia/shared';
 import { getAnthropicKey } from './env';
@@ -161,6 +162,9 @@ export class ScavengerHuntRoom {
           break;
         case 'claim_host':
           await this.handleClaimHost(ws);
+          break;
+        case 'send_message':
+          await this.handleSendMessage(ws, parsed.data.message, parsed.data.targetPlayerId);
           break;
         case 'ping':
           this.sendTo(ws, { type: 'pong' });
@@ -593,6 +597,7 @@ export class ScavengerHuntRoom {
         });
 
         this.notifyHostOfTeamUpdate();
+        await this.checkAllTeamsComplete();
       } else {
         const attemptsRemaining = this.room.config.maxRetries - currentProgress.attemptsUsed;
 
@@ -620,6 +625,7 @@ export class ScavengerHuntRoom {
           }
 
           this.notifyHostOfTeamUpdate();
+          await this.checkAllTeamsComplete();
         } else {
           currentProgress.status = 'searching';
           await this.persist();
@@ -703,6 +709,7 @@ export class ScavengerHuntRoom {
     }
 
     this.notifyHostOfTeamUpdate();
+    await this.checkAllTeamsComplete();
   }
 
   private async handleRejectAppeal(ws: WebSocket, playerId: string, itemId: string): Promise<void> {
@@ -729,6 +736,9 @@ export class ScavengerHuntRoom {
     if (playerWs) {
       this.sendTo(playerWs, { type: 'appeal_rejected', itemId });
     }
+
+    this.notifyHostOfTeamUpdate();
+    await this.checkAllTeamsComplete();
   }
 
   private async handleClaimHost(ws: WebSocket): Promise<void> {
@@ -764,16 +774,70 @@ export class ScavengerHuntRoom {
     this.broadcast({ type: 'host_changed', hostId: playerId });
   }
 
+  private async handleSendMessage(ws: WebSocket, message: string, targetPlayerId?: string): Promise<void> {
+    if (!this.room) return;
+
+    const senderId = this.getPlayerId(ws);
+    if (senderId !== this.room.hostId) {
+      this.sendTo(ws, { type: 'error', message: 'Only the host can send messages' });
+      return;
+    }
+
+    if (this.room.phase !== 'playing') {
+      this.sendTo(ws, { type: 'error', message: 'Can only send messages during the hunt' });
+      return;
+    }
+
+    const msg = { type: 'host_message' as const, message };
+
+    if (targetPlayerId) {
+      const targetWs = this.findPlayerWebSocket(targetPlayerId);
+      if (targetWs) {
+        this.sendTo(targetWs, msg);
+      }
+    } else {
+      // Send to all non-host players
+      for (const player of this.room.players) {
+        if (player.id === this.room.hostId) continue;
+        const playerWs = this.findPlayerWebSocket(player.id);
+        if (playerWs) {
+          this.sendTo(playerWs, msg);
+        }
+      }
+    }
+  }
+
+  private async checkAllTeamsComplete(): Promise<void> {
+    if (!this.room || this.room.phase !== 'playing') return;
+
+    const participants = this.room.players.filter((p) => p.id !== this.room!.hostId);
+    if (participants.length === 0) return;
+
+    const allDone = participants.every((player) => {
+      const progress = this.room!.progress[player.id];
+      if (!progress) return false;
+      return this.room!.items.every((item) => {
+        const ip = progress.items[item.id];
+        return ip && (ip.status === 'found' || ip.status === 'rejected');
+      });
+    });
+
+    if (allDone) {
+      await this.finishHunt();
+    }
+  }
+
   // --- Alarm actions ---
 
   private async finishHunt(): Promise<void> {
-    if (!this.room) return;
+    if (!this.room || this.room.phase === 'finished') return;
 
     this.room.phase = 'finished';
     this.room.nextAlarmAction = 'cleanup_hunt';
 
     const results = this.buildResults();
 
+    await this.saveHistory(results);
     await this.persist();
 
     this.broadcast({ type: 'hunt_finished', results });
@@ -873,7 +937,7 @@ export class ScavengerHuntRoom {
   private async cleanupHunt(): Promise<void> {
     if (!this.room) return;
 
-    await this.cleanupR2Photos();
+    // Photos are preserved for hunt history (only deleted on explicit host deletion)
 
     // Remove from lobby and group
     const lobbyId = this.env.GAME_LOBBY.idFromName('global');
@@ -912,6 +976,90 @@ export class ScavengerHuntRoom {
       } while (cursor);
     } catch (err) {
       console.error('R2 cleanup error', {
+        huntId: this.room.huntId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  private async saveHistory(results: HuntResults): Promise<void> {
+    if (!this.room) return;
+
+    const hostPlayer = this.room.players.find((p) => p.id === this.room!.hostId);
+    const hostSecret = crypto.randomUUID();
+
+    // Collect photo R2 keys for found items
+    const photoKeys: Record<string, Record<string, string>> = {};
+    for (const player of this.room.players) {
+      if (player.id === this.room.hostId) continue;
+      const progress = this.room.progress[player.id];
+      if (!progress) continue;
+      const playerPhotos: Record<string, string> = {};
+      for (const [itemId, itemProgress] of Object.entries(progress.items)) {
+        if (itemProgress.status === 'found' && itemProgress.photoUrl) {
+          playerPhotos[itemId] = itemProgress.photoUrl;
+        }
+      }
+      if (Object.keys(playerPhotos).length > 0) {
+        photoKeys[player.id] = playerPhotos;
+      }
+    }
+
+    const entry: HuntHistoryEntry = {
+      huntId: this.room.huntId,
+      config: {
+        name: this.room.config.name,
+        items: this.room.items.map((i) => ({
+          id: i.id,
+          description: i.description,
+          basePoints: i.basePoints,
+        })),
+        durationMinutes: this.room.config.durationMinutes,
+        maxRetries: this.room.config.maxRetries,
+        hintPointCost: this.room.config.hintPointCost,
+      },
+      hostUsername: hostPlayer?.username || 'Unknown',
+      hostSecret,
+      players: this.room.players
+        .filter((p) => p.id !== this.room!.hostId)
+        .map((p) => ({ id: p.id, username: p.username, avatar: p.avatar })),
+      results,
+      photoKeys,
+      createdAt: this.room.createdAt,
+      startedAt: this.room.startedAt || this.room.createdAt,
+      finishedAt: Date.now(),
+    };
+
+    const winner = results.rankings[0];
+    const metadata: HuntHistorySummary = {
+      huntId: entry.huntId,
+      name: entry.config.name,
+      hostUsername: entry.hostUsername,
+      teamCount: entry.players.length,
+      winnerUsername: winner?.player.username || 'N/A',
+      winnerScore: winner?.score || 0,
+      totalItems: entry.config.items.length,
+      finishedAt: entry.finishedAt,
+    };
+
+    try {
+      await this.env.TRIVIA_KV.put(
+        `hunt-history:${this.room.huntId}`,
+        JSON.stringify(entry),
+        { expirationTtl: 90 * 24 * 60 * 60, metadata },
+      );
+
+      // Send host secret to host for deletion auth
+      const hostWs = this.findPlayerWebSocket(this.room.hostId);
+      if (hostWs) {
+        this.sendTo(hostWs, {
+          type: 'hunt_history_saved',
+          huntId: this.room.huntId,
+          hostSecret,
+        });
+      }
+    } catch (err) {
+      console.error('Failed to save hunt history', {
         huntId: this.room.huntId,
         error: err instanceof Error ? err.message : String(err),
       });

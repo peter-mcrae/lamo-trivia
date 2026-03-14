@@ -1,4 +1,4 @@
-import type { GameListing, TriviaCategory } from '@lamo-trivia/shared';
+import type { GameListing, TriviaCategory, HuntHistorySummary, HuntHistoryEntry } from '@lamo-trivia/shared';
 import type { GameConfigInput, HuntConfigInput } from '@lamo-trivia/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
@@ -79,4 +79,26 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(config),
     }),
+
+  // Hunt History
+  getHuntHistory: () =>
+    fetchJSON<{ hunts: HuntHistorySummary[] }>('/hunts/history'),
+
+  getHuntHistoryDetail: (huntId: string) =>
+    fetchJSON<{ hunt: Omit<HuntHistoryEntry, 'hostSecret'> }>(`/hunts/${huntId}/history`),
+
+  deleteHuntHistory: async (huntId: string, hostSecret: string) => {
+    const response = await fetch(`${API_BASE}/hunts/${huntId}/history`, {
+      method: 'DELETE',
+      headers: { 'X-Host-Secret': hostSecret },
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Delete failed' }));
+      throw new Error((error as { error: string }).error || 'Delete failed');
+    }
+    return response.json() as Promise<{ ok: boolean }>;
+  },
+
+  getHuntPhotoUrl: (huntId: string, photoFileName: string) =>
+    `${API_BASE}/hunts/${huntId}/photos/${photoFileName}`,
 };

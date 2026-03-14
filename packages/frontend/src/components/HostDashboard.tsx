@@ -4,12 +4,14 @@ import { HuntTimer } from './HuntTimer';
 import { AppealBanner } from './AppealBanner';
 
 interface HostDashboardProps {
+  huntId: string;
   teams: HuntTeamSummary[];
   items: HuntItem[];
   endsAt: number;
   appeals: HuntAppeal[];
   onApprove: (playerId: string, itemId: string) => void;
   onReject: (playerId: string, itemId: string) => void;
+  onSendMessage: (message: string, targetPlayerId?: string) => void;
 }
 
 const STATUS_DOT: Record<string, { color: string; label: string; pulse?: boolean }> = {
@@ -20,14 +22,18 @@ const STATUS_DOT: Record<string, { color: string; label: string; pulse?: boolean
 };
 
 export function HostDashboard({
+  huntId,
   teams,
   items,
   endsAt,
   appeals,
   onApprove,
   onReject,
+  onSendMessage,
 }: HostDashboardProps) {
   const [expandedTeam, setExpandedTeam] = useState<string | null>(null);
+  const [messageText, setMessageText] = useState('');
+  const [messageTarget, setMessageTarget] = useState<string>('all');
 
   return (
     <div>
@@ -57,7 +63,7 @@ export function HostDashboard({
       {/* Appeals */}
       {appeals.length > 0 && (
         <div className="mb-6">
-          <AppealBanner appeals={appeals} onApprove={onApprove} onReject={onReject} />
+          <AppealBanner huntId={huntId} appeals={appeals} onApprove={onApprove} onReject={onReject} />
         </div>
       )}
 
@@ -137,6 +143,51 @@ export function HostDashboard({
           {teams.length === 0 && (
             <p className="text-sm text-lamo-gray-muted text-center py-4">No teams yet</p>
           )}
+        </div>
+      </div>
+
+      {/* Send message to teams */}
+      <div className="mt-6 px-4 py-4 bg-lamo-bg rounded-xl border border-lamo-border">
+        <h3 className="text-sm font-semibold text-lamo-dark mb-3">Send Message</h3>
+        <div className="flex gap-2">
+          <select
+            value={messageTarget}
+            onChange={(e) => setMessageTarget(e.target.value)}
+            className="px-3 py-2 text-sm rounded-lg border border-lamo-border bg-white text-lamo-dark"
+          >
+            <option value="all">All Teams</option>
+            {teams.map((team) => (
+              <option key={team.playerId} value={team.playerId}>
+                {team.username}
+              </option>
+            ))}
+          </select>
+          <input
+            type="text"
+            value={messageText}
+            onChange={(e) => setMessageText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && messageText.trim()) {
+                onSendMessage(messageText.trim(), messageTarget === 'all' ? undefined : messageTarget);
+                setMessageText('');
+              }
+            }}
+            placeholder="Type a message..."
+            maxLength={200}
+            className="flex-1 px-3 py-2 text-sm rounded-lg border border-lamo-border bg-white text-lamo-dark placeholder:text-lamo-gray-muted focus:outline-none focus:border-lamo-blue"
+          />
+          <button
+            onClick={() => {
+              if (messageText.trim()) {
+                onSendMessage(messageText.trim(), messageTarget === 'all' ? undefined : messageTarget);
+                setMessageText('');
+              }
+            }}
+            disabled={!messageText.trim()}
+            className="px-4 py-2 bg-lamo-blue text-white text-sm font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            Send
+          </button>
         </div>
       </div>
     </div>
