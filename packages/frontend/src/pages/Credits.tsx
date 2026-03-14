@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { CREDIT_PRICING } from '@lamo-trivia/shared';
 import type { CreditTransaction } from '@lamo-trivia/shared';
@@ -7,7 +7,7 @@ import type { CreditTransaction } from '@lamo-trivia/shared';
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export default function Credits() {
-  const { user, loading, logout, refreshUser } = useAuthContext();
+  const { user, loading, logout } = useAuthContext();
   const navigate = useNavigate();
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [buying, setBuying] = useState(false);
