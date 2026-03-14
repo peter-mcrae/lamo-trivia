@@ -40,7 +40,13 @@ export default function Credits() {
           Authorization: `Bearer ${token}`,
         },
       });
+      if (!res.ok) {
+        throw new Error('Checkout failed');
+      }
       const { url } = (await res.json()) as { url: string };
+      if (!url) {
+        throw new Error('No checkout URL returned');
+      }
       window.location.href = url;
     } catch {
       setBuying(false);
@@ -66,9 +72,9 @@ export default function Credits() {
 
       {/* Balance */}
       <div className="bg-lamo-bg rounded-xl border border-lamo-border p-6 mb-6">
-        <p className="text-sm text-lamo-gray-muted mb-1">Current Balance</p>
+        <p className="text-sm text-lamo-gray mb-1">Current Balance</p>
         <p className="text-4xl font-bold text-lamo-dark">{user.credits}</p>
-        <p className="text-sm text-lamo-gray-muted mt-1">credits</p>
+        <p className="text-sm text-lamo-gray mt-1">credits</p>
       </div>
 
       {/* Buy */}
@@ -78,7 +84,7 @@ export default function Credits() {
             <p className="font-medium text-lamo-dark">
               {CREDIT_PRICING.creditsPerPurchase} Credits
             </p>
-            <p className="text-sm text-lamo-gray-muted">
+            <p className="text-sm text-lamo-gray">
               ${(CREDIT_PRICING.priceInCents / 100).toFixed(2)} USD
             </p>
           </div>
@@ -90,7 +96,7 @@ export default function Credits() {
             {buying ? 'Redirecting...' : 'Buy Credits'}
           </button>
         </div>
-        <p className="text-xs text-lamo-gray-muted">
+        <p className="text-xs text-lamo-gray">
           1 credit = 1 AI photo verification attempt during scavenger hunts.
           Credits are deducted when a hunt starts based on items, retries, and player count.
         </p>

@@ -69,7 +69,7 @@ export default function Login() {
             disabled={sending || !email}
             className="w-full py-2.5 bg-lamo-primary text-white font-medium rounded-lg hover:bg-lamo-primary/90 transition-colors disabled:opacity-50"
           >
-            {sending ? 'Sending...' : 'Send Login Code'}
+            {sending ? 'Sending...' : 'Continue'}
           </button>
         </form>
       ) : (
@@ -99,7 +99,7 @@ export default function Login() {
             disabled={sending || code.length !== 6}
             className="w-full py-2.5 bg-lamo-primary text-white font-medium rounded-lg hover:bg-lamo-primary/90 transition-colors disabled:opacity-50"
           >
-            {sending ? 'Verifying...' : 'Verify Code'}
+            {sending ? 'Verifying...' : 'Continue'}
           </button>
           <button
             type="button"
