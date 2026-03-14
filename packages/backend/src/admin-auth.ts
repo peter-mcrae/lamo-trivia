@@ -39,6 +39,10 @@ export async function verifyAdminAccess(
   }
 
   // --- Dev fallback: Bearer SEED_SECRET ---
+  // Only available when CF Access is NOT configured (local dev).
+  // In production, CF_ACCESS_AUD and CF_ACCESS_TEAM_DOMAIN must be set;
+  // if they are, this fallback is never reached (see guard above).
+  // If neither CF Access nor SEED_SECRET is configured, admin access is denied.
   const authHeader = request.headers.get('Authorization');
   if (!authHeader?.startsWith('Bearer ') || !env.SEED_SECRET) return null;
 

@@ -238,20 +238,28 @@ describe('Admin Routes', () => {
   });
 
   describe('DELETE /api/admin/sessions/:token', () => {
-    it('deletes session from KV', async () => {
-      await env.TRIVIA_KV.put('session:abc123def456', JSON.stringify({ email: 'test@test.com' }));
+    const validToken = 'a'.repeat(64); // 64-char hex string
 
-      const request = adminRequest('/api/admin/sessions/abc123def456', { method: 'DELETE' });
+    it('deletes session from KV', async () => {
+      await env.TRIVIA_KV.put(`session:${validToken}`, JSON.stringify({ email: 'test@test.com' }));
+
+      const request = adminRequest(`/api/admin/sessions/${validToken}`, { method: 'DELETE' });
       const response = await handleRequest(request, env);
       const data = (await response.json()) as any;
       expect(data.ok).toBe(true);
 
-      const session = await env.TRIVIA_KV.get('session:abc123def456');
+      const session = await env.TRIVIA_KV.get(`session:${validToken}`);
       expect(session).toBeNull();
     });
 
     it('rejects short token', async () => {
       const request = adminRequest('/api/admin/sessions/short', { method: 'DELETE' });
+      const response = await handleRequest(request, env);
+      expect(response.status).toBe(400);
+    });
+
+    it('rejects non-hex token', async () => {
+      const request = adminRequest(`/api/admin/sessions/${'z'.repeat(64)}`, { method: 'DELETE' });
       const response = await handleRequest(request, env);
       expect(response.status).toBe(400);
     });
@@ -264,6 +272,50 @@ describe('Admin Routes', () => {
       const data = (await response.json()) as any;
       // Default mock returns { games: [] }
       expect(data.games).toEqual([]);
+    });
+  });
+
+  describe('Input validation', () => {
+    it('rejects invalid email parameter with special chars', async () => {
+      const request = adminRequest('/api/admin/users/%3Cscript%3Ealert(1)%3C%2Fscript%3E');
+      const response = await handleRequest(request, env);
+      expect(response.status).toBe(400);
+    });
+
+    it('rejects invalid search parameter', async () => {
+      const request = adminRequest('/api/admin/users?search=<script>alert(1)</script>');
+      const response = await handleRequest(request, env);
+      expect(response.status).toBe(400);
+    });
+
+    it('rejects invalid event type', async () => {
+      const request = adminRequest('/api/admin/analytics/events?type=invalid_type');
+      const response = await handleRequest(request, env);
+      expect(response.status).toBe(400);
+    });
+
+    it('rejects invalid date format', async () => {
+      const request = adminRequest('/api/admin/analytics/events?type=game_created&date=not-a-date');
+      const response = await handleRequest(request, env);
+      expect(response.status).toBe(400);
+    });
+
+    it('accepts valid date format YYYY-MM-DD', async () => {
+      const request = adminRequest('/api/admin/analytics/events?type=game_created&date=2026-01-15');
+      const response = await handleRequest(request, env);
+      expect(response.status).toBe(200);
+    });
+
+    it('rejects credit amount exceeding max', async () => {
+      const user = { userId: 'u1', email: 'test@example.com', credits: 0, createdAt: Date.now() };
+      await env.TRIVIA_KV.put('user:test@example.com', JSON.stringify(user));
+
+      const request = adminRequest('/api/admin/users/test%40example.com/credits', {
+        method: 'POST',
+        body: JSON.stringify({ amount: 2_000_000, reason: 'Too much' }),
+      });
+      const response = await handleRequest(request, env);
+      expect(response.status).toBe(400);
     });
   });
 

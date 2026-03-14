@@ -3,6 +3,67 @@ import type { AdminIdentity } from './admin-auth';
 import type { User, CreditTransaction } from '@lamo-trivia/shared';
 import { getUser, updateUser, getCreditTransactions, addCreditTransaction } from './auth';
 
+// --- Input validation helpers ---
+
+/** Validate email-like characters only (prevents KV key injection) */
+function isValidEmailParam(email: string): boolean {
+  return /^[a-zA-Z0-9@._+\-]{1,254}$/.test(email);
+}
+
+/** Validate search term: email-like characters, max 200 chars */
+function isValidSearch(search: string): boolean {
+  return /^[a-zA-Z0-9@._+\-]{0,200}$/.test(search);
+}
+
+/** Validate session token format: 64-char hex string */
+function isValidSessionToken(token: string): boolean {
+  return /^[0-9a-f]{64}$/.test(token);
+}
+
+/** Allowlist of known analytics event types */
+const VALID_EVENT_TYPES = new Set([
+  'game_created', 'game_started', 'game_finished',
+  'hunt_created', 'hunt_started', 'hunt_finished',
+  'photo_verified', 'vision_comparison',
+]);
+
+/** Validate date param: YYYY-MM or YYYY-MM-DD */
+function isValidDateParam(date: string): boolean {
+  return /^\d{4}-\d{2}(-\d{2})?$/.test(date);
+}
+
+/** Max credit adjustment amount (prevents fat-finger errors) */
+const MAX_CREDIT_ADJUSTMENT = 1_000_000;
+
+/** Max pages for unbounded KV pagination loops */
+const MAX_KV_PAGES = 20;
+
+// --- Rate limiter for admin routes ---
+
+const adminRateLimiter = new Map<string, { count: number; start: number }>();
+const ADMIN_RATE_LIMIT = 120; // requests per minute
+const ADMIN_RATE_WINDOW = 60_000; // 1 minute
+
+function checkAdminRateLimit(admin: AdminIdentity): boolean {
+  const now = Date.now();
+  const key = admin.email;
+  const entry = adminRateLimiter.get(key);
+
+  if (!entry || now - entry.start > ADMIN_RATE_WINDOW) {
+    // Evict stale entries if map grows large
+    if (adminRateLimiter.size > 1000) {
+      for (const [k, v] of adminRateLimiter) {
+        if (now - v.start > ADMIN_RATE_WINDOW) adminRateLimiter.delete(k);
+      }
+    }
+    adminRateLimiter.set(key, { count: 1, start: now });
+    return true;
+  }
+
+  entry.count++;
+  return entry.count <= ADMIN_RATE_LIMIT;
+}
+
 /**
  * Handle all /api/admin/* requests. Called after admin auth verification.
  */
@@ -13,6 +74,14 @@ export async function handleAdminRequest(
   env: Env,
   admin: AdminIdentity,
 ): Promise<Response> {
+  // Rate limit all admin requests
+  if (!checkAdminRateLimit(admin)) {
+    return Response.json(
+      { error: 'Too many requests. Please try again later.' },
+      { status: 429 },
+    );
+  }
+
   const path = url.pathname.replace('/api/admin', '');
 
   // GET /api/admin/users — list users with optional search
@@ -23,12 +92,18 @@ export async function handleAdminRequest(
   // GET /api/admin/users/:email — user detail
   if (method === 'GET' && path.startsWith('/users/') && !path.includes('/credits')) {
     const email = decodeURIComponent(path.replace('/users/', ''));
+    if (!isValidEmailParam(email)) {
+      return Response.json({ error: 'Invalid email parameter' }, { status: 400 });
+    }
     return handleGetUser(email, env);
   }
 
   // POST /api/admin/users/:email/credits — adjust credits
   if (method === 'POST' && path.match(/^\/users\/[^/]+\/credits$/)) {
     const email = decodeURIComponent(path.replace('/users/', '').replace('/credits', ''));
+    if (!isValidEmailParam(email)) {
+      return Response.json({ error: 'Invalid email parameter' }, { status: 400 });
+    }
     return handleAdjustCredits(email, request, env, admin);
   }
 
@@ -67,6 +142,10 @@ async function handleListUsers(url: URL, env: Env): Promise<Response> {
   const search = url.searchParams.get('search') || '';
   const cursor = url.searchParams.get('cursor') || undefined;
   const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 100);
+
+  if (search && !isValidSearch(search)) {
+    return Response.json({ error: 'Invalid search parameter' }, { status: 400 });
+  }
 
   const prefix = search ? `user:${search.toLowerCase()}` : 'user:';
 
@@ -117,6 +196,12 @@ async function handleAdjustCredits(
   if (typeof body.amount !== 'number' || !Number.isInteger(body.amount) || body.amount === 0) {
     return Response.json({ error: 'amount must be a non-zero integer' }, { status: 400 });
   }
+  if (Math.abs(body.amount) > MAX_CREDIT_ADJUSTMENT) {
+    return Response.json(
+      { error: `amount must be between -${MAX_CREDIT_ADJUSTMENT} and ${MAX_CREDIT_ADJUSTMENT}` },
+      { status: 400 },
+    );
+  }
   if (!body.reason || typeof body.reason !== 'string' || body.reason.trim().length === 0) {
     return Response.json({ error: 'reason is required' }, { status: 400 });
   }
@@ -152,9 +237,10 @@ async function handleAdjustCredits(
 }
 
 async function handleAnalyticsOverview(env: Env): Promise<Response> {
-  // Count users
+  // Count users (bounded pagination)
   let totalUsers = 0;
   let userCursor: string | undefined;
+  let userPages = 0;
   do {
     const result = await env.TRIVIA_KV.list({
       prefix: 'user:',
@@ -162,12 +248,13 @@ async function handleAnalyticsOverview(env: Env): Promise<Response> {
     });
     totalUsers += result.keys.length;
     userCursor = result.list_complete ? undefined : result.cursor;
-  } while (userCursor);
+    userPages++;
+  } while (userCursor && userPages < MAX_KV_PAGES);
 
-  // Count events by type
+  // Count events by type (bounded pagination)
   const eventCounts: Record<string, number> = {};
   let evtCursor: string | undefined;
-  let pages = 0;
+  let evtPages = 0;
   do {
     const result = await env.TRIVIA_KV.list({
       prefix: 'evt:',
@@ -179,12 +266,13 @@ async function handleAnalyticsOverview(env: Env): Promise<Response> {
       eventCounts[type] = (eventCounts[type] || 0) + 1;
     }
     evtCursor = result.list_complete ? undefined : result.cursor;
-    pages++;
-  } while (evtCursor && pages < 20);
+    evtPages++;
+  } while (evtCursor && evtPages < MAX_KV_PAGES);
 
-  // Count errors
+  // Count errors (bounded pagination)
   let totalErrors = 0;
   let errCursor: string | undefined;
+  let errPages = 0;
   do {
     const result = await env.TRIVIA_KV.list({
       prefix: 'error:',
@@ -192,7 +280,8 @@ async function handleAnalyticsOverview(env: Env): Promise<Response> {
     });
     totalErrors += result.keys.length;
     errCursor = result.list_complete ? undefined : result.cursor;
-  } while (errCursor);
+    errPages++;
+  } while (errCursor && errPages < MAX_KV_PAGES);
 
   return Response.json({
     totalUsers,
@@ -206,6 +295,15 @@ async function handleAnalyticsEvents(url: URL, env: Env): Promise<Response> {
   const date = url.searchParams.get('date');
   const cursor = url.searchParams.get('cursor') || undefined;
   const limit = Math.min(Number(url.searchParams.get('limit')) || 50, 100);
+
+  // Validate event type against allowlist
+  if (type && !VALID_EVENT_TYPES.has(type)) {
+    return Response.json({ error: 'Invalid event type' }, { status: 400 });
+  }
+  // Validate date format
+  if (date && !isValidDateParam(date)) {
+    return Response.json({ error: 'Invalid date format (use YYYY-MM or YYYY-MM-DD)' }, { status: 400 });
+  }
 
   let prefix = 'evt:';
   if (type) prefix += `${type}:`;
@@ -258,8 +356,8 @@ async function handleListErrors(url: URL, env: Env): Promise<Response> {
 }
 
 async function handleForceLogout(token: string, env: Env): Promise<Response> {
-  if (!token || token.length < 10) {
-    return Response.json({ error: 'Invalid session token' }, { status: 400 });
+  if (!isValidSessionToken(token)) {
+    return Response.json({ error: 'Invalid session token format' }, { status: 400 });
   }
 
   await env.TRIVIA_KV.delete(`session:${token}`);

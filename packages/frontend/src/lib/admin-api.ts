@@ -93,5 +93,17 @@ export const adminApi = {
   },
 
   forceLogout: (token: string) =>
-    adminFetch<{ ok: boolean }>(`/sessions/${token}`, { method: 'DELETE' }),
+    adminFetch<{ ok: boolean }>(`/sessions/${encodeURIComponent(token)}`, { method: 'DELETE' }),
+
+  /** Lightweight auth check — calls the cheapest admin endpoint */
+  checkAccess: async (): Promise<boolean> => {
+    try {
+      const response = await fetch(`${ADMIN_BASE}/errors?limit=1`, {
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  },
 };

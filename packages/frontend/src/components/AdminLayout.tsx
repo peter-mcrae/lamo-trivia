@@ -1,4 +1,6 @@
-import { NavLink, Outlet, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { NavLink, Outlet, Link, Navigate } from 'react-router-dom';
+import { adminApi } from '@/lib/admin-api';
 
 const navItems = [
   { to: '/admin', label: 'Dashboard', end: true },
@@ -8,6 +10,26 @@ const navItems = [
 ];
 
 export function AdminLayout() {
+  const [authState, setAuthState] = useState<'loading' | 'authorized' | 'denied'>('loading');
+
+  useEffect(() => {
+    adminApi
+      .checkAccess()
+      .then((ok) => setAuthState(ok ? 'authorized' : 'denied'));
+  }, []);
+
+  if (authState === 'loading') {
+    return (
+      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
+        <p className="text-slate-400">Verifying admin access...</p>
+      </div>
+    );
+  }
+
+  if (authState === 'denied') {
+    return <Navigate to="/" replace />;
+  }
+
   return (
     <div className="flex min-h-screen bg-slate-950">
       {/* Sidebar */}
