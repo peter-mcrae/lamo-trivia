@@ -414,13 +414,10 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       return Response.json({ huntId });
     }
 
-    // POST /api/hunts/:huntId/photos — upload a photo for verification (requires auth)
+    // POST /api/hunts/:huntId/photos — upload a photo for verification
+    // No auth required — knowing the huntId (private link) is sufficient for players
     if (method === 'POST' && url.pathname.match(/^\/api\/hunts\/[^/]+\/photos$/)) {
       if (!photoUploadLimiter.check(getClientIP(request))) return rateLimitedResponse();
-
-      const user = await getSessionUser(request, env);
-      if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-
       const huntId = url.pathname.split('/api/hunts/')[1].split('/photos')[0];
 
       // Parse multipart form data
