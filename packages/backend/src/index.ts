@@ -4,6 +4,7 @@ import { GameRoom } from './room';
 import { PrivateGroup } from './group';
 import { ScavengerHuntRoom } from './hunt-room';
 import { handleRequest } from './router';
+import { logError } from './errors';
 
 export { GameLobby, GameRoom, PrivateGroup, ScavengerHuntRoom };
 
@@ -66,11 +67,7 @@ export default {
       }
       return new Response(response.body, { status: response.status, headers });
     } catch (err) {
-      console.error('Unhandled error', {
-        method: request.method,
-        url: url.pathname,
-        error: err instanceof Error ? err.message : String(err),
-      });
+      logError(env, { route: url.pathname, method: request.method }, err);
       return new Response('Internal Server Error', {
         status: 500,
         headers: corsHeaders(env.FRONTEND_URL),

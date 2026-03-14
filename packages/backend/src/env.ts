@@ -28,6 +28,10 @@ export interface Env {
   STRIPE_SECRET_KEY?: SecretStoreSecret | string;
   /** Stripe webhook signing secret */
   STRIPE_WEBHOOK_SECRET?: string;
+  /** Cloudflare Access team domain (e.g. "myteam") for admin JWT validation */
+  CF_ACCESS_TEAM_DOMAIN?: string;
+  /** Cloudflare Access application audience tag for admin panel */
+  CF_ACCESS_AUD?: string;
 }
 
 /** Resolve OPENAI_API_KEY from Secret Store, classic secret, or .dev.vars */

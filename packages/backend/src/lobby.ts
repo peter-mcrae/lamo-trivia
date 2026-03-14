@@ -53,6 +53,12 @@ export class GameLobby {
         return Response.json({ gameId, ...listing });
       }
 
+      // GET /admin/games — return ALL games (admin only, called from admin-routes)
+      if (request.method === 'GET' && url.pathname === '/admin/games') {
+        const allGames = Array.from(this.games.values());
+        return Response.json({ games: allGames });
+      }
+
       // DELETE /games/:gameId — remove a game listing (used by room expiry)
       if (request.method === 'DELETE' && url.pathname.startsWith('/games/')) {
         const gameId = url.pathname.split('/games/')[1];

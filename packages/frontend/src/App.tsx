@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
+import { AdminLayout } from '@/components/AdminLayout';
 import { CookieBanner } from '@/components/CookieBanner';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
@@ -22,13 +23,28 @@ import HuntRoom from '@/pages/HuntRoom';
 import Login from '@/pages/Login';
 import Credits from '@/pages/Credits';
 import CreditsPurchaseSuccess from '@/pages/CreditsPurchaseSuccess';
+import AdminDashboard from '@/pages/admin/AdminDashboard';
+import AdminUsers from '@/pages/admin/AdminUsers';
+import AdminUserDetail from '@/pages/admin/AdminUserDetail';
+import AdminAnalytics from '@/pages/admin/AdminAnalytics';
+import AdminErrors from '@/pages/admin/AdminErrors';
 
 function AppRoutes() {
   usePageTracking();
 
   return (
-    <Layout>
-      <Routes>
+    <Routes>
+      {/* Admin routes — separate layout, no public nav/footer */}
+      <Route path="/admin" element={<AdminLayout />}>
+        <Route index element={<AdminDashboard />} />
+        <Route path="users" element={<AdminUsers />} />
+        <Route path="users/:email" element={<AdminUserDetail />} />
+        <Route path="analytics" element={<AdminAnalytics />} />
+        <Route path="errors" element={<AdminErrors />} />
+      </Route>
+
+      {/* Public routes */}
+      <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
         <Route path="/lobby" element={<Lobby />} />
         <Route path="/create" element={<CreateGame />} />
@@ -47,8 +63,8 @@ function AppRoutes() {
         <Route path="/credits" element={<ProtectedRoute><Credits /></ProtectedRoute>} />
         <Route path="/credits/success" element={<ProtectedRoute><CreditsPurchaseSuccess /></ProtectedRoute>} />
         <Route path="*" element={<NotFound />} />
-      </Routes>
-    </Layout>
+      </Route>
+    </Routes>
   );
 }
 

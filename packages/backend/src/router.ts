@@ -12,6 +12,9 @@ import {
 } from './auth';
 import { createCheckoutSession, verifyWebhookSignature, handleCheckoutCompleted } from './stripe';
 import { logEvent } from './analytics';
+import { logError } from './errors';
+import { verifyAdminAccess } from './admin-auth';
+import { handleAdminRequest } from './admin-routes';
 
 // --- In-memory rate limiter (per Worker isolate) ---
 
@@ -78,6 +81,15 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
   const method = request.method;
 
   try {
+    // --- Admin Routes (early intercept) ---
+    if (url.pathname.startsWith('/api/admin/')) {
+      const admin = await verifyAdminAccess(request, env);
+      if (!admin) {
+        return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      }
+      return handleAdminRequest(request, url, method, env, admin);
+    }
+
     // --- Auth Routes ---
 
     // POST /api/auth/send-code
@@ -808,9 +820,8 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       return Response.json({ error: 'Invalid JSON in request body' }, { status: 400 });
     }
     // Unexpected error (DO failures, network issues, etc.)
-    console.error('Route error', {
-      route: `${method} ${url.pathname}`,
-      error: err instanceof Error ? err.message : String(err),
+    logError(env, { route: url.pathname, method }, err, {
+      ip: getClientIP(request),
     });
     return Response.json({ error: 'Internal server error' }, { status: 500 });
   }

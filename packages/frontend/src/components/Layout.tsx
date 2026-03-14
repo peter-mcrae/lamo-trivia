@@ -1,9 +1,8 @@
 import { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import type { ReactNode } from 'react';
+import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 
-export function Layout({ children }: { children: ReactNode }) {
+export function Layout() {
   const { user } = useAuthContext();
   const [menuOpen, setMenuOpen] = useState(false);
   const location = useLocation();
@@ -77,7 +76,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       )}
 
-      <main>{children}</main>
+      <main><Outlet /></main>
       <footer className="border-t border-lamo-border bg-lamo-bg mt-20">
         <div className="max-w-6xl mx-auto px-6 py-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
