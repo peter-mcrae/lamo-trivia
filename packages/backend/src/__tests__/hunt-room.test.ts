@@ -406,13 +406,13 @@ describe('ScavengerHuntRoom -- Start Hunt', () => {
     expect(msgs[0].message).toBe('Only the host can start the hunt');
   });
 
-  it('start_hunt requires minimum teams (excluding host)', async () => {
-    // Create hunt with minPlayers: 2
-    const initialized = await createInitializedHunt({ minPlayers: 2 });
+  it('start_hunt requires minimum players (including host)', async () => {
+    // Create hunt with minPlayers: 3
+    const initialized = await createInitializedHunt({ minPlayers: 3 });
     const s = initialized.state;
     const r = initialized.room;
 
-    // Host + one player = 1 participant (< 2)
+    // Host + one player = 2 players (< 3)
     const ws1 = await joinPlayer(r, s, 'Alice');
     const ws2 = await joinPlayer(r, s, 'Bob');
     ws1._sent.length = 0;
@@ -421,10 +421,10 @@ describe('ScavengerHuntRoom -- Start Hunt', () => {
 
     const msgs = getSentMessages(ws1);
     expect(msgs[0].type).toBe('error');
-    expect(msgs[0].message).toContain('Need at least 2 teams');
+    expect(msgs[0].message).toContain('Need at least 3 teams');
   });
 
-  it('start_hunt initializes progress for participants only (not host)', async () => {
+  it('start_hunt initializes progress for all players including host', async () => {
     const ws1 = await joinPlayer(room, state, 'Alice');
     const ws2 = await joinPlayer(room, state, 'Bob');
     ws1._sent.length = 0;
@@ -437,22 +437,26 @@ describe('ScavengerHuntRoom -- Start Hunt', () => {
     const hostId = stored.hostId;
     const bobId = stored.players.find((p: any) => p.username === 'Bob').id;
 
-    // Host should NOT have progress
-    expect(stored.progress[hostId]).toBeUndefined();
+    // Host should have progress (host plays too)
+    expect(stored.progress[hostId]).toBeDefined();
+    expect(stored.progress[hostId].playerId).toBe(hostId);
+    expect(stored.progress[hostId].totalScore).toBe(0);
 
     // Bob (participant) should have progress
     expect(stored.progress[bobId]).toBeDefined();
     expect(stored.progress[bobId].playerId).toBe(bobId);
     expect(stored.progress[bobId].totalScore).toBe(0);
 
-    // Bob should have progress for all 3 items
-    const itemIds = Object.keys(stored.progress[bobId].items);
-    expect(itemIds).toHaveLength(3);
+    // Both should have progress for all 3 items
+    for (const pid of [hostId, bobId]) {
+      const itemIds = Object.keys(stored.progress[pid].items);
+      expect(itemIds).toHaveLength(3);
 
-    for (const itemId of itemIds) {
-      expect(stored.progress[bobId].items[itemId].status).toBe('searching');
-      expect(stored.progress[bobId].items[itemId].cluesRevealed).toEqual([]);
-      expect(stored.progress[bobId].items[itemId].attemptsUsed).toBe(0);
+      for (const itemId of itemIds) {
+        expect(stored.progress[pid].items[itemId].status).toBe('searching');
+        expect(stored.progress[pid].items[itemId].cluesRevealed).toEqual([]);
+        expect(stored.progress[pid].items[itemId].attemptsUsed).toBe(0);
+      }
     }
   });
 
@@ -601,15 +605,18 @@ describe('ScavengerHuntRoom -- Reveal Clue', () => {
     expect(msgs2[0].message).toBe('Clue not found');
   });
 
-  it('reveal_clue blocked for host', async () => {
+  it('reveal_clue allowed for host (host plays too)', async () => {
+    hostWs._sent.length = 0;
+
     await room.webSocketMessage(
       hostWs,
       JSON.stringify({ type: 'reveal_clue', itemId: 'item-1', clueId: 'clue-1a' }),
     );
 
     const msgs = getSentMessages(hostWs);
-    expect(msgs[0].type).toBe('error');
-    expect(msgs[0].message).toBe('Host cannot play during the hunt');
+    expect(msgs[0].type).toBe('clue_revealed');
+    expect(msgs[0].itemId).toBe('item-1');
+    expect(msgs[0].clueId).toBe('clue-1a');
   });
 
   it('reveal_clue sends teams_updated to host', async () => {
@@ -623,9 +630,11 @@ describe('ScavengerHuntRoom -- Reveal Clue', () => {
     const hostMsgs = getSentMessages(hostWs);
     const teamsUpdate = hostMsgs.find((m: any) => m.type === 'teams_updated');
     expect(teamsUpdate).toBeDefined();
-    expect(teamsUpdate.teams).toHaveLength(1);
-    expect(teamsUpdate.teams[0].username).toBe('Player1');
-    expect(teamsUpdate.teams[0].totalScore).toBe(-200);
+    // Teams now include host (2 players total)
+    expect(teamsUpdate.teams).toHaveLength(2);
+    const player1Team = teamsUpdate.teams.find((t: any) => t.username === 'Player1');
+    expect(player1Team).toBeDefined();
+    expect(player1Team.totalScore).toBe(-200);
   });
 });
 
@@ -773,7 +782,7 @@ describe('ScavengerHuntRoom -- Security', () => {
     expect(msgs[0]).toEqual({ type: 'pong' });
   });
 
-  it('host cannot submit photos', async () => {
+  it('host can submit photos (host plays too)', async () => {
     const { state: s, room: r } = await createInitializedHunt();
     const { hostWs } = await startHuntWithPlayer(r, s);
 
@@ -787,8 +796,8 @@ describe('ScavengerHuntRoom -- Security', () => {
     );
 
     const msgs = getSentMessages(hostWs);
-    expect(msgs[0].type).toBe('error');
-    expect(msgs[0].message).toBe('Host cannot play during the hunt');
+    // Host should get a photo_verifying or verification result, not an error
+    expect(msgs[0].type).not.toBe('error');
   });
 });
 
@@ -862,7 +871,7 @@ describe('ScavengerHuntRoom -- Alarm Chain', () => {
     expect(stored3.nextAlarmAction).toBe('end_hunt');
   });
 
-  it('end_hunt finishes and computes results (host excluded)', async () => {
+  it('end_hunt finishes and computes results (host included)', async () => {
     const { state, room } = await createInitializedHunt();
 
     const hostWs = await joinPlayer(room, state, 'Host');
@@ -896,13 +905,13 @@ describe('ScavengerHuntRoom -- Alarm Chain', () => {
     (room as any).room.nextAlarmAction = 'end_hunt';
     await room.alarm();
 
-    // Participants should receive hunt_finished
+    // All players should receive hunt_finished
     const msgs1 = getSentMessages(ws1);
     const finishedMsg1 = msgs1.find((m: any) => m.type === 'hunt_finished');
     expect(finishedMsg1).toBeDefined();
     expect(finishedMsg1.results).toBeDefined();
-    // Rankings should have 2 (Alice + Bob, NOT host)
-    expect(finishedMsg1.results.rankings).toHaveLength(2);
+    // Rankings should have 3 (Host + Alice + Bob — host plays too)
+    expect(finishedMsg1.results.rankings).toHaveLength(3);
 
     const msgs2 = getSentMessages(ws2);
     const finishedMsg2 = msgs2.find((m: any) => m.type === 'hunt_finished');
@@ -915,10 +924,10 @@ describe('ScavengerHuntRoom -- Alarm Chain', () => {
     expect(results.rankings[0]).toHaveProperty('totalItems', 3);
     expect(results.itemBreakdown).toBeDefined();
 
-    // Host should NOT be in rankings or itemBreakdown
+    // Host SHOULD be in rankings and itemBreakdown
     const stored = (await state.storage.get('room')) as any;
-    expect(results.rankings.every((r: any) => r.player.id !== stored.hostId)).toBe(true);
-    expect(results.itemBreakdown[stored.hostId]).toBeUndefined();
+    expect(results.rankings.some((r: any) => r.player.id === stored.hostId)).toBe(true);
+    expect(results.itemBreakdown[stored.hostId]).toBeDefined();
 
     // Phase should be finished
     expect(stored.phase).toBe('finished');
@@ -955,8 +964,10 @@ describe('ScavengerHuntRoom -- Host Dashboard', () => {
     const stateMsg = msgs.find((m: any) => m.type === 'hunt_state');
     expect(stateMsg).toBeDefined();
     expect(stateMsg.state.allTeams).toBeDefined();
-    expect(stateMsg.state.allTeams).toHaveLength(1);
-    expect(stateMsg.state.allTeams[0].username).toBe('Player1');
+    // allTeams now includes all players (host + Player1)
+    expect(stateMsg.state.allTeams).toHaveLength(2);
+    expect(stateMsg.state.allTeams.some((t: any) => t.username === 'Player1')).toBe(true);
+    expect(stateMsg.state.allTeams.some((t: any) => t.username === 'Host')).toBe(true);
   });
 
   it('player does NOT receive allTeams in hunt_state', async () => {
@@ -998,21 +1009,24 @@ describe('ScavengerHuntRoom -- Host Dashboard', () => {
     const hostMsgs = getSentMessages(hostWs);
     const teamsUpdate = hostMsgs.find((m: any) => m.type === 'teams_updated');
     expect(teamsUpdate).toBeDefined();
-    expect(teamsUpdate.teams).toHaveLength(1);
-    expect(teamsUpdate.teams[0].totalScore).toBe(-200);
+    // Teams now include host (2 players total)
+    expect(teamsUpdate.teams).toHaveLength(2);
+    const player1Team = teamsUpdate.teams.find((t: any) => t.username === 'Player1');
+    expect(player1Team).toBeDefined();
+    expect(player1Team.totalScore).toBe(-200);
   });
 
-  it('host progress is not initialized (host cannot play)', async () => {
+  it('host progress is initialized (host plays too)', async () => {
     const { state, room } = await createInitializedHunt();
     const { hostId, playerId } = await startHuntWithPlayer(room, state);
 
     const stored = (await state.storage.get('room')) as any;
-    expect(stored.progress[hostId]).toBeUndefined();
+    expect(stored.progress[hostId]).toBeDefined();
     expect(stored.progress[playerId]).toBeDefined();
   });
 
-  it('minPlayers check excludes host', async () => {
-    // minPlayers: 2, but only host + 1 player = 1 participant
+  it('minPlayers check includes host', async () => {
+    // minPlayers: 2, host + 1 player = 2 players, so it should start
     const { state, room } = await createInitializedHunt({ minPlayers: 2 });
     const hostWs = await joinPlayer(room, state, 'Host');
     const playerWs = await joinPlayer(room, state, 'Player1');
@@ -1021,8 +1035,8 @@ describe('ScavengerHuntRoom -- Host Dashboard', () => {
     await room.webSocketMessage(hostWs, JSON.stringify({ type: 'start_hunt' }));
 
     const msgs = getSentMessages(hostWs);
-    expect(msgs[0].type).toBe('error');
-    expect(msgs[0].message).toContain('Need at least 2 teams');
+    // Should succeed (2 players >= minPlayers 2)
+    expect(msgs[0].type).toBe('hunt_starting');
   });
 });
 
@@ -1218,9 +1232,11 @@ describe('ScavengerHuntRoom -- Hunt History', () => {
     expect(entry.config.name).toBe('Test Hunt');
     expect(entry.hostUsername).toBe('Host');
     expect(entry.hostSecret).toBeDefined();
-    expect(entry.players).toHaveLength(1);
-    expect(entry.players[0].username).toBe('Player1');
-    expect(entry.results.rankings).toHaveLength(1);
+    // Players now include host (host plays too)
+    expect(entry.players).toHaveLength(2);
+    expect(entry.players.some((p: any) => p.username === 'Player1')).toBe(true);
+    expect(entry.players.some((p: any) => p.username === 'Host')).toBe(true);
+    expect(entry.results.rankings).toHaveLength(2);
     expect(entry.finishedAt).toBeGreaterThan(0);
   });
 
@@ -1304,7 +1320,8 @@ describe('ScavengerHuntRoom -- Hunt History', () => {
     expect(meta.huntId).toBe('HUNT-TEST');
     expect(meta.name).toBe('Test Hunt');
     expect(meta.hostUsername).toBe('Host');
-    expect(meta.teamCount).toBe(1);
+    // teamCount now includes host (host plays too)
+    expect(meta.teamCount).toBe(2);
     expect(meta.totalItems).toBe(3);
   });
 });

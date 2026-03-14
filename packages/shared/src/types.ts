@@ -238,6 +238,7 @@ export interface HuntHistorySummary {
   winnerScore: number;
   totalItems: number;
   finishedAt: number;
+  groupId?: string;
 }
 
 // --- Credit System & Auth Types ---
@@ -290,4 +291,5 @@ export interface HuntHistoryEntry {
   createdAt: number;
   startedAt: number;
   finishedAt: number;
+  groupId?: string;
 }

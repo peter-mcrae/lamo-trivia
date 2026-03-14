@@ -584,6 +584,24 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       return Response.json({ hunts: summaries });
     }
 
+    // GET /api/groups/:groupId/hunts/history — list hunt history for a specific group
+    if (method === 'GET' && url.pathname.match(/^\/api\/groups\/[^/]+\/hunts\/history$/)) {
+      if (!huntHistoryLimiter.check(getClientIP(request))) return rateLimitedResponse();
+      const groupId = url.pathname.split('/api/groups/')[1].split('/hunts/history')[0];
+
+      const listResult = await env.TRIVIA_KV.list<HuntHistorySummary>({
+        prefix: 'hunt-history:',
+      });
+
+      const summaries: HuntHistorySummary[] = listResult.keys
+        .filter((k) => k.metadata && k.metadata.groupId === groupId)
+        .map((k) => k.metadata!);
+
+      summaries.sort((a, b) => b.finishedAt - a.finishedAt);
+
+      return Response.json({ hunts: summaries });
+    }
+
     // GET /api/hunts/:huntId/photos/:fileName — serve R2 photo
     if (method === 'GET' && url.pathname.match(/^\/api\/hunts\/[^/]+\/photos\/.+$/)) {
       if (!huntHistoryLimiter.check(getClientIP(request))) return rateLimitedResponse();
