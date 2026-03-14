@@ -67,6 +67,22 @@ export function useHuntState() {
           if (!prev) return prev;
           return { ...prev, phase: 'playing', endsAt: message.endsAt };
         });
+        // Initialize myProgress.items so handlers like photo_accepted can find them
+        setMyProgress((prev) => {
+          if (!prev) return prev;
+          const updatedItems = { ...prev.items };
+          for (const item of message.items) {
+            if (!updatedItems[item.id]) {
+              updatedItems[item.id] = {
+                itemId: item.id,
+                status: 'searching' as const,
+                cluesRevealed: [],
+                attemptsUsed: 0,
+              };
+            }
+          }
+          return { ...prev, items: updatedItems };
+        });
         break;
 
       case 'clue_revealed':
@@ -206,7 +222,10 @@ export function useHuntState() {
             ...prev,
             items: {
               ...prev.items,
-              [message.itemId]: { ...itemProgress, status: 'rejected' as const },
+              [message.itemId]: {
+                ...itemProgress,
+                status: message.returnToSearching ? 'searching' as const : 'rejected' as const,
+              },
             },
           };
         });

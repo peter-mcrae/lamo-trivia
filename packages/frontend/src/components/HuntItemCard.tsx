@@ -8,6 +8,7 @@ interface HuntItemCardProps {
   rejectionReason?: string;
   onRevealClue: (itemId: string, clueId: string) => void;
   onTakePhoto: (itemId: string) => void;
+  onContestPhoto: (itemId: string) => void;
 }
 
 function StatusBadge({ status, isVerifying }: { status: HuntItemProgress['status']; isVerifying: boolean }) {
@@ -61,11 +62,13 @@ export function HuntItemCard({
   rejectionReason,
   onRevealClue,
   onTakePhoto,
+  onContestPhoto,
 }: HuntItemCardProps) {
   const isFound = progress.status === 'found';
   const isHostReviewing = progress.status === 'rejected';
   const attemptsRemaining = maxRetries - progress.attemptsUsed;
   const canTakePhoto = !isFound && !isVerifying && !isHostReviewing && attemptsRemaining > 0 && progress.status !== 'pending_review';
+  const canContest = !!rejectionReason && !isFound && !isVerifying && !isHostReviewing && attemptsRemaining > 0;
 
   return (
     <div
@@ -129,16 +132,26 @@ export function HuntItemCard({
 
       {/* Actions */}
       <div className="flex items-center justify-between">
-        <button
-          onClick={() => onTakePhoto(item.id)}
-          disabled={!canTakePhoto}
-          className="inline-flex items-center gap-2 px-4 py-2 bg-lamo-blue text-white text-sm font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-            <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.664-.89l.812-1.22A2 2 0 0 1 8.07 3h3.86a2 2 0 0 1 1.664.89l.812 1.22A2 2 0 0 0 16.07 6H17a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8Zm13.5 3a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM10 14a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
-          </svg>
-          Take Photo
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onTakePhoto(item.id)}
+            disabled={!canTakePhoto}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-lamo-blue text-white text-sm font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+              <path fillRule="evenodd" d="M1 8a2 2 0 0 1 2-2h.93a2 2 0 0 0 1.664-.89l.812-1.22A2 2 0 0 1 8.07 3h3.86a2 2 0 0 1 1.664.89l.812 1.22A2 2 0 0 0 16.07 6H17a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8Zm13.5 3a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM10 14a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" clipRule="evenodd" />
+            </svg>
+            Take Photo
+          </button>
+          {canContest && (
+            <button
+              onClick={() => onContestPhoto(item.id)}
+              className="inline-flex items-center gap-1.5 px-4 py-2 border border-amber-300 text-amber-700 text-sm font-semibold rounded-pill hover:bg-amber-50 transition-colors"
+            >
+              Contest
+            </button>
+          )}
+        </div>
 
         {!isFound && (
           <span className={`text-xs ${attemptsRemaining <= 0 ? 'text-red-500 font-medium' : 'text-lamo-gray-muted'}`}>
