@@ -45,6 +45,7 @@ routes = [
 
 [vars]
 FRONTEND_URL = "https://lamotrivia.app"
+GA_MEASUREMENT_ID = "G-804RC3BG82"
 
 
 # Secret Store binding — re-enable once API token has Secret Store permissions:

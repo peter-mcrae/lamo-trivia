@@ -1,4 +1,5 @@
 import type { Env } from './env';
+import { sendToGA } from './ga';
 
 export type AnalyticsEventType =
   | 'game_created'
@@ -45,6 +46,12 @@ export async function logEvent(
       expirationTtl: TTL_180_DAYS,
       metadata,
     });
+
+    // Also forward to GA4 (fire-and-forget)
+    const gaClientId = String(data.gameId || data.huntId || id);
+    sendToGA(env, gaClientId, [
+      { name: type, params: buildMetadataSummary(type, data) },
+    ]).catch(() => {});
   } catch (err) {
     console.error('Analytics logEvent failed', {
       type,
