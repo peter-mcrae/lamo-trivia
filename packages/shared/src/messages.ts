@@ -1,4 +1,7 @@
-import type { GameState, ClientQuestion, Player, GroupState, GroupMember, GroupGame } from './types';
+import type {
+  GameState, ClientQuestion, Player, GroupState, GroupMember, GroupGame,
+  ClientHuntState, HuntItem, HuntAppeal, HuntResults, HuntTeamSummary,
+} from './types';
 
 // Client -> Server
 export type ClientMessage =
@@ -45,5 +48,43 @@ export type GroupServerMessage =
   | { type: 'game_updated'; game: GroupGame }
   | { type: 'game_removed'; gameId: string }
   | { type: 'game_invite'; gameId: string; gameName: string; inviterUsername: string }
+  | { type: 'error'; message: string; code?: string }
+  | { type: 'pong' };
+
+// --- Scavenger Hunt Messages ---
+
+// Hunt Client -> Server
+export type HuntClientMessage =
+  | { type: 'join_hunt'; huntId: string; username: string }
+  | { type: 'rejoin_hunt'; huntId: string; username: string }
+  | { type: 'leave_hunt' }
+  | { type: 'start_hunt' }
+  | { type: 'reveal_clue'; itemId: string; clueId: string }
+  | { type: 'submit_photo'; itemId: string; uploadId: string }
+  | { type: 'approve_appeal'; playerId: string; itemId: string }
+  | { type: 'reject_appeal'; playerId: string; itemId: string }
+  | { type: 'claim_host' }
+  | { type: 'ping' };
+
+// Hunt Server -> Client
+export type HuntServerMessage =
+  | { type: 'hunt_state'; state: ClientHuntState }
+  | { type: 'player_joined'; player: Player }
+  | { type: 'player_left'; playerId: string; newHostId?: string }
+  | { type: 'host_changed'; hostId: string }
+  | { type: 'hunt_starting'; countdown: number }
+  | { type: 'hunt_started'; items: HuntItem[]; endsAt: number }
+  | { type: 'clue_revealed'; itemId: string; clueId: string; clueText: string; newScore: number }
+  | { type: 'photo_verifying'; itemId: string }
+  | { type: 'photo_accepted'; itemId: string; pointsEarned: number; newScore: number }
+  | { type: 'photo_rejected'; itemId: string; reason: string; attemptsRemaining: number }
+  | { type: 'appeal_submitted'; itemId: string }
+  | { type: 'appeal_received'; appeal: HuntAppeal }
+  | { type: 'appeal_approved'; itemId: string; pointsEarned: number; newScore: number }
+  | { type: 'appeal_rejected'; itemId: string }
+  | { type: 'teams_updated'; teams: HuntTeamSummary[] }
+  | { type: 'hunt_finished'; results: HuntResults }
+  | { type: 'hunt_expired'; message: string }
+  | { type: 'time_warning'; secondsRemaining: number }
   | { type: 'error'; message: string; code?: string }
   | { type: 'pong' };

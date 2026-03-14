@@ -68,6 +68,29 @@ export const AVATARS: Avatar[] = [
   { emoji: '🔮', name: 'Luna' },
 ];
 
+// --- Scavenger Hunt Defaults & Limits ---
+
+export const HUNT_DEFAULTS = {
+  durationMinutes: 30,
+  maxRetries: 3,
+  basePointsPerItem: 1000,
+  hintPointCost: 200,
+  minPlayers: 1,
+  maxPlayers: 8,
+} as const;
+
+export const HUNT_LIMITS = {
+  maxItems: 15,
+  maxCluesPerItem: 3,
+  maxPhotoSizeBytes: 5 * 1024 * 1024, // 5MB
+  maxDescriptionLength: 300,
+  maxClueLength: 200,
+  minDuration: 5,
+  maxDuration: 60,
+} as const;
+
+export const HUNT_EXPIRY_MS = 90 * 60 * 1000; // 90 minutes — longer than trivia since hunts run up to 60 min
+
 export const TRIVIA_CATEGORIES: TriviaCategory[] = [
   { id: 'harry-potter', name: 'Harry Potter', description: 'The Wizarding World', icon: '⚡', questionCount: 230 },
   { id: 'general', name: 'General Knowledge', description: 'A bit of everything', icon: '🧠', questionCount: 50 },

@@ -171,6 +171,9 @@ export default function GroupLobby() {
     );
   }
 
+  const getGamePath = (game: { gameId: string; gameMode?: string }) =>
+    game.gameMode === 'scavenger-hunt' ? `/hunt/${game.gameId}` : `/game/${game.gameId}`;
+
   const onlineMembers = groupState.members.filter((m) => m.online);
   const waitingGames = groupState.games.filter((g) => g.phase === 'waiting');
   const activeGames = groupState.games.filter((g) => g.phase === 'playing');
@@ -248,7 +251,7 @@ export default function GroupLobby() {
               <GroupGameCard
                 key={game.gameId}
                 game={game}
-                onJoin={() => navigate(`/game/${game.gameId}`)}
+                onJoin={() => navigate(getGamePath(game))}
               />
             ))}
           </div>
@@ -273,7 +276,7 @@ export default function GroupLobby() {
               <GroupGameCard
                 key={game.gameId}
                 game={game}
-                onJoin={() => navigate(`/game/${game.gameId}`)}
+                onJoin={() => navigate(getGamePath(game))}
               />
             ))}
           </div>

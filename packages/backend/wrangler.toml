@@ -10,7 +10,8 @@ port = 8787
 bindings = [
   { name = "GAME_LOBBY", class_name = "GameLobby" },
   { name = "GAME_ROOM", class_name = "GameRoom" },
-  { name = "PRIVATE_GROUP", class_name = "PrivateGroup" }
+  { name = "PRIVATE_GROUP", class_name = "PrivateGroup" },
+  { name = "SCAVENGER_HUNT_ROOM", class_name = "ScavengerHuntRoom" }
 ]
 
 [[migrations]]
@@ -21,9 +22,17 @@ new_sqlite_classes = ["GameLobby", "GameRoom"]
 tag = "v2"
 new_sqlite_classes = ["PrivateGroup"]
 
+[[migrations]]
+tag = "v3"
+new_sqlite_classes = ["ScavengerHuntRoom"]
+
 [[kv_namespaces]]
 binding = "TRIVIA_KV"
 id = "34ed0bee812244b59410394854c16952"
+
+[[r2_buckets]]
+binding = "R2_HUNT_PHOTOS"
+bucket_name = "lamo-hunt-photos"
 
 [observability]
 enabled = true
