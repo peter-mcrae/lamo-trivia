@@ -37,6 +37,11 @@ bucket_name = "lamo-hunt-photos"
 [observability]
 enabled = true
 
+routes = [
+  { pattern = "lamotrivia.app/api/*", zone_name = "lamotrivia.app" },
+  { pattern = "lamotrivia.app/ws/*", zone_name = "lamotrivia.app" }
+]
+
 [vars]
 FRONTEND_URL = "https://lamotrivia.app"
 
