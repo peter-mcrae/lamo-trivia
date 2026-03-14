@@ -184,6 +184,10 @@ export default function HuntRoom() {
     );
   };
 
+  const handleContestPhoto = (itemId: string) => {
+    send({ type: 'contest_photo', itemId });
+  };
+
   const handleSendMessage = (message: string, targetPlayerId?: string) => {
     send({ type: 'send_message', message, targetPlayerId });
   };
@@ -427,6 +431,7 @@ export default function HuntRoom() {
                           rejectionReason={rejectedItems.get(item.id)}
                           onRevealClue={handleRevealClue}
                           onTakePhoto={handleTakePhoto}
+                          onContestPhoto={handleContestPhoto}
                         />
                       );
                     })}

@@ -160,6 +160,9 @@ export class ScavengerHuntRoom {
         case 'reject_appeal':
           await this.handleRejectAppeal(ws, parsed.data.playerId, parsed.data.itemId);
           break;
+        case 'contest_photo':
+          await this.handleContestPhoto(ws, parsed.data.itemId);
+          break;
         case 'claim_host':
           await this.handleClaimHost(ws);
           break;
@@ -548,6 +551,7 @@ export class ScavengerHuntRoom {
     // Mark as pending review
     itemProgress.status = 'pending_review';
     itemProgress.attemptsUsed++;
+    itemProgress.lastRejectedPhotoUrl = undefined;
     await this.persist();
 
     this.sendTo(ws, { type: 'photo_verifying', itemId });
@@ -612,6 +616,7 @@ export class ScavengerHuntRoom {
             itemDescription: item.description,
             photoUrl: photoKey,
             timestamp: Date.now(),
+            isContest: false,
           };
           this.room.pendingAppeals.push(appeal);
           await this.persist();
@@ -628,6 +633,7 @@ export class ScavengerHuntRoom {
           await this.checkAllTeamsComplete();
         } else {
           currentProgress.status = 'searching';
+          currentProgress.lastRejectedPhotoUrl = photoKey;
           await this.persist();
 
           this.sendTo(ws, {
@@ -729,16 +735,95 @@ export class ScavengerHuntRoom {
       return;
     }
 
+    const appeal = this.room.pendingAppeals[appealIdx];
+
+    // If this was a voluntary contest and player has attempts left, return to searching
+    const progress = this.room.progress[playerId]?.items[itemId];
+    const returnToSearching = !!(
+      appeal.isContest &&
+      progress &&
+      this.room.config.maxRetries - progress.attemptsUsed > 0
+    );
+    if (returnToSearching && progress) {
+      progress.status = 'searching';
+    }
+
     this.room.pendingAppeals.splice(appealIdx, 1);
     await this.persist();
 
     const playerWs = this.findPlayerWebSocket(playerId);
     if (playerWs) {
-      this.sendTo(playerWs, { type: 'appeal_rejected', itemId });
+      this.sendTo(playerWs, { type: 'appeal_rejected', itemId, returnToSearching });
     }
 
     this.notifyHostOfTeamUpdate();
     await this.checkAllTeamsComplete();
+  }
+
+  private async handleContestPhoto(ws: WebSocket, itemId: string): Promise<void> {
+    if (!this.room || this.room.phase !== 'playing') return;
+
+    const playerId = this.getPlayerId(ws);
+    if (!playerId) return;
+
+    if (playerId === this.room.hostId) {
+      this.sendTo(ws, { type: 'error', message: 'Host cannot contest photos' });
+      return;
+    }
+
+    const progress = this.room.progress[playerId];
+    if (!progress) return;
+
+    const itemProgress = progress.items[itemId];
+    if (!itemProgress) {
+      this.sendTo(ws, { type: 'error', message: 'Item not found' });
+      return;
+    }
+
+    if (itemProgress.status !== 'searching') {
+      this.sendTo(ws, { type: 'error', message: 'Nothing to contest' });
+      return;
+    }
+
+    const photoUrl = itemProgress.lastRejectedPhotoUrl;
+    if (!photoUrl) {
+      this.sendTo(ws, { type: 'error', message: 'No rejected photo to contest' });
+      return;
+    }
+
+    const attemptsRemaining = this.room.config.maxRetries - itemProgress.attemptsUsed;
+    if (attemptsRemaining <= 0) {
+      this.sendTo(ws, { type: 'error', message: 'No attempts remaining' });
+      return;
+    }
+
+    const item = this.room.items.find((i) => i.id === itemId);
+    if (!item) return;
+
+    const player = this.room.players.find((p) => p.id === playerId);
+
+    const appeal: HuntAppeal = {
+      playerId,
+      playerUsername: player?.username || 'Unknown',
+      itemId,
+      itemDescription: item.description,
+      photoUrl,
+      timestamp: Date.now(),
+      isContest: true,
+    };
+
+    itemProgress.status = 'rejected';
+    this.room.pendingAppeals.push(appeal);
+    await this.persist();
+
+    this.sendTo(ws, { type: 'appeal_submitted', itemId });
+
+    const hostWs = this.findPlayerWebSocket(this.room.hostId);
+    if (hostWs) {
+      this.sendTo(hostWs, { type: 'appeal_received', appeal });
+    }
+
+    this.notifyHostOfTeamUpdate();
   }
 
   private async handleClaimHost(ws: WebSocket): Promise<void> {

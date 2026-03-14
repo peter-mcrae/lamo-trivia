@@ -139,6 +139,7 @@ export interface HuntItemProgress {
   attemptsUsed: number;
   foundAt?: number;
   photoUrl?: string;
+  lastRejectedPhotoUrl?: string;
 }
 
 export interface HuntPlayerProgress {
@@ -204,6 +205,7 @@ export interface HuntAppeal {
   itemDescription: string;
   photoUrl: string;
   timestamp: number;
+  isContest?: boolean;
 }
 
 export interface HuntResultsRanking {

@@ -64,6 +64,7 @@ export type HuntClientMessage =
   | { type: 'approve_appeal'; playerId: string; itemId: string }
   | { type: 'reject_appeal'; playerId: string; itemId: string }
   | { type: 'claim_host' }
+  | { type: 'contest_photo'; itemId: string }
   | { type: 'send_message'; message: string; targetPlayerId?: string }
   | { type: 'ping' };
 
@@ -82,7 +83,7 @@ export type HuntServerMessage =
   | { type: 'appeal_submitted'; itemId: string }
   | { type: 'appeal_received'; appeal: HuntAppeal }
   | { type: 'appeal_approved'; itemId: string; pointsEarned: number; newScore: number }
-  | { type: 'appeal_rejected'; itemId: string }
+  | { type: 'appeal_rejected'; itemId: string; returnToSearching?: boolean }
   | { type: 'teams_updated'; teams: HuntTeamSummary[] }
   | { type: 'hunt_finished'; results: HuntResults }
   | { type: 'hunt_history_saved'; huntId: string; hostSecret: string }
