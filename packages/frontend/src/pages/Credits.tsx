@@ -2,13 +2,19 @@ import { useState, useEffect } from 'react';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { CREDIT_PRICING } from '@lamo-trivia/shared';
 import type { CreditTransaction } from '@lamo-trivia/shared';
-import { API_BASE, getAuthHeaders } from '@/lib/api';
+import { API_BASE, getAuthHeaders, api } from '@/lib/api';
 
 export default function Credits() {
-  const { user, loading, logout } = useAuthContext();
+  const { user, loading, logout, refreshUser } = useAuthContext();
   const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [buying, setBuying] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Coupon state
+  const [couponCode, setCouponCode] = useState('');
+  const [redeeming, setRedeeming] = useState(false);
+  const [couponSuccess, setCouponSuccess] = useState<string | null>(null);
+  const [couponError, setCouponError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -48,6 +54,31 @@ export default function Credits() {
     }
   };
 
+  const handleRedeem = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!couponCode.trim()) return;
+
+    setRedeeming(true);
+    setCouponError(null);
+    setCouponSuccess(null);
+
+    try {
+      const result = await api.redeemCoupon(couponCode.trim());
+      setCouponSuccess(`Redeemed! +${result.credits} credits. New balance: ${result.newBalance}`);
+      setCouponCode('');
+      // Refresh user data and transactions
+      refreshUser?.();
+      fetch(`${API_BASE}/credits/transactions`, { headers: getAuthHeaders() })
+        .then((r) => r.json())
+        .then((d: { transactions: CreditTransaction[] }) => setTransactions(d.transactions))
+        .catch(() => {});
+    } catch (err) {
+      setCouponError(err instanceof Error ? err.message : 'Failed to redeem coupon');
+    } finally {
+      setRedeeming(false);
+    }
+  };
+
   if (loading || !user) return null;
 
   return (
@@ -79,7 +110,7 @@ export default function Credits() {
       )}
 
       {/* Buy */}
-      <div className="bg-lamo-bg rounded-xl border border-lamo-border p-6 mb-8">
+      <div className="bg-lamo-bg rounded-xl border border-lamo-border p-6 mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
             <p className="font-medium text-lamo-dark">
@@ -103,6 +134,34 @@ export default function Credits() {
         </p>
       </div>
 
+      {/* Redeem Coupon */}
+      <div className="bg-lamo-bg rounded-xl border border-lamo-border p-6 mb-8">
+        <h2 className="font-medium text-lamo-dark mb-3">Have a coupon?</h2>
+        <form onSubmit={handleRedeem} className="flex gap-2">
+          <input
+            type="text"
+            value={couponCode}
+            onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+            placeholder="Enter coupon code"
+            className="flex-1 px-4 py-2.5 border border-lamo-border rounded-lg text-sm focus:outline-none focus:border-lamo-primary"
+            maxLength={20}
+          />
+          <button
+            type="submit"
+            disabled={redeeming || !couponCode.trim()}
+            className="px-5 py-2.5 bg-lamo-dark text-white font-medium text-sm rounded-lg hover:bg-lamo-dark/90 transition-colors disabled:opacity-50"
+          >
+            {redeeming ? 'Redeeming...' : 'Redeem'}
+          </button>
+        </form>
+        {couponError && (
+          <p className="text-red-500 text-sm mt-2">{couponError}</p>
+        )}
+        {couponSuccess && (
+          <p className="text-green-600 text-sm mt-2">{couponSuccess}</p>
+        )}
+      </div>
+
       {/* Transactions */}
       {transactions.length > 0 && (
         <div>
@@ -121,13 +180,13 @@ export default function Credits() {
                 </div>
                 <span
                   className={`text-sm font-medium ${
-                    tx.type === 'purchase' || tx.type === 'refund'
+                    tx.type === 'purchase' || tx.type === 'refund' || tx.type === 'coupon' || tx.type === 'admin_credit'
                       ? 'text-green-600'
                       : 'text-red-500'
                   }`}
                 >
-                  {tx.type === 'deduction' ? '-' : '+'}
-                  {tx.amount}
+                  {tx.type === 'deduction' || tx.type === 'admin_debit' ? '-' : '+'}
+                  {Math.abs(tx.amount)}
                 </span>
               </div>
             ))}
