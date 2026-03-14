@@ -16,6 +16,7 @@ export default {
       },
       colors: {
         lamo: {
+          primary: '#0071e3',
           blue: '#0071e3',
           'blue-dark': '#0056b3',
           lime: '#a8e000',

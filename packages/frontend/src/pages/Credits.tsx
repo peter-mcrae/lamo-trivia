@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { CREDIT_PRICING } from '@lamo-trivia/shared';
-import type { CreditTransaction } from '@lamo-trivia/shared';
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 export default function Credits() {
   const { user, loading, logout, refreshUser } = useAuthContext();
   const navigate = useNavigate();
-  const [transactions, setTransactions] = useState<CreditTransaction[]>([]);
   const [buying, setBuying] = useState(false);
 
   useEffect(() => {
@@ -17,17 +15,6 @@ export default function Credits() {
       navigate('/login');
     }
   }, [user, loading, navigate]);
-
-  useEffect(() => {
-    if (!user) return;
-    const token = localStorage.getItem('lamo_auth_token');
-    fetch(`${API_BASE}/credits/transactions`, {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-      .then((r) => r.json())
-      .then((d: { transactions: CreditTransaction[] }) => setTransactions(d.transactions))
-      .catch((err) => console.error('Failed to load transactions', err));
-  }, [user]);
 
   const handleBuy = async () => {
     setBuying(true);
@@ -105,38 +92,6 @@ export default function Credits() {
           Credits are deducted when a hunt starts based on items, retries, and player count.
         </p>
       </div>
-
-      {/* Transactions */}
-      {transactions.length > 0 && (
-        <div>
-          <h2 className="text-lg font-semibold text-lamo-dark mb-4">Transaction History</h2>
-          <div className="space-y-3">
-            {transactions.map((tx, i) => (
-              <div
-                key={i}
-                className="flex items-center justify-between py-3 border-b border-lamo-border last:border-0"
-              >
-                <div>
-                  <p className="text-sm font-medium text-lamo-dark">{tx.details}</p>
-                  <p className="text-xs text-lamo-gray-muted">
-                    {new Date(tx.timestamp).toLocaleDateString()}
-                  </p>
-                </div>
-                <span
-                  className={`text-sm font-medium ${
-                    tx.type === 'purchase' || tx.type === 'refund'
-                      ? 'text-green-600'
-                      : 'text-red-500'
-                  }`}
-                >
-                  {tx.type === 'deduction' ? '-' : '+'}
-                  {tx.amount}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -29,7 +29,7 @@ export default function CreateHunt() {
     return (
       <div className="max-w-lg mx-auto py-10 px-6 text-center">
         <h2 className="text-2xl font-bold text-lamo-dark mb-4">Sign In Required</h2>
-        <p className="text-lamo-gray-muted mb-6">
+        <p className="text-lamo-gray mb-6">
           You need to sign in and have credits to create a scavenger hunt.
           Credits are used for AI photo verification.
         </p>
