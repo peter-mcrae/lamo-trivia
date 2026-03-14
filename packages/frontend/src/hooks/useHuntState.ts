@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import type {
-  ClientHuntState, HuntItem, HuntItemProgress, HuntPlayerProgress,
+  ClientHuntState, HuntItem, HuntPlayerProgress,
   HuntResults, HuntAppeal, HuntServerMessage, Player, HuntTeamSummary,
 } from '@lamo-trivia/shared';
+import { saveHostSecret } from './useHuntHostSecrets';
 
 export function useHuntState() {
   const [huntState, setHuntState] = useState<ClientHuntState | null>(null);
@@ -14,6 +15,8 @@ export function useHuntState() {
   const [verifyingItems, setVerifyingItems] = useState<Set<string>>(new Set());
   const [timeWarning, setTimeWarning] = useState<number | null>(null);
   const [allTeams, setAllTeams] = useState<HuntTeamSummary[] | null>(null);
+  const [rejectedItems, setRejectedItems] = useState<Map<string, string>>(new Map());
+  const [hostMessages, setHostMessages] = useState<string[]>([]);
 
   const handleMessage = useCallback((message: HuntServerMessage) => {
     switch (message.type) {
@@ -87,6 +90,11 @@ export function useHuntState() {
 
       case 'photo_verifying':
         setVerifyingItems((prev) => new Set(prev).add(message.itemId));
+        setRejectedItems((prev) => {
+          const next = new Map(prev);
+          next.delete(message.itemId);
+          return next;
+        });
         break;
 
       case 'photo_accepted':
@@ -116,6 +124,11 @@ export function useHuntState() {
           next.delete(message.itemId);
           return next;
         });
+        setRejectedItems((prev) => {
+          const next = new Map(prev);
+          next.set(message.itemId, message.reason);
+          return next;
+        });
         setMyProgress((prev) => {
           if (!prev) return prev;
           const itemProgress = prev.items[message.itemId];
@@ -124,13 +137,22 @@ export function useHuntState() {
             ...prev,
             items: {
               ...prev.items,
-              [message.itemId]: { ...itemProgress, status: 'searching' as const },
+              [message.itemId]: {
+                ...itemProgress,
+                status: 'searching' as const,
+                attemptsUsed: itemProgress.attemptsUsed + 1,
+              },
             },
           };
         });
         break;
 
       case 'appeal_submitted':
+        setVerifyingItems((prev) => {
+          const next = new Set(prev);
+          next.delete(message.itemId);
+          return next;
+        });
         setMyProgress((prev) => {
           if (!prev) return prev;
           const itemProgress = prev.items[message.itemId];
@@ -150,6 +172,11 @@ export function useHuntState() {
         break;
 
       case 'appeal_approved':
+        setVerifyingItems((prev) => {
+          const next = new Set(prev);
+          next.delete(message.itemId);
+          return next;
+        });
         setMyProgress((prev) => {
           if (!prev) return prev;
           const itemProgress = prev.items[message.itemId];
@@ -166,6 +193,11 @@ export function useHuntState() {
         break;
 
       case 'appeal_rejected':
+        setVerifyingItems((prev) => {
+          const next = new Set(prev);
+          next.delete(message.itemId);
+          return next;
+        });
         setMyProgress((prev) => {
           if (!prev) return prev;
           const itemProgress = prev.items[message.itemId];
@@ -192,6 +224,14 @@ export function useHuntState() {
         setAllTeams(message.teams);
         break;
 
+      case 'hunt_history_saved':
+        saveHostSecret(message.huntId, message.hostSecret);
+        break;
+
+      case 'host_message':
+        setHostMessages((prev) => [...prev, message.message]);
+        break;
+
       case 'time_warning':
         setTimeWarning(message.secondsRemaining);
         break;
@@ -208,6 +248,12 @@ export function useHuntState() {
     setVerifyingItems(new Set());
     setTimeWarning(null);
     setAllTeams(null);
+    setRejectedItems(new Map());
+    setHostMessages([]);
+  }, []);
+
+  const dismissHostMessage = useCallback((index: number) => {
+    setHostMessages((prev) => prev.filter((_, i) => i !== index));
   }, []);
 
   return {
@@ -222,6 +268,9 @@ export function useHuntState() {
     verifyingItems,
     timeWarning,
     allTeams,
+    rejectedItems,
+    hostMessages,
+    dismissHostMessage,
     handleMessage,
     reset,
   };

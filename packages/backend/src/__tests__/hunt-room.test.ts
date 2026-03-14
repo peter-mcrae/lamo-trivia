@@ -1193,3 +1193,118 @@ describe('ScavengerHuntRoom -- Rejoin', () => {
     expect(appealMsg.appeal.itemId).toBe('item-1');
   });
 });
+
+// ============================================================
+// Hunt History
+// ============================================================
+
+describe('ScavengerHuntRoom -- Hunt History', () => {
+  it('saves hunt history to KV when hunt finishes', async () => {
+    const { state, env, room } = await createInitializedHunt();
+    const { hostWs, playerWs } = await startHuntWithPlayer(room, state);
+
+    // Trigger end_hunt alarm (skip time warnings)
+    const stored = (await state.storage.get('room')) as any;
+    stored.nextAlarmAction = 'end_hunt';
+    await state.storage.put('room', stored);
+    await room.alarm();
+
+    // Check KV was written
+    const kvValue = await env.TRIVIA_KV.get('hunt-history:HUNT-TEST');
+    expect(kvValue).not.toBeNull();
+
+    const entry = JSON.parse(kvValue!);
+    expect(entry.huntId).toBe('HUNT-TEST');
+    expect(entry.config.name).toBe('Test Hunt');
+    expect(entry.hostUsername).toBe('Host');
+    expect(entry.hostSecret).toBeDefined();
+    expect(entry.players).toHaveLength(1);
+    expect(entry.players[0].username).toBe('Player1');
+    expect(entry.results.rankings).toHaveLength(1);
+    expect(entry.finishedAt).toBeGreaterThan(0);
+  });
+
+  it('sends hunt_history_saved to host with hostSecret', async () => {
+    const { state, env, room } = await createInitializedHunt();
+    const { hostWs, playerWs } = await startHuntWithPlayer(room, state);
+
+    // Trigger end_hunt
+    const stored = (await state.storage.get('room')) as any;
+    stored.nextAlarmAction = 'end_hunt';
+    await state.storage.put('room', stored);
+    await room.alarm();
+
+    const hostMsgs = getSentMessages(hostWs);
+    const historySaved = hostMsgs.find((m: any) => m.type === 'hunt_history_saved');
+    expect(historySaved).toBeDefined();
+    expect(historySaved.huntId).toBe('HUNT-TEST');
+    expect(historySaved.hostSecret).toBeDefined();
+
+    // Verify it matches what's in KV
+    const kvValue = JSON.parse((await env.TRIVIA_KV.get('hunt-history:HUNT-TEST'))!);
+    expect(historySaved.hostSecret).toBe(kvValue.hostSecret);
+  });
+
+  it('does not send hunt_history_saved to players', async () => {
+    const { state, room } = await createInitializedHunt();
+    const { hostWs, playerWs } = await startHuntWithPlayer(room, state);
+
+    const stored = (await state.storage.get('room')) as any;
+    stored.nextAlarmAction = 'end_hunt';
+    await state.storage.put('room', stored);
+    await room.alarm();
+
+    const playerMsgs = getSentMessages(playerWs);
+    expect(playerMsgs.some((m: any) => m.type === 'hunt_history_saved')).toBe(false);
+  });
+
+  it('preserves R2 photos during cleanup of finished hunts', async () => {
+    const { state, env, room } = await createInitializedHunt();
+    await startHuntWithPlayer(room, state);
+
+    // Finish the hunt
+    let stored = (await state.storage.get('room')) as any;
+    stored.nextAlarmAction = 'end_hunt';
+    await state.storage.put('room', stored);
+    await room.alarm();
+
+    // Trigger cleanup alarm
+    stored = (await state.storage.get('room')) as any;
+    stored.nextAlarmAction = 'cleanup_hunt';
+    await state.storage.put('room', stored);
+
+    // Track if R2 list was called (it shouldn't be for cleanup)
+    let r2ListCalled = false;
+    (env.R2_HUNT_PHOTOS as any).list = async () => {
+      r2ListCalled = true;
+      return { objects: [], truncated: false };
+    };
+
+    await room.alarm();
+
+    // R2 photos should NOT be deleted during cleanup
+    expect(r2ListCalled).toBe(false);
+  });
+
+  it('stores KV metadata for listing', async () => {
+    const { state, env, room } = await createInitializedHunt();
+    await startHuntWithPlayer(room, state);
+
+    const stored = (await state.storage.get('room')) as any;
+    stored.nextAlarmAction = 'end_hunt';
+    await state.storage.put('room', stored);
+    await room.alarm();
+
+    // List KV entries with prefix
+    const listResult = await env.TRIVIA_KV.list({ prefix: 'hunt-history:' });
+    expect(listResult.keys).toHaveLength(1);
+    expect(listResult.keys[0].metadata).toBeDefined();
+
+    const meta = listResult.keys[0].metadata as any;
+    expect(meta.huntId).toBe('HUNT-TEST');
+    expect(meta.name).toBe('Test Hunt');
+    expect(meta.hostUsername).toBe('Host');
+    expect(meta.teamCount).toBe(1);
+    expect(meta.totalItems).toBe(3);
+  });
+});

@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useHuntWebSocket } from '../hooks/useHuntWebSocket';
 import { useHuntState } from '../hooks/useHuntState';
@@ -9,7 +9,6 @@ import { PlayerList } from '../components/PlayerList';
 import { HuntTimer } from '../components/HuntTimer';
 import { HuntItemCard } from '../components/HuntItemCard';
 import { PhotoCapture } from '../components/PhotoCapture';
-import { AppealBanner } from '../components/AppealBanner';
 import { HuntResults } from '../components/HuntResults';
 import { HostDashboard } from '../components/HostDashboard';
 import { Button } from '../components/ui/Button';
@@ -17,7 +16,7 @@ import { Button } from '../components/ui/Button';
 export default function HuntRoom() {
   const { huntId } = useParams<{ huntId: string }>();
   const navigate = useNavigate();
-  const { username, setUsername, hasUsername } = useUsername();
+  const { username, setUsername, clearUsername, hasUsername } = useUsername();
   const [error, setError] = useState<string | null>(null);
   const [startingHunt, setStartingHunt] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -36,6 +35,9 @@ export default function HuntRoom() {
     setAppeals,
     verifyingItems,
     allTeams,
+    rejectedItems,
+    hostMessages,
+    dismissHostMessage,
     handleMessage,
     reset: resetHuntState,
   } = useHuntState();
@@ -45,12 +47,13 @@ export default function HuntRoom() {
   const onMessage = useCallback(
     (message: Parameters<typeof handleMessage>[0]) => {
       if (message.type === 'error') {
-        // Don't show HUNT_STARTED as a user error — the auto-rejoin in handleJoin covers it
-        if (message.code === 'HUNT_STARTED' || message.code === 'PLAYER_NOT_FOUND') {
-          setError(message.message);
-        } else {
-          setError(message.message);
+        if (message.code === 'USERNAME_TAKEN') {
+          setError('That username is taken. Please choose another.');
+          clearUsername();
+          joinedRef.current = false;
+          return;
         }
+        setError(message.message);
         return;
       }
       if (message.type === 'hunt_expired') {
@@ -64,7 +67,7 @@ export default function HuntRoom() {
       }
       handleMessage(message);
     },
-    [handleMessage, navigate],
+    [handleMessage, navigate, clearUsername],
   );
 
   const { connected, send } = useHuntWebSocket({
@@ -179,6 +182,10 @@ export default function HuntRoom() {
     setAppeals((prev) =>
       prev.filter((a) => !(a.playerId === playerId && a.itemId === itemId)),
     );
+  };
+
+  const handleSendMessage = (message: string, targetPlayerId?: string) => {
+    send({ type: 'send_message', message, targetPlayerId });
   };
 
   const handleUsernameSubmit = (name: string) => {
@@ -327,14 +334,43 @@ export default function HuntRoom() {
       {/* Playing Phase */}
       {huntState.phase === 'playing' && (
         <div>
+          {/* Host message notifications */}
+          {hostMessages.length > 0 && (
+            <div className="mb-4 space-y-2">
+              {hostMessages.map((msg, i) => (
+                <div
+                  key={i}
+                  className="flex items-start justify-between gap-3 px-4 py-3 bg-lamo-blue/5 border border-lamo-blue/20 rounded-xl text-sm text-lamo-dark"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-lamo-blue flex-shrink-0">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 1 1-16 0 8 8 0 0 1 16 0Zm-7-4a1 1 0 1 1-2 0 1 1 0 0 1 2 0ZM9 9a.75.75 0 0 0 0 1.5h.253a.25.25 0 0 1 .244.304l-.459 2.066A1.75 1.75 0 0 0 10.747 15H11a.75.75 0 0 0 0-1.5h-.253a.25.25 0 0 1-.244-.304l.459-2.066A1.75 1.75 0 0 0 9.253 9H9Z" clipRule="evenodd" />
+                    </svg>
+                    <span><span className="font-medium">Host:</span> {msg}</span>
+                  </div>
+                  <button
+                    onClick={() => dismissHostMessage(i)}
+                    className="text-lamo-gray-muted hover:text-lamo-dark flex-shrink-0"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" className="w-4 h-4">
+                      <path d="M5.28 4.22a.75.75 0 0 0-1.06 1.06L6.94 8l-2.72 2.72a.75.75 0 1 0 1.06 1.06L8 9.06l2.72 2.72a.75.75 0 1 0 1.06-1.06L9.06 8l2.72-2.72a.75.75 0 0 0-1.06-1.06L8 6.94 5.28 4.22Z" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {isHost && allTeams ? (
             <HostDashboard
+              huntId={huntId!}
               teams={allTeams}
               items={items}
               endsAt={huntState.endsAt!}
               appeals={appeals}
               onApprove={handleApproveAppeal}
               onReject={handleRejectAppeal}
+              onSendMessage={handleSendMessage}
             />
           ) : (
             <>
@@ -353,29 +389,50 @@ export default function HuntRoom() {
                 </div>
               )}
 
-              {/* Item list */}
-              <div className="space-y-4">
-                {items.map((item) => {
-                  const progress = myProgress?.items[item.id] ?? {
-                    itemId: item.id,
-                    status: 'searching' as const,
-                    cluesRevealed: [],
-                    attemptsUsed: 0,
-                  };
+              {/* Team completion screen */}
+              {myProgress && items.length > 0 && items.every((item) => {
+                const ip = myProgress.items[item.id];
+                return ip && (ip.status === 'found' || ip.status === 'rejected');
+              }) ? (
+                <div className="text-center py-12">
+                  <div className="text-5xl mb-4">
+                    {items.every((item) => myProgress.items[item.id]?.status === 'found') ? '🏆' : '✅'}
+                  </div>
+                  <h3 className="text-2xl font-bold text-lamo-dark mb-2">Your team is done!</h3>
+                  <p className="text-lamo-gray-muted mb-4">
+                    {Object.values(myProgress.items).filter((ip) => ip.status === 'found').length} of {items.length} items found
+                  </p>
+                  <p className="text-3xl font-bold text-lamo-blue mb-6">{myProgress.totalScore} pts</p>
+                  <p className="text-sm text-lamo-gray-muted">Waiting for other teams to finish...</p>
+                </div>
+              ) : (
+                <>
+                  {/* Item list */}
+                  <div className="space-y-4">
+                    {items.map((item) => {
+                      const progress = myProgress?.items[item.id] ?? {
+                        itemId: item.id,
+                        status: 'searching' as const,
+                        cluesRevealed: [],
+                        attemptsUsed: 0,
+                      };
 
-                  return (
-                    <HuntItemCard
-                      key={item.id}
-                      item={item}
-                      progress={progress}
-                      isVerifying={verifyingItems.has(item.id)}
-                      maxRetries={huntState.config.maxRetries}
-                      onRevealClue={handleRevealClue}
-                      onTakePhoto={handleTakePhoto}
-                    />
-                  );
-                })}
-              </div>
+                      return (
+                        <HuntItemCard
+                          key={item.id}
+                          item={item}
+                          progress={progress}
+                          isVerifying={verifyingItems.has(item.id)}
+                          maxRetries={huntState.config.maxRetries}
+                          rejectionReason={rejectedItems.get(item.id)}
+                          onRevealClue={handleRevealClue}
+                          onTakePhoto={handleTakePhoto}
+                        />
+                      );
+                    })}
+                  </div>
+                </>
+              )}
 
               {/* Photo capture modal */}
               {photoCaptureItemId && (
@@ -395,6 +452,9 @@ export default function HuntRoom() {
           <HuntResults results={results} players={huntState.players} />
 
           <div className="flex justify-center gap-3 mt-8">
+            <Link to={`/hunt/${huntId}/history`}>
+              <Button>View in History</Button>
+            </Link>
             <Button variant="secondary" onClick={() => navigate('/lobby')}>
               Back to Lobby
             </Button>

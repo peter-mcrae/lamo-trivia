@@ -5,6 +5,7 @@ interface HuntItemCardProps {
   progress: HuntItemProgress;
   isVerifying: boolean;
   maxRetries: number;
+  rejectionReason?: string;
   onRevealClue: (itemId: string, clueId: string) => void;
   onTakePhoto: (itemId: string) => void;
 }
@@ -32,7 +33,8 @@ function StatusBadge({ status, isVerifying }: { status: HuntItemProgress['status
     case 'rejected':
       return (
         <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
-          Appealed
+          <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+          Host Reviewing
         </span>
       );
     case 'pending_review':
@@ -56,12 +58,14 @@ export function HuntItemCard({
   progress,
   isVerifying,
   maxRetries,
+  rejectionReason,
   onRevealClue,
   onTakePhoto,
 }: HuntItemCardProps) {
   const isFound = progress.status === 'found';
+  const isHostReviewing = progress.status === 'rejected';
   const attemptsRemaining = maxRetries - progress.attemptsUsed;
-  const canTakePhoto = !isFound && !isVerifying && attemptsRemaining > 0 && progress.status !== 'pending_review';
+  const canTakePhoto = !isFound && !isVerifying && !isHostReviewing && attemptsRemaining > 0 && progress.status !== 'pending_review';
 
   return (
     <div
@@ -116,6 +120,13 @@ export function HuntItemCard({
         </div>
       )}
 
+      {/* Rejection reason */}
+      {rejectionReason && !isFound && !isHostReviewing && (
+        <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-700">
+          Photo rejected: {rejectionReason}
+        </div>
+      )}
+
       {/* Actions */}
       <div className="flex items-center justify-between">
         <button
@@ -130,8 +141,8 @@ export function HuntItemCard({
         </button>
 
         {!isFound && (
-          <span className="text-xs text-lamo-gray-muted">
-            {attemptsRemaining} attempt{attemptsRemaining !== 1 ? 's' : ''} left
+          <span className={`text-xs ${attemptsRemaining <= 0 ? 'text-red-500 font-medium' : 'text-lamo-gray-muted'}`}>
+            {attemptsRemaining <= 0 ? 'No attempts left' : `${attemptsRemaining} attempt${attemptsRemaining !== 1 ? 's' : ''} left`}
           </span>
         )}
       </div>

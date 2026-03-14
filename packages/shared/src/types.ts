@@ -226,3 +226,33 @@ export interface HuntResults {
   rankings: HuntResultsRanking[];
   itemBreakdown: Record<string, HuntResultsItemDetail[]>;
 }
+
+export interface HuntHistorySummary {
+  huntId: string;
+  name: string;
+  hostUsername: string;
+  teamCount: number;
+  winnerUsername: string;
+  winnerScore: number;
+  totalItems: number;
+  finishedAt: number;
+}
+
+export interface HuntHistoryEntry {
+  huntId: string;
+  config: {
+    name: string;
+    items: Array<{ id: string; description: string; basePoints: number }>;
+    durationMinutes: number;
+    maxRetries: number;
+    hintPointCost: number;
+  };
+  hostUsername: string;
+  hostSecret: string;
+  players: Array<{ id: string; username: string; avatar: Avatar }>;
+  results: HuntResults;
+  photoKeys: Record<string, Record<string, string>>;
+  createdAt: number;
+  startedAt: number;
+  finishedAt: number;
+}

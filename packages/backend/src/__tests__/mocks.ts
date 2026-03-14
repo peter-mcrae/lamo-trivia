@@ -9,6 +9,7 @@ import type { Env } from '../env';
 
 export function createMockKV(): KVNamespace {
   const store = new Map<string, string>();
+  const metadataStore = new Map<string, unknown>();
 
   return {
     get: async (key: string, opts?: any) => {
@@ -17,17 +18,23 @@ export function createMockKV(): KVNamespace {
       if (opts === 'json' || opts?.type === 'json') return JSON.parse(val);
       return val;
     },
-    put: async (key: string, value: string) => {
+    put: async (key: string, value: string, opts?: any) => {
       store.set(key, value);
+      if (opts?.metadata) {
+        metadataStore.set(key, opts.metadata);
+      }
     },
     delete: async (key: string) => {
       store.delete(key);
+      metadataStore.delete(key);
     },
-    list: async () => ({
-      keys: Array.from(store.keys()).map((name) => ({ name })),
-      list_complete: true,
-      cacheStatus: null,
-    }),
+    list: async (opts?: any) => {
+      const prefix = opts?.prefix || '';
+      const keys = Array.from(store.keys())
+        .filter((name) => name.startsWith(prefix))
+        .map((name) => ({ name, metadata: metadataStore.get(name) ?? null }));
+      return { keys, list_complete: true, cacheStatus: null };
+    },
     getWithMetadata: async () => ({ value: null, metadata: null, cacheStatus: null }),
   } as unknown as KVNamespace;
 }

@@ -96,5 +96,6 @@ export const HuntClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('approve_appeal'), playerId: z.string(), itemId: z.string() }),
   z.object({ type: z.literal('reject_appeal'), playerId: z.string(), itemId: z.string() }),
   z.object({ type: z.literal('claim_host') }),
+  z.object({ type: z.literal('send_message'), message: z.string().min(1).max(200), targetPlayerId: z.string().optional() }),
   z.object({ type: z.literal('ping') }),
 ]);

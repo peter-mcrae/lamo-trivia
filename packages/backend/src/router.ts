@@ -3,7 +3,7 @@ import {
   GameConfigSchema, HuntConfigSchema, UsernameSchema, GroupNameSchema,
   TRIVIA_CATEGORIES, generateGroupId, HUNT_LIMITS,
 } from '@lamo-trivia/shared';
-import type { GroupGame, HuntConfig } from '@lamo-trivia/shared';
+import type { GroupGame, HuntConfig, HuntHistoryEntry, HuntHistorySummary } from '@lamo-trivia/shared';
 import { seedQuestions, getCategoryCounts, getAIQuestionBankTopics } from './questions';
 
 // --- In-memory rate limiter (per Worker isolate) ---
@@ -36,6 +36,7 @@ const groupCreateLimiter = new RateLimiter(5);       // 5/min per IP
 const usernameCheckLimiter = new RateLimiter(20);    // 20/min per IP
 const groupGameLimiter = new RateLimiter(10);        // 10/min per IP
 const photoUploadLimiter = new RateLimiter(20);      // 20/min per IP
+const huntHistoryLimiter = new RateLimiter(30);      // 30/min per IP
 
 function getClientIP(request: Request): string {
   return request.headers.get('CF-Connecting-IP') ?? 'unknown';
@@ -392,6 +393,104 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       }
 
       return Response.json({ huntId });
+    }
+
+    // GET /api/hunts/history — list historical hunts
+    if (method === 'GET' && url.pathname === '/api/hunts/history') {
+      if (!huntHistoryLimiter.check(getClientIP(request))) return rateLimitedResponse();
+
+      const listResult = await env.TRIVIA_KV.list<HuntHistorySummary>({
+        prefix: 'hunt-history:',
+      });
+
+      const summaries: HuntHistorySummary[] = listResult.keys
+        .filter((k) => k.metadata)
+        .map((k) => k.metadata!);
+
+      summaries.sort((a, b) => b.finishedAt - a.finishedAt);
+
+      return Response.json({ hunts: summaries });
+    }
+
+    // GET /api/hunts/:huntId/photos/:fileName — serve R2 photo
+    if (method === 'GET' && url.pathname.match(/^\/api\/hunts\/[^/]+\/photos\/.+$/)) {
+      if (!huntHistoryLimiter.check(getClientIP(request))) return rateLimitedResponse();
+
+      const parts = url.pathname.replace('/api/hunts/', '').split('/photos/');
+      const huntId = parts[0];
+      const photoFileName = parts[1];
+
+      if (!huntId || !photoFileName) {
+        return Response.json({ error: 'Invalid photo path' }, { status: 400 });
+      }
+
+      const r2Key = `${huntId}/${photoFileName}`;
+      const object = await env.R2_HUNT_PHOTOS.get(r2Key);
+
+      if (!object) {
+        return new Response('Photo not found', { status: 404 });
+      }
+
+      const headers = new Headers();
+      headers.set('Content-Type', object.httpMetadata?.contentType || 'image/jpeg');
+      headers.set('Cache-Control', 'public, max-age=86400');
+      headers.set('Content-Length', String(object.size));
+
+      return new Response(object.body, { status: 200, headers });
+    }
+
+    // GET /api/hunts/:huntId/history — get historical hunt details
+    if (method === 'GET' && url.pathname.match(/^\/api\/hunts\/[^/]+\/history$/)) {
+      if (!huntHistoryLimiter.check(getClientIP(request))) return rateLimitedResponse();
+      const huntId = url.pathname.split('/api/hunts/')[1].split('/history')[0];
+
+      const raw = await env.TRIVIA_KV.get(`hunt-history:${huntId}`);
+      if (!raw) {
+        return Response.json({ error: 'Hunt not found' }, { status: 404 });
+      }
+
+      const entry = JSON.parse(raw) as HuntHistoryEntry;
+      const { hostSecret: _, ...safeEntry } = entry;
+
+      return Response.json({ hunt: safeEntry });
+    }
+
+    // DELETE /api/hunts/:huntId/history — delete historical hunt (host-only)
+    if (method === 'DELETE' && url.pathname.match(/^\/api\/hunts\/[^/]+\/history$/)) {
+      if (!huntHistoryLimiter.check(getClientIP(request))) return rateLimitedResponse();
+      const huntId = url.pathname.split('/api/hunts/')[1].split('/history')[0];
+
+      const providedSecret = request.headers.get('X-Host-Secret');
+      if (!providedSecret) {
+        return Response.json({ error: 'Missing host secret' }, { status: 401 });
+      }
+
+      const raw = await env.TRIVIA_KV.get(`hunt-history:${huntId}`);
+      if (!raw) {
+        return Response.json({ error: 'Hunt not found' }, { status: 404 });
+      }
+
+      const entry = JSON.parse(raw) as HuntHistoryEntry;
+      if (entry.hostSecret !== providedSecret) {
+        return Response.json({ error: 'Unauthorized' }, { status: 403 });
+      }
+
+      // Delete R2 photos for this hunt
+      let cursor: string | undefined;
+      do {
+        const r2List = await env.R2_HUNT_PHOTOS.list({
+          prefix: `${huntId}/`,
+          ...(cursor ? { cursor } : {}),
+        });
+        for (const obj of r2List.objects) {
+          await env.R2_HUNT_PHOTOS.delete(obj.key);
+        }
+        cursor = r2List.truncated ? r2List.cursor : undefined;
+      } while (cursor);
+
+      await env.TRIVIA_KV.delete(`hunt-history:${huntId}`);
+
+      return Response.json({ ok: true });
     }
 
     // GET /api/health
