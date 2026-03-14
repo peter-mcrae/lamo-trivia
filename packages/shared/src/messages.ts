@@ -6,6 +6,7 @@ import type {
 // Client -> Server
 export type ClientMessage =
   | { type: 'join_game'; gameId: string; username: string }
+  | { type: 'rejoin_game'; gameId: string; username: string }
   | { type: 'leave_game' }
   | { type: 'start_game' }
   | { type: 'submit_answer'; questionIndex: number; answerIndex: number }

@@ -126,8 +126,9 @@ export function GameConfigForm({
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Game Name */}
       <div>
-        <label className="block text-sm font-medium text-lamo-dark mb-1.5">Game Name</label>
+        <label htmlFor="game-name" className="block text-sm font-medium text-lamo-dark mb-1.5">Game Name</label>
         <input
+          id="game-name"
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -210,8 +211,9 @@ export function GameConfigForm({
       {/* AI Topic (when AI) */}
       {useAI && (
         <div>
-          <label className="block text-sm font-medium text-lamo-dark mb-1.5">Topic</label>
+          <label htmlFor="ai-topic" className="block text-sm font-medium text-lamo-dark mb-1.5">Topic</label>
           <input
+            id="ai-topic"
             type="text"
             value={aiTopic}
             onChange={(e) => setAiTopic(e.target.value)}
@@ -268,8 +270,9 @@ export function GameConfigForm({
       {/* Players */}
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label className="block text-sm font-medium text-lamo-dark mb-1.5">Min Players</label>
+          <label htmlFor="min-players" className="block text-sm font-medium text-lamo-dark mb-1.5">Min Players</label>
           <select
+            id="min-players"
             value={minPlayers}
             onChange={(e) => setMinPlayers(Number(e.target.value))}
             className="w-full px-3 py-2.5 border border-lamo-border rounded-xl text-lamo-dark bg-white focus:outline-none focus:ring-2 focus:ring-lamo-blue/40"
@@ -280,8 +283,9 @@ export function GameConfigForm({
           </select>
         </div>
         <div>
-          <label className="block text-sm font-medium text-lamo-dark mb-1.5">Max Players</label>
+          <label htmlFor="max-players" className="block text-sm font-medium text-lamo-dark mb-1.5">Max Players</label>
           <select
+            id="max-players"
             value={maxPlayers}
             onChange={(e) => setMaxPlayers(Number(e.target.value))}
             className="w-full px-3 py-2.5 border border-lamo-border rounded-xl text-lamo-dark bg-white focus:outline-none focus:ring-2 focus:ring-lamo-blue/40"

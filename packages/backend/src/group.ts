@@ -7,6 +7,10 @@ import {
   GROUP_SWEEP_INTERVAL_MS,
 } from '@lamo-trivia/shared';
 
+// Per-connection message rate limiting
+const WS_RATE_WINDOW_MS = 10_000; // 10-second window
+const WS_RATE_MAX_MESSAGES = 30;  // max 30 messages per window
+
 interface StoredGroupState {
   id: string;
   name: string;
@@ -19,6 +23,7 @@ interface StoredGroupState {
 export class PrivateGroup {
   private state: DurableObjectState;
   private group: StoredGroupState | null = null;
+  private wsRates = new Map<WebSocket, { count: number; start: number }>();
 
   constructor(state: DurableObjectState) {
     this.state = state;
@@ -145,6 +150,21 @@ export class PrivateGroup {
   }
 
   async webSocketMessage(ws: WebSocket, message: string | ArrayBuffer): Promise<void> {
+    // Per-connection message rate limiting
+    const now = Date.now();
+    const rate = this.wsRates.get(ws);
+    if (!rate || now - rate.start > WS_RATE_WINDOW_MS) {
+      this.wsRates.set(ws, { count: 1, start: now });
+    } else {
+      rate.count++;
+      if (rate.count > WS_RATE_MAX_MESSAGES) {
+        this.sendTo(ws, { type: 'error', message: 'Rate limit exceeded' });
+        ws.close(1008, 'Rate limit exceeded');
+        this.wsRates.delete(ws);
+        return;
+      }
+    }
+
     const raw = typeof message === 'string' ? message : '';
     if (raw.length > 2048) {
       this.sendTo(ws, { type: 'error', message: 'Message too large' });
@@ -186,6 +206,7 @@ export class PrivateGroup {
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
+    this.wsRates.delete(ws);
     await this.handleLeave(ws);
   }
 
@@ -385,7 +406,6 @@ export class PrivateGroup {
       id: g.id,
       name: g.name,
       createdAt: g.createdAt,
-      ownerEmail: g.ownerEmail,
       members: g.members,
       games: activeGames,
     };

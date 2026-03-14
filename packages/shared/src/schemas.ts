@@ -25,10 +25,14 @@ export const GameConfigSchema = z.object({
 }).refine(
   (data) => data.aiTopic || data.categoryIds.length > 0,
   { message: 'Select at least one category or provide an AI topic', path: ['categoryIds'] },
+).refine(
+  (data) => data.minPlayers <= data.maxPlayers,
+  { message: 'Min players must be less than or equal to max players', path: ['minPlayers'] },
 );
 
 export const ClientMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('join_game'), gameId: z.string(), username: z.string() }),
+  z.object({ type: z.literal('join_game'), gameId: z.string(), username: UsernameSchema }),
+  z.object({ type: z.literal('rejoin_game'), gameId: z.string(), username: UsernameSchema }),
   z.object({ type: z.literal('leave_game') }),
   z.object({ type: z.literal('start_game') }),
   z.object({
@@ -46,8 +50,8 @@ export type GameConfigInput = z.infer<typeof GameConfigSchema>;
 export const GroupNameSchema = z.string().min(1).max(50);
 
 export const GroupClientMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('join_group'), username: z.string(), memberId: z.string().uuid().optional() }),
-  z.object({ type: z.literal('recover_member'), username: z.string() }),
+  z.object({ type: z.literal('join_group'), username: UsernameSchema, memberId: z.string().uuid().optional() }),
+  z.object({ type: z.literal('recover_member'), username: UsernameSchema }),
   z.object({ type: z.literal('leave_group') }),
   z.object({ type: z.literal('invite_to_game'), gameId: z.string().min(1), gameName: z.string().min(1).max(50) }),
   z.object({ type: z.literal('ping') }),

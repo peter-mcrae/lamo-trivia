@@ -99,6 +99,27 @@ describe('Router - Seed endpoint auth', () => {
 });
 
 describe('Router - Group endpoints', () => {
+  const TEST_TOKEN = 'test-session-token';
+  const TEST_USER = {
+    userId: 'user-1',
+    email: 'test@example.com',
+    credits: 100,
+    createdAt: Date.now(),
+  };
+  const TEST_SESSION = {
+    userId: TEST_USER.userId,
+    email: TEST_USER.email,
+    expiresAt: Date.now() + 3_600_000,
+  };
+
+  /** Create a group mock env with a valid auth session seeded into KV */
+  async function createGroupMockEnvWithAuth(): Promise<Env> {
+    const env = createGroupMockEnv();
+    await env.TRIVIA_KV.put(`session:${TEST_TOKEN}`, JSON.stringify(TEST_SESSION));
+    await env.TRIVIA_KV.put(`user:${TEST_USER.email}`, JSON.stringify(TEST_USER));
+    return env;
+  }
+
   function createGroupMockEnv(): Env {
     return createMockEnv({
       PRIVATE_GROUP: {
@@ -153,10 +174,23 @@ describe('Router - Group endpoints', () => {
 
   // --- POST /api/groups ---
 
-  it('POST /api/groups with valid name creates a group', async () => {
+  it('POST /api/groups without auth returns 401', async () => {
     const env = createGroupMockEnv();
     const request = new Request('http://localhost/api/groups', {
       method: 'POST',
+      body: JSON.stringify({ name: 'McRae Family' }),
+    });
+
+    const response = await handleRequest(request, env);
+
+    expect(response.status).toBe(401);
+  });
+
+  it('POST /api/groups with valid name creates a group', async () => {
+    const env = await createGroupMockEnvWithAuth();
+    const request = new Request('http://localhost/api/groups', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({ name: 'McRae Family' }),
     });
 
@@ -171,9 +205,10 @@ describe('Router - Group endpoints', () => {
   });
 
   it('POST /api/groups with empty name returns 400', async () => {
-    const env = createGroupMockEnv();
+    const env = await createGroupMockEnvWithAuth();
     const request = new Request('http://localhost/api/groups', {
       method: 'POST',
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({ name: '' }),
     });
 
@@ -183,9 +218,10 @@ describe('Router - Group endpoints', () => {
   });
 
   it('POST /api/groups with name exceeding 50 characters returns 400', async () => {
-    const env = createGroupMockEnv();
+    const env = await createGroupMockEnvWithAuth();
     const request = new Request('http://localhost/api/groups', {
       method: 'POST',
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({ name: 'x'.repeat(51) }),
     });
 

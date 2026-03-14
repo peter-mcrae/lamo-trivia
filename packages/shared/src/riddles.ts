@@ -191,7 +191,7 @@ export const RIDDLES: Riddle[] = [
   { id: 'r180', text: 'What coat is always wet when you put it on?', answer: 'PAINT', hint: 'A fresh layer' },
   { id: 'r181', text: 'What do bees make?', answer: 'HONEY', hint: 'Sweet and golden' },
   { id: 'r182', text: 'What object has keys that open no locks, space but no room, and you can enter but can\'t go inside?', answer: 'KEYBOARD', hint: 'Computer input device' },
-  { id: 'r183', text: 'What can be measured but has no length, width, or height?', answer: 'TEMPERA', hint: 'Degrees' },
+  { id: 'r183', text: 'What can be measured but has no length, width, or height?', answer: 'TIME', hint: 'Tick tock' },
   { id: 'r184', text: 'What has one hundred limbs but cannot walk?', answer: 'TREE', hint: 'Branches' },
   { id: 'r185', text: 'What has a lake but no fish?', answer: 'MAP', hint: 'Drawn to scale' },
   { id: 'r186', text: 'What is the hardest key to turn?', answer: 'DONKEY', hint: 'An animal' },
