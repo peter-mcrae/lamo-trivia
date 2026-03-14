@@ -8,6 +8,7 @@ import { useGroups } from '@/hooks/useGroups';
 import { UsernameModal } from '@/components/UsernameModal';
 import { GroupGameCard } from '@/components/GroupGameCard';
 import { CreateGroupGameModal } from '@/components/CreateGroupGameModal';
+import { CreateGroupHuntModal } from '@/components/CreateGroupHuntModal';
 import { Button } from '@/components/ui/Button';
 
 export default function GroupLobby() {
@@ -17,6 +18,8 @@ export default function GroupLobby() {
   const { addGroup, getMemberId, setMemberId } = useGroups();
   const [copied, setCopied] = useState(false);
   const [showNewGameModal, setShowNewGameModal] = useState(false);
+  const [showNewHuntModal, setShowNewHuntModal] = useState(false);
+  const [showGameTypeChoice, setShowGameTypeChoice] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
   const [inviteNotification, setInviteNotification] = useState<{
@@ -104,6 +107,11 @@ export default function GroupLobby() {
   const handleGameCreated = (gameId: string) => {
     setShowNewGameModal(false);
     navigate(`/game/${gameId}`);
+  };
+
+  const handleHuntCreated = (huntId: string) => {
+    setShowNewHuntModal(false);
+    navigate(`/hunt/${huntId}`);
   };
 
   const handleUsernameSubmit = (name: string) => {
@@ -196,7 +204,27 @@ export default function GroupLobby() {
             </button>
           </div>
         </div>
-        <Button onClick={() => setShowNewGameModal(true)}>New Game</Button>
+        <div className="relative">
+          <Button onClick={() => setShowGameTypeChoice(!showGameTypeChoice)}>New Game</Button>
+          {showGameTypeChoice && (
+            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-lamo-border z-40 overflow-hidden">
+              <button
+                onClick={() => { setShowGameTypeChoice(false); setShowNewGameModal(true); }}
+                className="w-full px-4 py-3 text-left hover:bg-lamo-bg transition-colors"
+              >
+                <p className="text-sm font-medium text-lamo-dark">Trivia</p>
+                <p className="text-xs text-lamo-gray">Answer questions in real-time</p>
+              </button>
+              <button
+                onClick={() => { setShowGameTypeChoice(false); setShowNewHuntModal(true); }}
+                className="w-full px-4 py-3 text-left hover:bg-lamo-bg transition-colors border-t border-lamo-border"
+              >
+                <p className="text-sm font-medium text-lamo-dark">Scavenger Hunt</p>
+                <p className="text-xs text-lamo-gray">Find items and snap photos</p>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Game invite notification */}
@@ -266,7 +294,10 @@ export default function GroupLobby() {
         {waitingGames.length === 0 && activeGames.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-lamo-gray-muted mb-4">No games yet. Start one!</p>
-            <Button onClick={() => setShowNewGameModal(true)}>Create First Game</Button>
+            <div className="flex gap-3 justify-center">
+              <Button onClick={() => setShowNewGameModal(true)}>New Trivia</Button>
+              <Button onClick={() => setShowNewHuntModal(true)}>New Scavenger Hunt</Button>
+            </div>
           </div>
         ) : waitingGames.length === 0 ? (
           <p className="text-sm text-lamo-gray-muted py-4">No open games. Create one to get started!</p>
@@ -289,6 +320,15 @@ export default function GroupLobby() {
           groupId={groupId!}
           onGameCreated={handleGameCreated}
           onClose={() => setShowNewGameModal(false)}
+        />
+      )}
+
+      {/* New Hunt Modal */}
+      {showNewHuntModal && (
+        <CreateGroupHuntModal
+          groupId={groupId!}
+          onHuntCreated={handleHuntCreated}
+          onClose={() => setShowNewHuntModal(false)}
         />
       )}
     </div>

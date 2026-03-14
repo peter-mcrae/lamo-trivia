@@ -50,6 +50,9 @@ export const api = {
       `/groups/${groupId}`,
     ),
 
+  getMyGroups: () =>
+    fetchJSON<{ groups: { groupId: string; name: string }[] }>('/groups/my'),
+
   createGroupGame: (groupId: string, config: GameConfigInput) =>
     fetchJSON<{ gameId: string }>(`/groups/${groupId}/games`, {
       method: 'POST',

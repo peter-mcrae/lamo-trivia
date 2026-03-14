@@ -457,9 +457,6 @@ export default function HuntRoom() {
           <HuntResults results={results} players={huntState.players} />
 
           <div className="flex justify-center gap-3 mt-8">
-            <Link to={`/hunt/${huntId}/history`}>
-              <Button>View in History</Button>
-            </Link>
             <Button variant="secondary" onClick={() => navigate('/lobby')}>
               Back to Lobby
             </Button>

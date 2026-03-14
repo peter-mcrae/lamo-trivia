@@ -118,7 +118,7 @@ export default function Credits() {
               >
                 <div>
                   <p className="text-sm font-medium text-lamo-dark">{tx.details}</p>
-                  <p className="text-xs text-lamo-gray-muted">
+                  <p className="text-xs text-lamo-gray">
                     {new Date(tx.timestamp).toLocaleDateString()}
                   </p>
                 </div>

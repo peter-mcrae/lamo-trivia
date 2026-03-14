@@ -1,11 +1,13 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useGroups } from '@/hooks/useGroups';
+import { useAuthContext } from '@/contexts/AuthContext';
 
 export default function CreateGroup() {
   const navigate = useNavigate();
   const { addGroup } = useGroups();
+  const { user, loading } = useAuthContext();
   const [name, setName] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -28,11 +30,31 @@ export default function CreateGroup() {
     }
   };
 
+  if (loading) return null;
+
+  if (!user) {
+    return (
+      <div className="max-w-lg mx-auto py-10 px-6 text-center">
+        <h2 className="text-2xl font-bold text-lamo-dark mb-4">Sign In Required</h2>
+        <p className="text-lamo-gray mb-6">
+          Sign in to create a private group. This lets you recover your groups on any device.
+        </p>
+        <Link
+          to="/login"
+          className="inline-block px-6 py-2.5 bg-lamo-primary text-white font-medium rounded-lg hover:bg-lamo-primary/90 transition-colors"
+        >
+          Sign In
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-lg mx-auto py-10 px-6">
       <h2 className="text-2xl font-bold text-lamo-dark mb-6">Create Private Group</h2>
-      <p className="text-sm text-lamo-gray-muted mb-6">
+      <p className="text-sm text-lamo-gray mb-6">
         Create a private space for your family or friends. You'll get a secret code to share with them.
+        This group will be tied to your account ({user.email}).
       </p>
       <form onSubmit={handleSubmit} className="space-y-6">
         <div>

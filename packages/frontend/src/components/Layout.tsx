@@ -33,12 +33,6 @@ export function Layout({ children }: { children: ReactNode }) {
             Groups
           </Link>
           <Link
-            to="/hunts/history"
-            className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors"
-          >
-            History
-          </Link>
-          <Link
             to={user ? '/credits' : '/login'}
             className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors"
           >
@@ -53,7 +47,7 @@ export function Layout({ children }: { children: ReactNode }) {
             <div>
               <h3 className="font-semibold text-lamo-dark mb-4">LAMO Trivia</h3>
               <p className="text-sm text-lamo-gray-muted mb-4">
-                Free online trivia games for family and friends. No sign-up required.
+                Free online trivia and scavenger hunt games for family and friends.
               </p>
             </div>
             <div>

@@ -1,8 +1,36 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useGroups } from '@/hooks/useGroups';
+import { useAuthContext } from '@/contexts/AuthContext';
+import { api } from '@/lib/api';
 
 export default function Groups() {
-  const { groups } = useGroups();
+  const { groups, addGroup } = useGroups();
+  const { user } = useAuthContext();
+  const [recovering, setRecovering] = useState(false);
+  const [recovered, setRecovered] = useState(false);
+
+  const handleRecover = async () => {
+    setRecovering(true);
+    try {
+      const { groups: owned } = await api.getMyGroups();
+      let added = 0;
+      for (const g of owned) {
+        if (!groups.some((local) => local.groupId === g.groupId)) {
+          addGroup(g.groupId, g.name);
+          added++;
+        }
+      }
+      setRecovered(true);
+      if (added === 0) {
+        setTimeout(() => setRecovered(false), 3000);
+      }
+    } catch {
+      console.error('Failed to recover groups');
+    } finally {
+      setRecovering(false);
+    }
+  };
 
   return (
     <div className="max-w-lg mx-auto py-10 px-6">
@@ -15,6 +43,22 @@ export default function Groups() {
           Create Group
         </Link>
       </div>
+
+      {/* Recovery for signed-in users */}
+      {user && (
+        <div className="mb-6 p-4 bg-lamo-bg rounded-xl border border-lamo-border">
+          <p className="text-sm text-lamo-gray mb-2">
+            Signed in as <strong className="text-lamo-dark">{user.email}</strong>
+          </p>
+          <button
+            onClick={handleRecover}
+            disabled={recovering}
+            className="text-sm text-lamo-blue font-medium hover:underline disabled:opacity-50"
+          >
+            {recovering ? 'Recovering...' : recovered ? 'Groups recovered!' : 'Recover my groups'}
+          </button>
+        </div>
+      )}
 
       {groups.length > 0 ? (
         <div className="space-y-3 mb-8">
