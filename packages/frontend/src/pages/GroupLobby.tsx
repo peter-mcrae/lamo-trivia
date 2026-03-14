@@ -1,6 +1,6 @@
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { GroupServerMessage } from '@lamo-trivia/shared';
+import type { GroupServerMessage, HuntHistorySummary } from '@lamo-trivia/shared';
 import { useGroupWebSocket } from '@/hooks/useGroupWebSocket';
 import { useGroupState } from '@/hooks/useGroupState';
 import { useUsername } from '@/hooks/useUsername';
@@ -10,6 +10,7 @@ import { GroupGameCard } from '@/components/GroupGameCard';
 import { CreateGroupGameModal } from '@/components/CreateGroupGameModal';
 import { CreateGroupHuntModal } from '@/components/CreateGroupHuntModal';
 import { Button } from '@/components/ui/Button';
+import { api } from '@/lib/api';
 
 export default function GroupLobby() {
   const { groupId } = useParams<{ groupId: string }>();
@@ -27,6 +28,7 @@ export default function GroupLobby() {
     gameName: string;
     inviterUsername: string;
   } | null>(null);
+  const [huntHistory, setHuntHistory] = useState<HuntHistorySummary[]>([]);
   const joinedRef = useRef(false);
   const inviteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -81,6 +83,14 @@ export default function GroupLobby() {
       addGroup(groupState.id, groupState.name);
     }
   }, [groupState?.id, groupState?.name, addGroup]);
+
+  // Fetch hunt history for this group
+  useEffect(() => {
+    if (!groupId) return;
+    api.getGroupHuntHistory(groupId)
+      .then((res) => setHuntHistory(res.hunts))
+      .catch(() => { /* ignore — non-critical */ });
+  }, [groupId]);
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -313,6 +323,37 @@ export default function GroupLobby() {
           </div>
         )}
       </div>
+
+      {/* Past Hunts */}
+      {huntHistory.length > 0 && (
+        <div className="mt-8 border-t border-lamo-border pt-6">
+          <h3 className="text-sm font-semibold text-lamo-dark mb-3">
+            Past Hunts ({huntHistory.length})
+          </h3>
+          <div className="space-y-3">
+            {huntHistory.map((hunt) => (
+              <Link
+                key={hunt.huntId}
+                to={`/hunt/${hunt.huntId}/history`}
+                className="flex items-center justify-between p-4 bg-lamo-bg rounded-xl border border-lamo-border hover:border-lamo-blue/40 transition-colors"
+              >
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-semibold text-lamo-dark text-sm">{hunt.name}</h4>
+                  <p className="text-xs text-lamo-gray-muted mt-0.5">
+                    {hunt.teamCount} teams · {hunt.totalItems} items · hosted by {hunt.hostUsername}
+                  </p>
+                </div>
+                <div className="text-right shrink-0 ml-3">
+                  <p className="text-sm font-medium text-lamo-blue">{hunt.winnerUsername}</p>
+                  <p className="text-xs text-lamo-gray-muted">
+                    {new Date(hunt.finishedAt).toLocaleDateString()}
+                  </p>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* New Game Modal */}
       {showNewGameModal && (

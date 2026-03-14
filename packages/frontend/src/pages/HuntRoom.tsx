@@ -21,6 +21,8 @@ export default function HuntRoom() {
   const [startingHunt, setStartingHunt] = useState(false);
   const [copied, setCopied] = useState(false);
   const [photoCaptureItemId, setPhotoCaptureItemId] = useState<string | null>(null);
+  const [hostWantsToPlay, setHostWantsToPlay] = useState(false);
+  const [showDashboardModal, setShowDashboardModal] = useState(false);
   const joinedRef = useRef(false);
   const hasJoinedOnceRef = useRef(false);
 
@@ -218,8 +220,8 @@ export default function HuntRoom() {
   }
 
   const isHost = huntState.players.find((p) => p.username === username)?.id === huntState.hostId;
-  const teamCount = huntState.players.filter((p) => p.id !== huntState.hostId).length;
-  const canStart = isHost && teamCount >= huntState.config.minPlayers;
+  const playerCount = huntState.players.length;
+  const canStart = isHost && playerCount >= huntState.config.minPlayers;
 
   return (
     <div className="max-w-3xl mx-auto py-10 px-6">
@@ -304,7 +306,7 @@ export default function HuntRoom() {
             <div className="flex gap-3">
               {isHost && (
                 <Button onClick={handleStartHunt} disabled={!canStart}>
-                  {canStart ? 'Start Hunt' : `Need ${huntState.config.minPlayers - teamCount} more teams`}
+                  {canStart ? 'Start Hunt' : `Need ${huntState.config.minPlayers - playerCount} more players`}
                 </Button>
               )}
               {!isHost && (
@@ -365,19 +367,65 @@ export default function HuntRoom() {
             </div>
           )}
 
-          {isHost && allTeams ? (
-            <HostDashboard
-              huntId={huntId!}
-              teams={allTeams}
-              items={items}
-              endsAt={huntState.endsAt!}
-              appeals={appeals}
-              onApprove={handleApproveAppeal}
-              onReject={handleRejectAppeal}
-              onSendMessage={handleSendMessage}
-            />
+          {/* Host: default to dashboard, opt-in to play */}
+          {isHost && !hostWantsToPlay && allTeams ? (
+            <>
+              {/* "Play Too" opt-in button */}
+              <button
+                onClick={() => setHostWantsToPlay(true)}
+                className="mb-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-lamo-blue/10 border border-lamo-blue/20 rounded-xl text-sm font-medium text-lamo-blue hover:bg-lamo-blue/20 transition-colors"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                  <path d="M6.3 2.84A1.5 1.5 0 0 0 4 4.11v11.78a1.5 1.5 0 0 0 2.3 1.27l9.344-5.891a1.5 1.5 0 0 0 0-2.538L6.3 2.841Z" />
+                </svg>
+                Play Too
+              </button>
+
+              <HostDashboard
+                huntId={huntId!}
+                teams={allTeams}
+                items={items}
+                endsAt={huntState.endsAt!}
+                appeals={appeals}
+                onApprove={handleApproveAppeal}
+                onReject={handleRejectAppeal}
+                onSendMessage={handleSendMessage}
+              />
+            </>
           ) : (
             <>
+              {/* Dashboard modal overlay (for host in playing mode) */}
+              {isHost && showDashboardModal && allTeams && (
+                <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start justify-center pt-10 px-4">
+                  <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
+                    <div className="sticky top-0 bg-white border-b border-lamo-border px-4 py-3 flex items-center justify-between rounded-t-2xl">
+                      <h3 className="font-semibold text-lamo-dark">Host Dashboard</h3>
+                      <button
+                        onClick={() => setShowDashboardModal(false)}
+                        className="text-lamo-gray-muted hover:text-lamo-dark p-1"
+                      >
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="p-4">
+                      <HostDashboard
+                        huntId={huntId!}
+                        teams={allTeams}
+                        items={items}
+                        endsAt={huntState.endsAt!}
+                        appeals={appeals}
+                        onApprove={handleApproveAppeal}
+                        onReject={handleRejectAppeal}
+                        onSendMessage={handleSendMessage}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Playing UI */}
               {/* Timer */}
               {huntState.endsAt && (
                 <div className="mb-6">
@@ -393,6 +441,19 @@ export default function HuntRoom() {
                 </div>
               )}
 
+              {/* Host tools toggle (when host opted into playing) */}
+              {isHost && (
+                <button
+                  onClick={() => setShowDashboardModal(true)}
+                  className="mb-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 bg-amber-50 border border-amber-200 rounded-xl text-sm font-medium text-amber-700 hover:bg-amber-100 transition-colors"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                    <path fillRule="evenodd" d="M8 7a5 5 0 1 1 3.61 4.804l-1.903 1.903A1 1 0 0 1 9 14H8v1a1 1 0 0 1-1 1H6v1a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-2a1 1 0 0 1 .293-.707L8.196 8.39A5.002 5.002 0 0 1 8 7Zm5-3a.75.75 0 0 0 0 1.5A1.5 1.5 0 0 1 14.5 7 .75.75 0 0 0 16 7a3 3 0 0 0-3-3Z" clipRule="evenodd" />
+                  </svg>
+                  Host Dashboard{appeals.length > 0 ? ` (${appeals.length} appeals)` : ''}
+                </button>
+              )}
+
               {/* Team completion screen */}
               {myProgress && items.length > 0 && items.every((item) => {
                 const ip = myProgress.items[item.id];
@@ -402,12 +463,12 @@ export default function HuntRoom() {
                   <div className="text-5xl mb-4">
                     {items.every((item) => myProgress.items[item.id]?.status === 'found') ? '🏆' : '✅'}
                   </div>
-                  <h3 className="text-2xl font-bold text-lamo-dark mb-2">Your team is done!</h3>
+                  <h3 className="text-2xl font-bold text-lamo-dark mb-2">You're done!</h3>
                   <p className="text-lamo-gray-muted mb-4">
                     {Object.values(myProgress.items).filter((ip) => ip.status === 'found').length} of {items.length} items found
                   </p>
                   <p className="text-3xl font-bold text-lamo-blue mb-6">{myProgress.totalScore} pts</p>
-                  <p className="text-sm text-lamo-gray-muted">Waiting for other teams to finish...</p>
+                  <p className="text-sm text-lamo-gray-muted">Waiting for other players to finish...</p>
                 </div>
               ) : (
                 <>

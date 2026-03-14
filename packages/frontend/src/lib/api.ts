@@ -95,6 +95,9 @@ export const api = {
   getHuntHistory: () =>
     fetchJSON<{ hunts: HuntHistorySummary[] }>('/hunts/history'),
 
+  getGroupHuntHistory: (groupId: string) =>
+    fetchJSON<{ hunts: HuntHistorySummary[] }>(`/groups/${groupId}/hunts/history`),
+
   getHuntHistoryDetail: (huntId: string) =>
     fetchJSON<{ hunt: Omit<HuntHistoryEntry, 'hostSecret'> }>(`/hunts/${huntId}/history`),
 

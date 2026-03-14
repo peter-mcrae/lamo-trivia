@@ -384,7 +384,7 @@ export class ScavengerHuntRoom {
       return;
     }
 
-    const participantCount = this.room.players.filter((p) => p.id !== this.room!.hostId).length;
+    const participantCount = this.room.players.length;
     if (participantCount < this.room.config.minPlayers) {
       this.sendTo(ws, {
         type: 'error',
@@ -437,9 +437,8 @@ export class ScavengerHuntRoom {
       });
     }
 
-    // Initialize progress for all players except the host (host observes, doesn't play)
+    // Initialize progress for all players (including host, who also plays)
     for (const player of this.room.players) {
-      if (player.id === this.room.hostId) continue;
       const items: Record<string, HuntItemProgress> = {};
       for (const item of this.room.items) {
         items[item.id] = {
@@ -518,11 +517,6 @@ export class ScavengerHuntRoom {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
-    if (playerId === this.room.hostId) {
-      this.sendTo(ws, { type: 'error', message: 'Host cannot play during the hunt' });
-      return;
-    }
-
     const progress = this.room.progress[playerId];
     if (!progress) return;
 
@@ -572,11 +566,6 @@ export class ScavengerHuntRoom {
 
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
-
-    if (playerId === this.room.hostId) {
-      this.sendTo(ws, { type: 'error', message: 'Host cannot play during the hunt' });
-      return;
-    }
 
     const progress = this.room.progress[playerId];
     if (!progress) return;
@@ -815,11 +804,6 @@ export class ScavengerHuntRoom {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
-    if (playerId === this.room.hostId) {
-      this.sendTo(ws, { type: 'error', message: 'Host cannot contest photos' });
-      return;
-    }
-
     const progress = this.room.progress[playerId];
     if (!progress) return;
 
@@ -944,10 +928,9 @@ export class ScavengerHuntRoom {
   private async checkAllTeamsComplete(): Promise<void> {
     if (!this.room || this.room.phase !== 'playing') return;
 
-    const participants = this.room.players.filter((p) => p.id !== this.room!.hostId);
-    if (participants.length === 0) return;
+    if (this.room.players.length === 0) return;
 
-    const allDone = participants.every((player) => {
+    const allDone = this.room.players.every((player) => {
       const progress = this.room!.progress[player.id];
       if (!progress) return false;
       return this.room!.items.every((item) => {
@@ -990,7 +973,6 @@ export class ScavengerHuntRoom {
     }
 
     const rankings = this.room.players
-      .filter((player) => player.id !== this.room!.hostId)
       .map((player) => {
         const progress = this.room!.progress[player.id];
         const itemsFound = progress
@@ -1008,7 +990,6 @@ export class ScavengerHuntRoom {
     const itemBreakdown: Record<string, HuntResultsItemDetail[]> = {};
 
     for (const player of this.room.players) {
-      if (player.id === this.room.hostId) continue;
       const progress = this.room.progress[player.id];
       if (!progress) continue;
 
@@ -1132,7 +1113,6 @@ export class ScavengerHuntRoom {
     // Collect photo R2 keys for found items
     const photoKeys: Record<string, Record<string, string>> = {};
     for (const player of this.room.players) {
-      if (player.id === this.room.hostId) continue;
       const progress = this.room.progress[player.id];
       if (!progress) continue;
       const playerPhotos: Record<string, string> = {};
@@ -1162,13 +1142,13 @@ export class ScavengerHuntRoom {
       hostUsername: hostPlayer?.username || 'Unknown',
       hostSecret,
       players: this.room.players
-        .filter((p) => p.id !== this.room!.hostId)
         .map((p) => ({ id: p.id, username: p.username, avatar: p.avatar })),
       results,
       photoKeys,
       createdAt: this.room.createdAt,
       startedAt: this.room.startedAt || this.room.createdAt,
       finishedAt: Date.now(),
+      groupId: this.room.config.groupId,
     };
 
     const winner = results.rankings[0];
@@ -1181,6 +1161,7 @@ export class ScavengerHuntRoom {
       winnerScore: winner?.score || 0,
       totalItems: entry.config.items.length,
       finishedAt: entry.finishedAt,
+      groupId: this.room.config.groupId,
     };
 
     try {
@@ -1284,7 +1265,6 @@ export class ScavengerHuntRoom {
   private buildTeamSummaries(): HuntTeamSummary[] {
     if (!this.room) return [];
     return this.room.players
-      .filter((p) => p.id !== this.room!.hostId)
       .map((player) => {
         const progress = this.room!.progress[player.id];
         const itemEntries = progress ? Object.values(progress.items) : [];
