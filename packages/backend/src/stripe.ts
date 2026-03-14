@@ -16,7 +16,7 @@ export async function createCheckoutSession(
     'success_url': `${env.FRONTEND_URL}/credits/success?session_id={CHECKOUT_SESSION_ID}`,
     'cancel_url': `${env.FRONTEND_URL}/credits`,
     'line_items[0][price_data][currency]': 'usd',
-    'line_items[0][price_data][product_data][name]': `${CREDIT_PRICING.creditsPerPurchase} Scavenger Hunt Credits`,
+    'line_items[0][price_data][product]': 'prod_U94S9OVyc0Yekk',
     'line_items[0][price_data][unit_amount]': String(CREDIT_PRICING.priceInCents),
     'line_items[0][quantity]': '1',
     'metadata[userId]': user.userId,
