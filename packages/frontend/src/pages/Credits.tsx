@@ -26,7 +26,7 @@ export default function Credits() {
     })
       .then((r) => r.json())
       .then((d: { transactions: CreditTransaction[] }) => setTransactions(d.transactions))
-      .catch(() => {});
+      .catch((err) => console.error('Failed to load transactions', err));
   }, [user]);
 
   const handleBuy = async () => {
@@ -41,14 +41,18 @@ export default function Credits() {
         },
       });
       if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        console.error('Checkout failed', { status: res.status, body });
         throw new Error('Checkout failed');
       }
-      const { url } = (await res.json()) as { url: string };
-      if (!url) {
+      const data = (await res.json()) as { url: string };
+      if (!data.url) {
+        console.error('No checkout URL in response', data);
         throw new Error('No checkout URL returned');
       }
-      window.location.href = url;
-    } catch {
+      window.location.href = data.url;
+    } catch (err) {
+      console.error('Buy credits error', err);
       setBuying(false);
     }
   };
