@@ -6,41 +6,60 @@ export default function Home() {
   return (
     <>
       <SEO
-        title="LAMO Trivia - Free Online Trivia Games for Family & Friends"
-        description="Play free online trivia games with family and friends. No sign-up required. Choose from Harry Potter, Science, History, Sports, and more categories. Create private groups or join public games instantly."
-        keywords="trivia games, online trivia, free trivia, family trivia, Harry Potter trivia, science trivia, history trivia, sports trivia, multiplayer trivia, trivia night"
+        title="LAMO Games - Free Online Trivia, Riddle Wordle & Scavenger Hunts"
+        description="Play free online games with family and friends. Multiplayer trivia, Riddle Wordle puzzles, and AI-powered scavenger hunts. No sign-up required."
+        keywords="trivia games, online trivia, free trivia, family trivia, riddle wordle, scavenger hunt, photo scavenger hunt, multiplayer games, game night"
         canonical="https://lamotrivia.app"
-        ogTitle="LAMO Trivia - Free Online Trivia Games"
-        ogDescription="Play free online trivia games with family and friends. No sign-up required. Instant multiplayer trivia fun!"
+        ogTitle="LAMO Games - Free Online Games for Families & Friends"
+        ogDescription="Trivia, Riddle Wordle, and Scavenger Hunts. No sign-up required. Instant multiplayer fun!"
       />
       <div>
       {/* Hero */}
-      <section className="text-center pt-20 pb-16 px-6">
+      <section className="text-center pt-20 pb-10 px-6">
         <h1 className="text-6xl font-bold tracking-tight mb-4 animate-fade-in-up">
           <span className="text-lamo-lime">LAMO</span>{' '}
-          <span className="text-lamo-dark">Trivia</span>
+          <span className="text-lamo-dark">Games</span>
         </h1>
         <p className="text-xl text-lamo-dark font-medium max-w-md mx-auto mb-2 animate-fade-in-up">
-          Family trivia night, anywhere, anytime.
+          Family game night, anywhere, anytime.
         </p>
-        <p className="text-base text-lamo-gray-muted max-w-md mx-auto mb-10 animate-fade-in-up">
+        <p className="text-base text-lamo-gray-muted max-w-md mx-auto animate-fade-in-up">
           No sign-up. No downloads. Just fun.
         </p>
-        <div className="flex gap-4 justify-center animate-fade-in-up">
+      </section>
+
+      {/* Game Modes */}
+      <section className="max-w-3xl mx-auto px-6 pb-12">
+        <h2 className="text-2xl font-bold text-lamo-dark text-center mb-6">
+          Choose Your Game
+        </h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Link
             to="/lobby"
-            className="inline-flex items-center px-8 py-3 bg-lamo-blue text-white font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors"
+            className="group flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-lamo-blue/20 hover:border-lamo-blue hover:scale-105 hover:shadow-lg transition-all"
           >
-            Play Now
+            <span className="text-5xl group-hover:scale-110 transition-transform">🧠</span>
+            <span className="text-lg font-bold text-lamo-dark">Trivia</span>
+            <span className="text-sm text-lamo-gray-muted text-center">Multiplayer quiz with friends and family</span>
           </Link>
           <Link
-            to="/create"
-            className="inline-flex items-center px-8 py-3 border border-lamo-border text-lamo-dark font-semibold rounded-pill hover:bg-lamo-bg transition-colors"
+            to="/riddle-wordle"
+            className="group flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-green-50 to-yellow-50 border-2 border-green-200 hover:border-green-400 hover:scale-105 hover:shadow-lg transition-all"
           >
-            Create Game
+            <span className="text-5xl group-hover:scale-110 transition-transform">🧩</span>
+            <span className="text-lg font-bold text-lamo-dark">Riddle Wordle</span>
+            <span className="text-sm text-lamo-gray-muted text-center">Solve riddles one letter at a time</span>
+          </Link>
+          <Link
+            to="/hunt/create"
+            className="group flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 hover:border-orange-400 hover:scale-105 hover:shadow-lg transition-all"
+          >
+            <span className="text-5xl group-hover:scale-110 transition-transform">🔍</span>
+            <span className="text-lg font-bold text-lamo-dark">Scavenger Hunt</span>
+            <span className="text-sm text-lamo-gray-muted text-center">Find items, snap photos, race the clock</span>
           </Link>
         </div>
-        <div className="flex gap-4 justify-center mt-4 animate-fade-in-up">
+        <div className="flex gap-4 justify-center mt-6 animate-fade-in-up">
           <Link
             to="/group/new"
             className="text-sm text-lamo-blue font-medium hover:underline"
@@ -57,10 +76,10 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Categories */}
+      {/* Trivia Categories */}
       <section className="max-w-3xl mx-auto px-6 pb-16">
-        <h2 className="text-2xl font-bold text-lamo-dark text-center mb-8">
-          Pick Your Challenge
+        <h2 className="text-2xl font-bold text-lamo-dark text-center mb-6">
+          Trivia Categories
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {TRIVIA_CATEGORIES.map((cat) => (
@@ -81,22 +100,6 @@ export default function Home() {
             <span className="text-3xl">🤖</span>
             <span className="text-sm font-semibold text-lamo-dark">AI Generated</span>
             <span className="text-xs text-lamo-gray-muted">Any topic!</span>
-          </Link>
-          <Link
-            to="/hunt/create"
-            className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border border-dashed border-orange-300 hover:scale-105 hover:shadow-md transition-all cursor-pointer"
-          >
-            <span className="text-3xl">🔍</span>
-            <span className="text-sm font-semibold text-lamo-dark">Scavenger Hunt</span>
-            <span className="text-xs text-lamo-gray-muted">Find & snap!</span>
-          </Link>
-          <Link
-            to="/riddle-wordle"
-            className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-gradient-to-br from-green-50 to-yellow-50 border border-dashed border-green-300 hover:scale-105 hover:shadow-md transition-all cursor-pointer"
-          >
-            <span className="text-3xl">🧩</span>
-            <span className="text-sm font-semibold text-lamo-dark">Riddle Wordle</span>
-            <span className="text-xs text-lamo-gray-muted">Solve riddles!</span>
           </Link>
         </div>
       </section>
@@ -128,26 +131,26 @@ export default function Home() {
       {/* SEO Content Section */}
       <section className="max-w-4xl mx-auto px-6 pb-20">
         <h2 className="text-2xl font-bold text-lamo-dark text-center mb-8">
-          Free Online Trivia Games
+          Free Online Games for Families & Friends
         </h2>
         <div className="prose prose-lg max-w-none text-lamo-gray">
           <p className="mb-4">
-            LAMO Trivia offers the best free online trivia experience for families and friends. 
-            Whether you're looking for <Link to="/trivia/harry-potter" className="text-lamo-blue hover:underline">Harry Potter trivia</Link>, 
-            {' '}<Link to="/trivia/science" className="text-lamo-blue hover:underline">science questions</Link>, 
-            {' '}<Link to="/trivia/history" className="text-lamo-blue hover:underline">history quizzes</Link>, 
-            or <Link to="/trivia/sports" className="text-lamo-blue hover:underline">sports trivia</Link>, 
-            we have something for everyone.
+            LAMO Games offers the best free online game night experience for families and friends.
+            Play <Link to="/lobby" className="text-lamo-blue hover:underline">multiplayer trivia</Link> across categories like{' '}
+            <Link to="/trivia/harry-potter" className="text-lamo-blue hover:underline">Harry Potter</Link>,{' '}
+            <Link to="/trivia/science" className="text-lamo-blue hover:underline">science</Link>,{' '}
+            <Link to="/trivia/history" className="text-lamo-blue hover:underline">history</Link>, and{' '}
+            <Link to="/trivia/sports" className="text-lamo-blue hover:underline">sports</Link>.
+            Challenge yourself with <Link to="/riddle-wordle" className="text-lamo-blue hover:underline">Riddle Wordle</Link>,
+            or create a <Link to="/hunt/create" className="text-lamo-blue hover:underline">Scavenger Hunt</Link> with AI-powered photo verification.
           </p>
           <p className="mb-4">
-            Our platform makes it easy to host virtual trivia nights, family game nights, or 
-            friendly competitions. With no sign-up required, you can start playing instantly. 
-            Simply <Link to="/create" className="text-lamo-blue hover:underline">create a game</Link>, 
-            share the code, and invite your friends to join.
+            No sign-up required — just <Link to="/create" className="text-lamo-blue hover:underline">create a game</Link>,
+            share the code, and start playing instantly.
           </p>
           <p>
-            New to trivia? Check out our <Link to="/how-to-play" className="text-lamo-blue hover:underline">complete guide</Link> 
-            {' '}or learn <Link to="/about" className="text-lamo-blue hover:underline">more about LAMO Trivia</Link>.
+            New here? Check out our <Link to="/how-to-play" className="text-lamo-blue hover:underline">complete guide</Link>
+            {' '}or learn <Link to="/about" className="text-lamo-blue hover:underline">more about LAMO</Link>.
           </p>
         </div>
       </section>
