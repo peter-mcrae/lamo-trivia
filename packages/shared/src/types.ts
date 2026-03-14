@@ -99,6 +99,7 @@ export interface GroupState {
   id: string;
   name: string;
   createdAt: number;
+  ownerEmail?: string;
   members: GroupMember[];
   games: GroupGame[];
 }

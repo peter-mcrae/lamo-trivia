@@ -244,9 +244,11 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       return Response.json({ seeded: true, counts });
     }
 
-    // POST /api/groups — create a new private group
+    // POST /api/groups — create a new private group (requires auth)
     if (method === 'POST' && url.pathname === '/api/groups') {
       if (!groupCreateLimiter.check(getClientIP(request))) return rateLimitedResponse();
+      const user = await getSessionUser(request, env);
+      if (!user) return Response.json({ error: 'Sign in to create a group' }, { status: 401 });
       const body = (await request.json()) as { name: string };
       const parsed = GroupNameSchema.safeParse(body.name);
       if (!parsed.success) {
@@ -259,7 +261,7 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
       const res = await group.fetch(
         new Request('http://internal/init', {
           method: 'POST',
-          body: JSON.stringify({ id: groupId, name: parsed.data }),
+          body: JSON.stringify({ id: groupId, name: parsed.data, ownerEmail: user.email }),
         }),
       );
 
@@ -271,13 +273,39 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
         await retryGroup.fetch(
           new Request('http://internal/init', {
             method: 'POST',
-            body: JSON.stringify({ id: retryId, name: parsed.data }),
+            body: JSON.stringify({ id: retryId, name: parsed.data, ownerEmail: user.email }),
           }),
         );
         return Response.json({ groupId: retryId, name: parsed.data });
       }
 
+      // Index group by owner email for recovery
+      const ownerKey = `owner-groups:${user.email}`;
+      const existing = await env.TRIVIA_KV.get<string[]>(ownerKey, 'json') ?? [];
+      existing.push(groupId);
+      await env.TRIVIA_KV.put(ownerKey, JSON.stringify(existing));
+
       return Response.json({ groupId, name: parsed.data });
+    }
+
+    // GET /api/groups/my — list groups owned by the authenticated user
+    if (method === 'GET' && url.pathname === '/api/groups/my') {
+      const user = await getSessionUser(request, env);
+      if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+      const ownerKey = `owner-groups:${user.email}`;
+      const groupIds = await env.TRIVIA_KV.get<string[]>(ownerKey, 'json') ?? [];
+
+      const groups: { groupId: string; name: string }[] = [];
+      for (const gid of groupIds) {
+        const doId = env.PRIVATE_GROUP.idFromName(gid);
+        const group = env.PRIVATE_GROUP.get(doId);
+        const res = await group.fetch(new Request('http://internal/state'));
+        if (res.ok) {
+          const data = (await res.json()) as { id: string; name: string };
+          groups.push({ groupId: data.id, name: data.name });
+        }
+      }
+      return Response.json({ groups });
     }
 
     // GET /api/groups/:groupId — validate group exists

@@ -11,6 +11,7 @@ interface StoredGroupState {
   id: string;
   name: string;
   createdAt: number;
+  ownerEmail?: string;
   members: GroupMember[];
   games: Map<string, GroupGame>;
 }
@@ -36,11 +37,12 @@ export class PrivateGroup {
         if (this.group) {
           return Response.json({ error: 'Group already exists' }, { status: 409 });
         }
-        const { id, name } = (await request.json()) as { id: string; name: string };
+        const { id, name, ownerEmail } = (await request.json()) as { id: string; name: string; ownerEmail?: string };
         this.group = {
           id,
           name,
           createdAt: Date.now(),
+          ownerEmail,
           members: [],
           games: new Map(),
         };
@@ -383,6 +385,7 @@ export class PrivateGroup {
       id: g.id,
       name: g.name,
       createdAt: g.createdAt,
+      ownerEmail: g.ownerEmail,
       members: g.members,
       games: activeGames,
     };
