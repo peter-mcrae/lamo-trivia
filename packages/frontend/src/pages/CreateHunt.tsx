@@ -5,14 +5,21 @@ import { useAuthContext } from '@/contexts/AuthContext';
 export default function CreateHunt() {
   const { user } = useAuthContext();
   const navigate = useNavigate();
-  const [joinCode, setJoinCode] = useState('');
+  const [groupCode, setGroupCode] = useState('');
+  const [gameCode, setGameCode] = useState('');
+
+  const handleJoinGroup = (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = groupCode.trim();
+    if (!code) return;
+    navigate(`/group/${code}`);
+  };
 
   const handleJoinGame = (e: React.FormEvent) => {
     e.preventDefault();
-    const code = joinCode.trim();
+    const code = gameCode.trim();
     if (!code) return;
     navigate(`/hunt/${code}`);
-    setJoinCode('');
   };
 
   return (
@@ -56,40 +63,54 @@ export default function CreateHunt() {
 
       {/* CTAs */}
       <div className="space-y-3">
-        {!user && (
+        {!user ? (
           <Link
             to="/login"
             className="block w-full text-center px-6 py-3 bg-lamo-blue text-white font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors"
           >
-            Sign In to Get Started
+            Sign In to My Groups
+          </Link>
+        ) : (
+          <Link
+            to="/groups"
+            className="block w-full text-center px-6 py-3 bg-lamo-blue text-white font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors"
+          >
+            My Groups
           </Link>
         )}
-        <Link
-          to="/groups"
-          className="block w-full text-center px-6 py-3 bg-lamo-blue text-white font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors"
-        >
-          Pick an Existing Group
-        </Link>
-        <Link
-          to="/group/new"
-          className="block w-full text-center px-6 py-3 border border-lamo-border text-lamo-dark font-semibold rounded-pill hover:bg-lamo-bg transition-colors"
-        >
-          Create a New Group
-        </Link>
 
-        {/* Join existing game by code */}
+        {/* Join group by code */}
+        <form onSubmit={handleJoinGroup} className="flex gap-2">
+          <input
+            type="text"
+            value={groupCode}
+            onChange={(e) => setGroupCode(e.target.value)}
+            placeholder="Enter group code to join"
+            maxLength={30}
+            className="flex-1 px-4 py-3 border border-lamo-border rounded-pill text-sm focus:outline-none focus:ring-2 focus:ring-lamo-blue/40"
+          />
+          <button
+            type="submit"
+            disabled={!groupCode.trim()}
+            className="px-6 py-3 border border-lamo-border text-lamo-dark font-semibold rounded-pill hover:bg-lamo-bg transition-colors disabled:opacity-40"
+          >
+            Join
+          </button>
+        </form>
+
+        {/* Join game by code */}
         <form onSubmit={handleJoinGame} className="flex gap-2">
           <input
             type="text"
-            value={joinCode}
-            onChange={(e) => setJoinCode(e.target.value)}
+            value={gameCode}
+            onChange={(e) => setGameCode(e.target.value)}
             placeholder="Enter game code to join"
             maxLength={30}
             className="flex-1 px-4 py-3 border border-lamo-border rounded-pill text-sm focus:outline-none focus:ring-2 focus:ring-lamo-blue/40"
           />
           <button
             type="submit"
-            disabled={!joinCode.trim()}
+            disabled={!gameCode.trim()}
             className="px-6 py-3 border border-lamo-border text-lamo-dark font-semibold rounded-pill hover:bg-lamo-bg transition-colors disabled:opacity-40"
           >
             Join
