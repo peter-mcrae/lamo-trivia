@@ -93,8 +93,8 @@ This is baked into the JS bundle at build time. In dev, falls back to `/api` (pr
 
 ### Admin (`lamo-trivia-admin`)
 - Root directory: `packages/admin` (MUST be this for Functions to work)
-- Build command: `npm install && npm run build`
-- Output directory: `dist`
+- Build command: `npm run build` (v2 root directory strategy runs `npm install` at repo root automatically)
+- Output directory: `dist` (configured in `packages/admin/wrangler.toml` as `pages_build_output_dir`)
 - Has `functions/api/[[catchall]].ts` — proxies `/api/*` to backend
 - Has `_routes.json` — routes `/api/*` to the function
 
