@@ -8,7 +8,12 @@
     "explore:mobile": "npx tsx src/run-explorer.ts --mobile",
     "explore:headed": "npx tsx src/run-explorer.ts --headed",
     "scenario": "npx tsx src/run-scenario.ts",
-    "scenario:list": "npx tsx src/run-scenario.ts --list"
+    "scenario:list": "npx tsx src/run-scenario.ts --list",
+    "multiplayer": "npx tsx src/run-multiplayer.ts",
+    "multiplayer:trivia": "npx tsx src/run-multiplayer.ts trivia",
+    "multiplayer:hunt": "npx tsx src/run-multiplayer.ts hunt",
+    "report": "npx tsx src/run-report.ts",
+    "report:json": "npx tsx src/run-report.ts --json"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",
