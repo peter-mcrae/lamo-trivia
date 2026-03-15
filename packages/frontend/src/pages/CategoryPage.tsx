@@ -167,10 +167,10 @@ export default function CategoryPage() {
                 Create {category.name} Game
               </Link>
               <Link
-                to="/lobby"
+                to="/groups"
                 className="inline-flex items-center px-6 py-3 border border-lamo-border text-lamo-dark font-semibold rounded-pill hover:bg-lamo-bg transition-colors"
               >
-                Join a Game
+                My Groups
               </Link>
             </div>
           </section>

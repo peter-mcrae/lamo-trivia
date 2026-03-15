@@ -5,12 +5,12 @@ export default function Home() {
   return (
     <>
       <SEO
-        title="LAMO Games - Free Online Trivia, Riddle Wordle & Scavenger Hunts"
-        description="Play free online games with family and friends. Multiplayer trivia, Riddle Wordle puzzles, and AI-powered scavenger hunts. No sign-up required."
-        keywords="trivia games, online trivia, free trivia, family trivia, riddle wordle, scavenger hunt, photo scavenger hunt, multiplayer games, game night"
+        title="LAMO Games - Free Online Trivia, Riddle Guess & Scavenger Hunts"
+        description="Play free online games with family and friends. Multiplayer trivia, Riddle Guess puzzles, and AI-powered scavenger hunts. No sign-up required."
+        keywords="trivia games, online trivia, free trivia, family trivia, riddle guess, scavenger hunt, photo scavenger hunt, multiplayer games, game night"
         canonical="https://lamotrivia.app"
         ogTitle="LAMO Games - Free Online Games for Families & Friends"
-        ogDescription="Trivia, Riddle Wordle, and Scavenger Hunts. No sign-up required. Instant multiplayer fun!"
+        ogDescription="Trivia, Riddle Guess, and Scavenger Hunts. No sign-up required. Instant multiplayer fun!"
       />
       <div>
       {/* Hero */}
@@ -34,7 +34,7 @@ export default function Home() {
         </h2>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <Link
-            to="/lobby"
+            to="/create"
             className="group flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-lamo-blue/20 hover:border-lamo-blue hover:scale-105 hover:shadow-lg transition-all"
           >
             <span className="text-5xl group-hover:scale-110 transition-transform">🧠</span>
@@ -46,7 +46,7 @@ export default function Home() {
             className="group flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-green-50 to-yellow-50 border-2 border-green-200 hover:border-green-400 hover:scale-105 hover:shadow-lg transition-all"
           >
             <span className="text-5xl group-hover:scale-110 transition-transform">🧩</span>
-            <span className="text-lg font-bold text-lamo-dark">Riddle Wordle</span>
+            <span className="text-lg font-bold text-lamo-dark">Riddle Guess</span>
             <span className="text-sm text-lamo-gray-muted text-center">Solve riddles one letter at a time</span>
           </Link>
           <Link
@@ -110,12 +110,12 @@ export default function Home() {
         <div className="prose prose-lg max-w-none text-lamo-gray">
           <p className="mb-4">
             LAMO Games offers the best free online game night experience for families and friends.
-            Play <Link to="/lobby" className="text-lamo-blue hover:underline">multiplayer trivia</Link> across categories like{' '}
+            Play <Link to="/create" className="text-lamo-blue hover:underline">multiplayer trivia</Link> across categories like{' '}
             <Link to="/trivia/harry-potter" className="text-lamo-blue hover:underline">Harry Potter</Link>,{' '}
             <Link to="/trivia/science" className="text-lamo-blue hover:underline">science</Link>,{' '}
             <Link to="/trivia/history" className="text-lamo-blue hover:underline">history</Link>, and{' '}
             <Link to="/trivia/sports" className="text-lamo-blue hover:underline">sports</Link>.
-            Challenge yourself with <Link to="/riddle-wordle" className="text-lamo-blue hover:underline">Riddle Wordle</Link>,
+            Challenge yourself with <Link to="/riddle-wordle" className="text-lamo-blue hover:underline">Riddle Guess</Link>,
             or create a <Link to="/hunt/create" className="text-lamo-blue hover:underline">Scavenger Hunt</Link> in a private group with AI-powered photo verification.
           </p>
           <p className="mb-4">

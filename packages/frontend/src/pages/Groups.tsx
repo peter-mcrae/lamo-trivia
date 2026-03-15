@@ -1,14 +1,26 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useGroups } from '@/hooks/useGroups';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { DeleteGroupModal } from '@/components/DeleteGroupModal';
+import { SEO } from '@/components/SEO';
 import { api } from '@/lib/api';
 
 export default function Groups() {
-  const { groups, addGroup } = useGroups();
+  const { groups, addGroup, removeGroup } = useGroups();
   const { user } = useAuthContext();
   const [recovering, setRecovering] = useState(false);
   const [recovered, setRecovered] = useState(false);
+  const [ownedGroupIds, setOwnedGroupIds] = useState<Set<string>>(new Set());
+  const [deleteTarget, setDeleteTarget] = useState<{ groupId: string; name: string } | null>(null);
+
+  // Fetch owned groups to know which ones to show delete button for
+  useEffect(() => {
+    if (!user) return;
+    api.getMyGroups()
+      .then(({ groups: owned }) => setOwnedGroupIds(new Set(owned.map((g) => g.groupId))))
+      .catch(() => {});
+  }, [user]);
 
   const handleRecover = async () => {
     setRecovering(true);
@@ -32,9 +44,17 @@ export default function Groups() {
     }
   };
 
+  const seo = (
+    <SEO
+      title="My Groups - LAMO Games"
+      description="Create and manage your LAMO game groups. Play trivia, riddle guess, and scavenger hunts with friends and family."
+      canonical="https://lamotrivia.app/groups"
+    />
+  );
+
   if (!user) {
     return (
-      <div className="max-w-lg mx-auto py-10 px-6">
+      <>{seo}<div className="max-w-lg mx-auto py-10 px-6">
         <div className="text-center py-16">
           <h2 className="text-2xl font-bold text-lamo-dark mb-3">Groups</h2>
           <p className="text-lamo-gray-muted mb-6">
@@ -56,12 +76,12 @@ export default function Groups() {
             </Link>
           </div>
         </div>
-      </div>
+      </div></>
     );
   }
 
   return (
-    <div className="max-w-lg mx-auto py-10 px-6">
+    <>{seo}<div className="max-w-lg mx-auto py-10 px-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-lamo-dark">My Groups</h2>
         <Link
@@ -89,17 +109,32 @@ export default function Groups() {
       {groups.length > 0 ? (
         <div className="space-y-3 mb-8">
           {groups.map((g) => (
-            <Link
+            <div
               key={g.groupId}
-              to={`/group/${g.groupId}`}
-              className="flex items-center justify-between p-4 bg-lamo-bg rounded-xl border border-lamo-border hover:border-lamo-blue/40 transition-colors"
+              className="flex items-center justify-between p-4 bg-lamo-bg rounded-xl border border-lamo-border"
             >
-              <div className="min-w-0 flex-1">
+              <Link
+                to={`/group/${g.groupId}`}
+                className="min-w-0 flex-1 hover:opacity-80 transition-opacity"
+              >
                 <h3 className="font-semibold text-lamo-dark">{g.name}</h3>
                 <p className="text-xs text-lamo-gray-muted font-mono mt-0.5 truncate">{g.groupId}</p>
+              </Link>
+              <div className="flex items-center gap-2 shrink-0 ml-3">
+                <Link to={`/group/${g.groupId}`} className="text-lamo-blue text-sm font-medium">
+                  Open
+                </Link>
+                {ownedGroupIds.has(g.groupId) && (
+                  <button
+                    onClick={() => setDeleteTarget({ groupId: g.groupId, name: g.name })}
+                    className="text-xs px-2 py-1 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Delete group"
+                  >
+                    Delete
+                  </button>
+                )}
               </div>
-              <span className="text-lamo-blue text-sm font-medium shrink-0 ml-3">Open</span>
-            </Link>
+            </div>
           ))}
         </div>
       ) : (
@@ -127,6 +162,19 @@ export default function Groups() {
           Enter Group Code
         </Link>
       </div>
-    </div>
+
+      {deleteTarget && (
+        <DeleteGroupModal
+          groupId={deleteTarget.groupId}
+          groupName={deleteTarget.name}
+          onDeleted={() => {
+            removeGroup(deleteTarget.groupId);
+            setOwnedGroupIds((prev) => { const next = new Set(prev); next.delete(deleteTarget.groupId); return next; });
+            setDeleteTarget(null);
+          }}
+          onClose={() => setDeleteTarget(null)}
+        />
+      )}
+    </div></>
   );
 }

@@ -190,9 +190,9 @@ export default function RiddleWordle() {
   return (
     <>
       <SEO
-        title="Riddle Wordle - LAMO Trivia"
-        description="Solve family-friendly riddles Wordle-style! Read the riddle, guess the answer letter by letter. 5 guesses to get it right."
-        keywords="riddle wordle, word game, riddle game, family word game, guess the riddle"
+        title="Riddle Guess - LAMO Trivia"
+        description="Solve family-friendly riddles by guessing the answer letter by letter! Read the riddle, type your guess, and see which letters are correct. 5 guesses to get it right."
+        keywords="riddle guess, word game, riddle game, family word game, guess the riddle"
         canonical="https://lamotrivia.app/riddle-wordle"
       />
       <div className="max-w-xl mx-auto py-8 px-4">
@@ -205,10 +205,10 @@ export default function RiddleWordle() {
             &larr; Back to Home
           </Link>
           <h1 className="text-2xl sm:text-3xl font-bold text-lamo-dark">
-            Riddle Wordle
+            Riddle Guess
           </h1>
           <p className="text-sm text-lamo-gray-muted mt-1">
-            Solve the riddle, Wordle-style!
+            Solve the riddle by guessing the answer letter by letter!
           </p>
         </div>
 

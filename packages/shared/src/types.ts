@@ -158,6 +158,7 @@ export interface HuntConfig {
   minPlayers: number;
   maxPlayers: number;
   isPrivate: boolean;
+  savePhotos: boolean;
   groupId?: string;
 }
 

@@ -83,7 +83,7 @@ function renderGameRoom(initialRoute = '/game/GAME-1') {
     <MemoryRouter initialEntries={[initialRoute]}>
       <Routes>
         <Route path="/game/:gameId" element={<GameRoom />} />
-        <Route path="/lobby" element={<div>Lobby</div>} />
+        <Route path="/groups" element={<div>Groups</div>} />
       </Routes>
     </MemoryRouter>,
   );

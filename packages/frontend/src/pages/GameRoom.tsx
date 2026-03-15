@@ -52,7 +52,7 @@ export default function GameRoom() {
         return;
       }
       if (message.type === 'game_expired') {
-        const dest = groupIdRef.current ? `/group/${groupIdRef.current}` : '/lobby';
+        const dest = groupIdRef.current ? `/group/${groupIdRef.current}` : '/groups';
         setError('This game has expired. Returning...');
         setTimeout(() => navigate(dest), 3000);
         return;
@@ -78,6 +78,7 @@ export default function GameRoom() {
   // Reset all state when navigating to a new game (e.g., Play Again)
   useEffect(() => {
     joinedRef.current = false;
+    hadGameStateRef.current = false;
     resetGameState();
     setError(null);
     setStartingGame(false);
@@ -227,8 +228,8 @@ export default function GameRoom() {
 
   const backPath = gameState?.config.groupId
     ? `/group/${gameState.config.groupId}`
-    : '/lobby';
-  const backLabel = gameState?.config.groupId ? 'Back to Group' : 'Back to Lobby';
+    : '/groups';
+  const backLabel = gameState?.config.groupId ? 'Back to Group' : 'Back to Groups';
 
   const handleUsernameSubmit = (name: string) => {
     setUsername(name);
@@ -394,6 +395,7 @@ export default function GameRoom() {
             selectedAnswer={selectedAnswer}
             correctIndex={answerResult?.correctIndex ?? null}
             showResult={!!answerResult}
+            isCorrect={answerResult?.correct ?? false}
             onAnswer={handleAnswer}
           />
 
@@ -482,6 +484,7 @@ export default function GameRoom() {
           {showRematchModal && (
             <RematchModal
               currentConfig={gameState.config}
+              groupId={gameState.config.groupId}
               onRematchCreated={handleRematchCreated}
               onClose={() => setShowRematchModal(false)}
             />

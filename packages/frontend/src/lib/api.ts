@@ -53,12 +53,15 @@ export const api = {
     }),
 
   getGroup: (groupId: string) =>
-    fetchJSON<{ id: string; name: string; createdAt: number; memberCount: number }>(
+    fetchJSON<{ id: string; name: string; createdAt: number; ownerEmail?: string; memberCount: number }>(
       `/groups/${groupId}`,
     ),
 
   getMyGroups: () =>
     fetchJSON<{ groups: { groupId: string; name: string }[] }>('/groups/my'),
+
+  deleteGroup: (groupId: string) =>
+    fetchJSON<{ ok: boolean }>(`/groups/${groupId}`, { method: 'DELETE' }),
 
   createGroupGame: (groupId: string, config: GameConfigInput) =>
     fetchJSON<{ gameId: string }>(`/groups/${groupId}/games`, {

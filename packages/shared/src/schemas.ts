@@ -14,7 +14,7 @@ export const GameConfigSchema = z.object({
   questionCount: z.number().int().min(5).max(30),
   minPlayers: z.number().int().min(1).max(8).default(1),
   maxPlayers: z.number().int().min(2).max(12).default(8),
-  timePerQuestion: z.number().int().min(1).max(60).default(15),
+  timePerQuestion: z.number().int().min(1).max(60).default(7),
   scoringMethod: ScoringMethodSchema.default('speed-bonus'),
   streakBonus: z.boolean().default(false),
   showAnswers: z.boolean().default(true),
@@ -82,6 +82,7 @@ export const HuntConfigSchema = z.object({
   minPlayers: z.number().int().min(1).max(8).default(1),
   maxPlayers: z.number().int().min(2).max(12).default(2),
   isPrivate: z.boolean().default(false),
+  savePhotos: z.boolean().default(false),
   groupId: z.string().min(1).optional(),
 }).refine(
   (data) => data.minPlayers <= data.maxPlayers,

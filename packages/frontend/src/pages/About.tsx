@@ -53,7 +53,7 @@ export default function About() {
           <h2 className="text-2xl font-bold text-lamo-dark mt-8 mb-4">Get Started</h2>
           <p className="text-lamo-gray mb-6">
             Ready to start playing? <Link to="/create" className="text-lamo-blue hover:underline">Create your first game</Link> or 
-            {' '}<Link to="/lobby" className="text-lamo-blue hover:underline">join an existing game</Link>.
+            {' '}<Link to="/groups" className="text-lamo-blue hover:underline">join a group</Link>.
           </p>
 
           <div className="mt-12 pt-8 border-t border-lamo-border">

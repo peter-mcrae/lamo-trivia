@@ -4,7 +4,7 @@ export const GAME_DEFAULTS = {
   questionCount: 10,
   minPlayers: 1,
   maxPlayers: 8,
-  timePerQuestion: 15,
+  timePerQuestion: 7,
   scoringMethod: 'speed-bonus',
   streakBonus: false,
   showAnswers: true,

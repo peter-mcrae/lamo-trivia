@@ -60,7 +60,7 @@ export default function HuntRoom() {
       }
       if (message.type === 'hunt_expired') {
         setError('This hunt has expired. Returning...');
-        setTimeout(() => navigate('/lobby'), 3000);
+        setTimeout(() => navigate('/groups'), 3000);
         return;
       }
       // Clear errors on successful state receipt
@@ -210,7 +210,7 @@ export default function HuntRoom() {
         {error ? (
           <div>
             <p className="text-red-500 font-medium mb-4">{error}</p>
-            <Button onClick={() => navigate('/lobby')}>Back to Lobby</Button>
+            <Button onClick={() => navigate('/groups')}>Back to Groups</Button>
           </div>
         ) : (
           <p className="text-lamo-gray-muted">Connecting to hunt...</p>
@@ -320,7 +320,7 @@ export default function HuntRoom() {
                   </button>
                 </div>
               )}
-              <Button variant="secondary" onClick={() => navigate('/lobby')}>
+              <Button variant="secondary" onClick={() => navigate('/groups')}>
                 Leave
               </Button>
             </div>
@@ -518,8 +518,8 @@ export default function HuntRoom() {
           <HuntResults results={results} players={huntState.players} />
 
           <div className="flex justify-center gap-3 mt-8">
-            <Button variant="secondary" onClick={() => navigate('/lobby')}>
-              Back to Lobby
+            <Button variant="secondary" onClick={() => navigate('/groups')}>
+              Back to Groups
             </Button>
           </div>
         </div>

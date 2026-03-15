@@ -240,7 +240,7 @@ describe('ScavengerHuntRoom -- Join/Leave', () => {
     expect(huntState.hostId).toBe(huntState.players[0].id);
   });
 
-  it('join_hunt rejects duplicate usernames (case insensitive)', async () => {
+  it('join_hunt re-attaches duplicate usernames during waiting phase (case insensitive)', async () => {
     await joinPlayer(room, state, 'Alice');
 
     const ws2 = createMockWebSocket();
@@ -251,8 +251,9 @@ describe('ScavengerHuntRoom -- Join/Leave', () => {
     );
 
     const msgs = getSentMessages(ws2);
-    expect(msgs[0].type).toBe('error');
-    expect(msgs[0].message).toBe('Username already taken');
+    expect(msgs[0].type).toBe('hunt_state');
+    // Should re-attach to existing player, not create a new one
+    expect(msgs[0].state.players).toHaveLength(1);
   });
 
   it('join_hunt rejects when hunt is full', async () => {

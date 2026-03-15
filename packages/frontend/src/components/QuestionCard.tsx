@@ -9,6 +9,7 @@ interface QuestionCardProps {
   selectedAnswer: number | null;
   correctIndex?: number | null;
   showResult?: boolean;
+  isCorrect?: boolean;
   onAnswer: (answerIndex: number) => void;
 }
 
@@ -19,10 +20,11 @@ export function QuestionCard({
   selectedAnswer,
   correctIndex,
   showResult,
+  isCorrect,
   onAnswer,
 }: QuestionCardProps) {
   useEffect(() => {
-    if (showResult && selectedAnswer !== null && selectedAnswer === correctIndex) {
+    if (showResult && selectedAnswer !== null && (isCorrect || selectedAnswer === correctIndex)) {
       confetti({
         particleCount: 70,
         spread: 60,
@@ -30,7 +32,7 @@ export function QuestionCard({
         colors: ['#a8e000', '#0071e3', '#FFD700', '#FF6B6B', '#4ECDC4'],
       });
     }
-  }, [showResult, selectedAnswer, correctIndex]);
+  }, [showResult, selectedAnswer, correctIndex, isCorrect]);
 
   const getButtonClass = (i: number) => {
     const base = 'px-5 py-3.5 rounded-xl text-left font-medium transition-colors border';
