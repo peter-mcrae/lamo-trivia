@@ -89,7 +89,7 @@ export const HUNT_LIMITS = {
   maxDuration: 60,
 } as const;
 
-export const HUNT_EXPIRY_MS = 90 * 60 * 1000; // 90 minutes — longer than trivia since hunts run up to 60 min
+export const HUNT_EXPIRY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days — hunts can stay in waiting phase much longer
 
 // --- Credit System & Auth Constants ---
 
