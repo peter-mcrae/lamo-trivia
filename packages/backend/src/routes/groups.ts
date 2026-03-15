@@ -4,7 +4,7 @@ import {
   GameConfigSchema, HuntConfigSchema, GroupNameSchema,
   generateGroupId, HUNT_LIMITS,
 } from '@lamo-trivia/shared';
-import type { GroupGame } from '@lamo-trivia/shared';
+import type { GroupGame, HuntHistorySummary } from '@lamo-trivia/shared';
 import { getSessionUser } from '../auth';
 import { logEvent } from '../analytics';
 import {
@@ -90,7 +90,7 @@ groups.get('/:groupId', async (c) => {
 
 // POST /api/groups/:groupId/games — create a game within a group
 groups.post('/:groupId/games', ipRateLimit(groupGameLimiter), async (c) => {
-  const groupId = c.req.param('groupId');
+  const groupId = c.req.param('groupId')!;
 
   // Validate group exists
   const doId = c.env.PRIVATE_GROUP.idFromName(groupId);
@@ -172,7 +172,7 @@ groups.post('/:groupId/hunts', ipRateLimit(groupGameLimiter), async (c) => {
   const user = await getSessionUser(c.req.raw, c.env);
   if (!user) return c.json({ error: 'Sign in to create a scavenger hunt' }, 401);
 
-  const groupId = c.req.param('groupId');
+  const groupId = c.req.param('groupId')!;
 
   // Validate group exists
   const doId = c.env.PRIVATE_GROUP.idFromName(groupId);
@@ -266,10 +266,9 @@ groups.get('/:groupId/hunts/history', async (c) => {
     return c.json({ error: 'Too many requests. Please try again later.' }, 429);
   }
 
-  const groupId = c.req.param('groupId');
-  const { HuntHistorySummary } = await import('@lamo-trivia/shared');
+  const groupId = c.req.param('groupId')!;
 
-  const listResult = await c.env.TRIVIA_KV.list<import('@lamo-trivia/shared').HuntHistorySummary>({
+  const listResult = await c.env.TRIVIA_KV.list<HuntHistorySummary>({
     prefix: 'hunt-history:',
   });
 
