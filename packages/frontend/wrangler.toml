@@ -1,2 +1,5 @@
 name = "lamo-trivia"
 pages_build_output_dir = "./dist"
+
+[vars]
+VITE_API_URL = "https://api.lamotrivia.app"
