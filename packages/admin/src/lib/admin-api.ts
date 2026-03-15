@@ -1,20 +1,10 @@
 import type { User, CreditTransaction, Coupon } from '@lamo-trivia/shared';
 
-const API_BASE = 'https://api.lamotrivia.app/api/admin';
-
-function getAccessJwt(): string | null {
-  const match = document.cookie.match(/(?:^|;\s*)CF_Authorization=([^;]*)/);
-  return match ? match[1] : null;
-}
+const API_BASE = '/api/admin';
 
 async function adminFetch<T>(path: string, options?: RequestInit): Promise<T> {
-  const jwt = getAccessJwt();
   const response = await fetch(`${API_BASE}${path}`, {
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(jwt ? { 'Cf-Access-Jwt-Assertion': jwt } : {}),
-    },
+    headers: { 'Content-Type': 'application/json' },
     ...options,
   });
   if (!response.ok) {
