@@ -131,7 +131,7 @@ describe('GameConfigSchema', () => {
     if (result.success) {
       expect(result.data.minPlayers).toBe(1);
       expect(result.data.maxPlayers).toBe(8);
-      expect(result.data.timePerQuestion).toBe(15);
+      expect(result.data.timePerQuestion).toBe(7);
       expect(result.data.scoringMethod).toBe('speed-bonus');
       expect(result.data.streakBonus).toBe(false);
       expect(result.data.showAnswers).toBe(true);
