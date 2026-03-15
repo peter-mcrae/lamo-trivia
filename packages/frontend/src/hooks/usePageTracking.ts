@@ -21,7 +21,8 @@ export function usePageTracking() {
       cid: getClientId(),
     };
 
-    fetch('/api/t', {
+    const apiBase = import.meta.env.VITE_API_URL || '/api';
+    fetch(`${apiBase}/t`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
