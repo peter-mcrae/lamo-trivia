@@ -14,6 +14,7 @@ import GroupLobby from '@/pages/GroupLobby';
 import NotFound from '@/pages/NotFound';
 import About from '@/pages/About';
 import HowToPlay from '@/pages/HowToPlay';
+import HowToScavengerHunt from '@/pages/HowToScavengerHunt';
 import CategoryPage from '@/pages/CategoryPage';
 import RiddleWordle from '@/pages/RiddleWordle';
 import CreateHunt from '@/pages/CreateHunt';
@@ -39,6 +40,7 @@ function AppRoutes() {
         <Route path="/group/:groupId" element={<GroupLobby />} />
         <Route path="/about" element={<About />} />
         <Route path="/how-to-play" element={<HowToPlay />} />
+        <Route path="/how-to-hunt" element={<HowToScavengerHunt />} />
         <Route path="/trivia/:categoryId" element={<CategoryPage />} />
         <Route path="/riddle-wordle" element={<RiddleWordle />} />
         <Route path="/hunt/create" element={<CreateHunt />} />
