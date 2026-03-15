@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { GAME_DEFAULTS, SCORING_METHODS } from '@lamo-trivia/shared';
 import type { GameConfig, TriviaCategory, ScoringMethod } from '@lamo-trivia/shared';
 import type { GameConfigInput } from '@lamo-trivia/shared';
@@ -33,8 +33,10 @@ export function GameConfigForm({
   const [categories, setCategories] = useState<TriviaCategory[]>([]);
   const [internalError, setInternalError] = useState('');
 
-  const [name, setName] = useState(initialConfig?.name ?? '');
-  const [useAI, setUseAI] = useState(!!initialConfig?.aiTopic);
+  const defaultName = initialConfig?.name ?? `Trivia - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+  const [name, setName] = useState(defaultName);
+  const nameManuallyEdited = useRef(!!initialConfig?.name);
+  const [useAI, setUseAI] = useState(initialConfig ? !!initialConfig.aiTopic : true);
   const [aiTopic, setAiTopic] = useState(initialConfig?.aiTopic ?? '');
   const [selectedCategories, setSelectedCategories] = useState<string[]>(
     initialConfig?.categoryIds ?? [],
@@ -68,6 +70,13 @@ export function GameConfigForm({
   useEffect(() => {
     api.getCategories().then((res) => setCategories(res.categories));
   }, []);
+
+  // Auto-update name when AI topic changes (unless user manually edited)
+  useEffect(() => {
+    if (useAI && aiTopic.trim() && !nameManuallyEdited.current) {
+      setName(`${aiTopic.trim()} Trivia`);
+    }
+  }, [aiTopic, useAI]);
 
   const toggleCategory = (id: string) => {
     setSelectedCategories((prev) =>
@@ -131,7 +140,7 @@ export function GameConfigForm({
           id="game-name"
           type="text"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => { setName(e.target.value); nameManuallyEdited.current = true; }}
           placeholder="e.g. Friday Night Trivia"
           maxLength={50}
           className="w-full px-4 py-2.5 border border-lamo-border rounded-xl text-lamo-dark placeholder:text-lamo-gray-muted focus:outline-none focus:ring-2 focus:ring-lamo-blue/40"

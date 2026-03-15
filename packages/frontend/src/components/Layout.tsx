@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 export function Layout() {
   const { user } = useAuthContext();
   const [menuOpen, setMenuOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
+  const [joinCode, setJoinCode] = useState('');
   const location = useLocation();
+  const navigate = useNavigate();
   const createRef = useRef<HTMLDivElement>(null);
 
   // Close menus on route change
@@ -32,25 +34,46 @@ export function Layout() {
     { to: '/hunt/create', label: 'Scavenger Hunt', icon: '🔍' },
   ];
 
+  const handleJoinCode = (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = joinCode.trim();
+    if (!code) return;
+    navigate(`/game/${code}`);
+    setJoinCode('');
+    setMenuOpen(false);
+  };
+
   return (
     <div className="min-h-screen bg-white">
       <nav className="flex items-center justify-between px-6 h-[52px] bg-lamo-bg-hero/[0.92] backdrop-blur-xl border-b border-lamo-border sticky top-0 z-50">
         <Link
           to="/"
-          className="flex items-center gap-2.5 text-lamo-dark font-semibold text-[17px] no-underline"
+          className="flex items-center gap-2.5 text-lamo-dark font-semibold text-[17px] no-underline shrink-0"
         >
           LAMO Trivia
         </Link>
 
-        {/* Desktop nav */}
-        <div className="hidden md:flex items-center gap-7">
-          <Link
-            to="/lobby"
-            className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors"
+        {/* Desktop: center join input */}
+        <form onSubmit={handleJoinCode} className="hidden md:flex items-center gap-1.5 mx-4">
+          <input
+            type="text"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value)}
+            placeholder="Game code"
+            maxLength={30}
+            className="w-28 px-3 py-1.5 text-sm border border-lamo-border rounded-lg bg-white placeholder:text-lamo-gray-muted focus:outline-none focus:ring-2 focus:ring-lamo-blue/40"
+          />
+          <button
+            type="submit"
+            disabled={!joinCode.trim()}
+            className="px-3 py-1.5 text-sm bg-lamo-blue text-white font-medium rounded-lg hover:bg-lamo-blue-dark transition-colors disabled:opacity-40"
           >
-            Play
-          </Link>
+            Join
+          </button>
+        </form>
 
+        {/* Desktop nav */}
+        <div className="hidden md:flex items-center gap-7 shrink-0">
           {/* Create Game dropdown */}
           <div ref={createRef} className="relative">
             <button
@@ -82,7 +105,7 @@ export function Layout() {
             to="/groups"
             className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors"
           >
-            Groups
+            My Groups
           </Link>
 
           {/* Account / Sign In */}
@@ -125,13 +148,24 @@ export function Layout() {
       {/* Mobile menu panel */}
       {menuOpen && (
         <div className="md:hidden bg-white/95 backdrop-blur-xl border-b border-lamo-border px-6 py-4 space-y-3 sticky top-[52px] z-40">
-          <Link
-            to="/lobby"
-            onClick={() => setMenuOpen(false)}
-            className="block text-lamo-gray text-base font-medium hover:text-lamo-dark transition-colors"
-          >
-            Play
-          </Link>
+          {/* Mobile join input */}
+          <form onSubmit={handleJoinCode} className="flex gap-2">
+            <input
+              type="text"
+              value={joinCode}
+              onChange={(e) => setJoinCode(e.target.value)}
+              placeholder="Enter game code"
+              maxLength={30}
+              className="flex-1 px-3 py-2 text-sm border border-lamo-border rounded-lg bg-white placeholder:text-lamo-gray-muted focus:outline-none focus:ring-2 focus:ring-lamo-blue/40"
+            />
+            <button
+              type="submit"
+              disabled={!joinCode.trim()}
+              className="px-4 py-2 text-sm bg-lamo-blue text-white font-medium rounded-lg hover:bg-lamo-blue-dark transition-colors disabled:opacity-40"
+            >
+              Join
+            </button>
+          </form>
           <div className="text-lamo-gray-muted text-xs font-semibold uppercase tracking-wide pt-1">
             Create Game
           </div>
@@ -151,7 +185,7 @@ export function Layout() {
             onClick={() => setMenuOpen(false)}
             className="block text-lamo-gray text-base font-medium hover:text-lamo-dark transition-colors"
           >
-            Groups
+            My Groups
           </Link>
           {user ? (
             <Link
@@ -203,7 +237,7 @@ export function Layout() {
                 </li>
                 <li>
                   <Link to="/groups" className="text-lamo-gray hover:text-lamo-dark transition-colors">
-                    Groups
+                    My Groups
                   </Link>
                 </li>
               </ul>

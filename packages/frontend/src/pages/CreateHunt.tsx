@@ -1,8 +1,19 @@
-import { Link } from 'react-router-dom';
+import { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 export default function CreateHunt() {
   const { user } = useAuthContext();
+  const navigate = useNavigate();
+  const [joinCode, setJoinCode] = useState('');
+
+  const handleJoinGame = (e: React.FormEvent) => {
+    e.preventDefault();
+    const code = joinCode.trim();
+    if (!code) return;
+    navigate(`/hunt/${code}`);
+    setJoinCode('');
+  };
 
   return (
     <div className="max-w-lg mx-auto py-10 px-6">
@@ -54,23 +65,36 @@ export default function CreateHunt() {
           </Link>
         )}
         <Link
-          to="/group/new"
+          to="/groups"
           className="block w-full text-center px-6 py-3 bg-lamo-blue text-white font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors"
         >
-          Create a Group
+          Pick an Existing Group
         </Link>
         <Link
-          to="/groups"
+          to="/group/new"
           className="block w-full text-center px-6 py-3 border border-lamo-border text-lamo-dark font-semibold rounded-pill hover:bg-lamo-bg transition-colors"
         >
-          My Groups
+          Create a New Group
         </Link>
-        <Link
-          to="/group/join"
-          className="block w-full text-center px-6 py-3 border border-lamo-border text-lamo-dark font-semibold rounded-pill hover:bg-lamo-bg transition-colors"
-        >
-          Join a Group with a Code
-        </Link>
+
+        {/* Join existing game by code */}
+        <form onSubmit={handleJoinGame} className="flex gap-2">
+          <input
+            type="text"
+            value={joinCode}
+            onChange={(e) => setJoinCode(e.target.value)}
+            placeholder="Enter game code to join"
+            maxLength={30}
+            className="flex-1 px-4 py-3 border border-lamo-border rounded-pill text-sm focus:outline-none focus:ring-2 focus:ring-lamo-blue/40"
+          />
+          <button
+            type="submit"
+            disabled={!joinCode.trim()}
+            className="px-6 py-3 border border-lamo-border text-lamo-dark font-semibold rounded-pill hover:bg-lamo-bg transition-colors disabled:opacity-40"
+          >
+            Join
+          </button>
+        </form>
       </div>
     </div>
   );
