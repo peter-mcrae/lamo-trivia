@@ -39,8 +39,7 @@ bucket_name = "lamo-hunt-photos"
 enabled = true
 
 routes = [
-  { pattern = "lamotrivia.app/api/*", zone_name = "lamotrivia.app" },
-  { pattern = "lamotrivia.app/ws/*", zone_name = "lamotrivia.app" }
+  { pattern = "api.lamotrivia.app/*", zone_name = "lamotrivia.app" },
 ]
 
 [vars]
