@@ -189,8 +189,11 @@ export default function GroupLobby() {
     );
   }
 
-  const getGamePath = (game: { gameId: string; gameMode?: string }) =>
-    game.gameMode === 'scavenger-hunt' ? `/hunt/${game.gameId}` : `/game/${game.gameId}`;
+  const getGamePath = (game: { gameId: string; gameMode?: string }) => {
+    if (game.gameMode === 'scavenger-hunt') return `/hunt/${game.gameId}`;
+    if (game.gameMode === 'riddle-wordle') return `/riddle-wordle/${game.gameId}`;
+    return `/game/${game.gameId}`;
+  };
 
   const onlineMembers = groupState.members.filter((m) => m.online);
   const waitingGames = groupState.games.filter((g) => g.phase === 'waiting');
@@ -224,6 +227,13 @@ export default function GroupLobby() {
               >
                 <p className="text-sm font-medium text-lamo-dark">Trivia</p>
                 <p className="text-xs text-lamo-gray">Answer questions in real-time</p>
+              </button>
+              <button
+                onClick={() => { setShowGameTypeChoice(false); navigate('/riddle-wordle'); }}
+                className="w-full px-4 py-3 text-left hover:bg-lamo-bg transition-colors border-t border-lamo-border"
+              >
+                <p className="text-sm font-medium text-lamo-dark">Riddle Wordle</p>
+                <p className="text-xs text-lamo-gray">Solve riddles Wordle-style</p>
               </button>
               <button
                 onClick={() => { setShowGameTypeChoice(false); setShowNewHuntModal(true); }}
@@ -304,8 +314,9 @@ export default function GroupLobby() {
         {waitingGames.length === 0 && activeGames.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-lamo-gray-muted mb-4">No games yet. Start one!</p>
-            <div className="flex gap-3 justify-center">
+            <div className="flex flex-wrap gap-3 justify-center">
               <Button onClick={() => setShowNewGameModal(true)}>New Trivia</Button>
+              <Button onClick={() => navigate('/riddle-wordle')}>Riddle Wordle</Button>
               <Button onClick={() => setShowNewHuntModal(true)}>New Scavenger Hunt</Button>
             </div>
           </div>
@@ -328,7 +339,7 @@ export default function GroupLobby() {
       {huntHistory.length > 0 && (
         <div className="mt-8 border-t border-lamo-border pt-6">
           <h3 className="text-sm font-semibold text-lamo-dark mb-3">
-            Past Hunts ({huntHistory.length})
+            Game History ({huntHistory.length})
           </h3>
           <div className="space-y-3">
             {huntHistory.map((hunt) => (

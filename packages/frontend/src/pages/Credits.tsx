@@ -16,6 +16,15 @@ export default function Credits() {
   const [couponSuccess, setCouponSuccess] = useState<string | null>(null);
   const [couponError, setCouponError] = useState<string | null>(null);
 
+  // Reset "Redirecting..." if user navigates back from Stripe (bfcache)
+  useEffect(() => {
+    const reset = () => {
+      if (document.visibilityState === 'visible') setBuying(false);
+    };
+    document.addEventListener('visibilitychange', reset);
+    return () => document.removeEventListener('visibilitychange', reset);
+  }, []);
+
   useEffect(() => {
     if (!user) return;
     fetch(`${API_BASE}/credits/transactions`, {
