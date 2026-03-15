@@ -1,5 +1,4 @@
 import { Link } from 'react-router-dom';
-import { TRIVIA_CATEGORIES } from '@lamo-trivia/shared';
 import { SEO } from '@/components/SEO';
 
 export default function Home() {
@@ -75,34 +74,6 @@ export default function Home() {
             className="text-sm text-lamo-blue font-medium hover:underline"
           >
             Join a Group
-          </Link>
-        </div>
-      </section>
-
-      {/* Trivia Categories */}
-      <section className="max-w-3xl mx-auto px-6 pb-16">
-        <h2 className="text-2xl font-bold text-lamo-dark text-center mb-6">
-          Trivia Categories
-        </h2>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {TRIVIA_CATEGORIES.map((cat) => (
-            <Link
-              key={cat.id}
-              to={`/trivia/${cat.id}`}
-              className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-lamo-bg border border-lamo-border hover:scale-105 hover:shadow-md transition-all cursor-pointer"
-            >
-              <span className="text-3xl">{cat.icon}</span>
-              <span className="text-sm font-semibold text-lamo-dark">{cat.name}</span>
-              <span className="text-xs text-lamo-gray-muted">{cat.questionCount} Qs</span>
-            </Link>
-          ))}
-          <Link
-            to="/create"
-            className="flex flex-col items-center gap-1.5 p-4 rounded-2xl bg-gradient-to-br from-lamo-blue/5 to-lamo-lime/10 border border-dashed border-lamo-blue/30 hover:scale-105 hover:shadow-md transition-all cursor-pointer"
-          >
-            <span className="text-3xl">🤖</span>
-            <span className="text-sm font-semibold text-lamo-dark">AI Generated</span>
-            <span className="text-xs text-lamo-gray-muted">Any topic!</span>
           </Link>
         </div>
       </section>
