@@ -72,11 +72,11 @@ export const AVATARS: Avatar[] = [
 
 export const HUNT_DEFAULTS = {
   durationMinutes: 30,
-  maxRetries: 3,
+  maxRetries: 2,
   basePointsPerItem: 1000,
   hintPointCost: 200,
   minPlayers: 1,
-  maxPlayers: 8,
+  maxPlayers: 2,
 } as const;
 
 export const HUNT_LIMITS = {

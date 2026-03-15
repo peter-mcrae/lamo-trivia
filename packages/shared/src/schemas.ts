@@ -76,11 +76,11 @@ export const HuntConfigSchema = z.object({
   name: z.string().min(1).max(50),
   items: z.array(HuntItemSchema).min(1).max(15),
   durationMinutes: z.number().int().min(5).max(60).default(30),
-  maxRetries: z.number().int().min(1).max(5).default(3),
+  maxRetries: z.number().int().min(1).max(5).default(2),
   basePointsPerItem: z.number().int().min(100).max(5000).default(1000),
   hintPointCost: z.number().int().min(0).max(500).default(200),
   minPlayers: z.number().int().min(1).max(8).default(1),
-  maxPlayers: z.number().int().min(2).max(12).default(8),
+  maxPlayers: z.number().int().min(2).max(12).default(2),
   isPrivate: z.boolean().default(false),
   groupId: z.string().min(1).optional(),
 }).refine(
