@@ -14,7 +14,8 @@ export default {
 
     // CORS preflight
     if (request.method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders(env) });
+      const origin = request.headers.get('Origin') || '';
+      return new Response(null, { headers: corsHeaders(env, origin) });
     }
 
     try {
@@ -60,17 +61,19 @@ export default {
       }
 
       // HTTP API routes — delegate to Hono app
+      const origin = request.headers.get('Origin') || '';
       const response = await app.fetch(request, env);
       const headers = new Headers(response.headers);
-      for (const [k, v] of Object.entries(corsHeaders(env))) {
+      for (const [k, v] of Object.entries(corsHeaders(env, origin))) {
         headers.set(k, v);
       }
       return new Response(response.body, { status: response.status, headers });
     } catch (err) {
+      const origin = request.headers.get('Origin') || '';
       logError(env, { route: url.pathname, method: request.method }, err);
       return new Response('Internal Server Error', {
         status: 500,
-        headers: corsHeaders(env),
+        headers: corsHeaders(env, origin),
       });
     }
   },
@@ -82,15 +85,15 @@ function isAllowedOrigin(origin: string, env: Env): boolean {
   return false;
 }
 
-function corsHeaders(env: Env): Record<string, string> {
-  // In production, ADMIN_URL will be set; include both origins
-  // CORS spec only allows one origin, so we'd need to vary — for now
-  // the frontend origin is the primary one. The admin SPA uses service
-  // bindings (same-origin), so CORS isn't needed for admin API calls.
+function corsHeaders(env: Env, requestOrigin: string): Record<string, string> {
+  // Only reflect the origin if it's in our allowlist — never use '*' with credentials
+  const allowed = isAllowedOrigin(requestOrigin, env) ? requestOrigin : env.FRONTEND_URL;
   return {
-    'Access-Control-Allow-Origin': env.FRONTEND_URL,
+    'Access-Control-Allow-Origin': allowed,
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, X-Host-Secret, Authorization',
+    'Access-Control-Allow-Credentials': 'true',
+    'Vary': 'Origin',
     'X-Content-Type-Options': 'nosniff',
     'X-Frame-Options': 'DENY',
   };

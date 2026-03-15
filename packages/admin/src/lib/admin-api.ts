@@ -1,6 +1,6 @@
 import type { User, CreditTransaction, Coupon } from '@lamo-trivia/shared';
 
-const API_BASE = '/api/admin';
+const API_BASE = 'https://lamotrivia.app/api/admin';
 
 async function adminFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, {

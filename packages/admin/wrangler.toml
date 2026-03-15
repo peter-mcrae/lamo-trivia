@@ -1,6 +1,2 @@
 name = "lamo-trivia-admin"
 pages_build_output_dir = "./dist"
-
-[[services]]
-binding = "API"
-service = "lamo-trivia-api"
