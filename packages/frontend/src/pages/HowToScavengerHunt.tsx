@@ -142,23 +142,37 @@ export default function HowToScavengerHunt() {
 
           {/* Using AI to Generate Items */}
           <section className="mb-12">
-            <h2 className="text-2xl font-bold text-lamo-dark mt-8 mb-4">Using AI to Generate Items</h2>
+            <h2 className="text-2xl font-bold text-lamo-dark mt-8 mb-4">Using AI to Design Items</h2>
             <p className="text-lamo-gray mb-4">
-              Don't want to think up items yourself? When creating a hunt, you can:
+              The best hunts are custom-designed for your specific location and group. Use an AI assistant like ChatGPT or Claude
+              to brainstorm and refine your items through conversation — then import the final list.
             </p>
             <ol className="list-decimal list-inside text-lamo-gray space-y-3 mb-4">
               <li>
-                <strong>Click "Copy AI Prompt"</strong> — this copies a pre-built prompt to your clipboard
+                <strong>Click "Copy AI Prompt"</strong> in the hunt creator — this copies a starting prompt to your clipboard
               </li>
               <li>
-                <strong>Paste it into ChatGPT, Claude, or any AI</strong> — it will generate a list of items with descriptions and optional clues
+                <strong>Paste it into your favorite AI</strong> and start a conversation. Tell it about your location,
+                the age of your players, the theme you want, how hard it should be — go back and forth until the items feel right
               </li>
               <li>
-                <strong>Click "Paste JSON"</strong> back in the hunt creator and paste the AI's response
+                <strong>Ask the AI to output the final list as JSON</strong> when you're happy with it
+              </li>
+              <li>
+                <strong>Click "Paste JSON"</strong> back in the hunt creator and paste the result
               </li>
             </ol>
-            <p className="text-lamo-gray">
-              The AI will generate items appropriate for your hunt. You can then edit, remove, or add to the list before starting.
+            <div className="bg-lamo-bg p-5 rounded-2xl border border-lamo-border">
+              <h3 className="font-semibold text-lamo-dark mb-2">Tips for the conversation</h3>
+              <ul className="list-disc list-inside text-sm text-lamo-gray space-y-1">
+                <li>Describe your location — "we're at a suburban park with a playground and a pond"</li>
+                <li>Mention your audience — "it's for kids ages 8–12" or "adults at a team offsite"</li>
+                <li>Ask for adjustments — "make item 3 harder" or "add more nature-themed ones"</li>
+                <li>Request clues — "add a hint for the tricky items"</li>
+              </ul>
+            </div>
+            <p className="text-lamo-gray mt-4">
+              You can always edit, remove, or add to the imported items before starting the hunt.
             </p>
           </section>
 
