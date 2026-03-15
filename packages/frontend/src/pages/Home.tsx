@@ -52,8 +52,11 @@ export default function Home() {
           </Link>
           <Link
             to="/hunt/create"
-            className="group flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 hover:border-orange-400 hover:scale-105 hover:shadow-lg transition-all"
+            className="group relative flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 hover:border-orange-400 hover:scale-105 hover:shadow-lg transition-all"
           >
+            <span className="absolute top-2 right-2 text-[10px] font-semibold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
+              Uses Credits
+            </span>
             <span className="text-5xl group-hover:scale-110 transition-transform">🔍</span>
             <span className="text-lg font-bold text-lamo-dark">Scavenger Hunt</span>
             <span className="text-sm text-lamo-gray-muted text-center">Find items, snap photos, race the clock</span>
