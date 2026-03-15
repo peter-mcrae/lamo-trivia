@@ -1,22 +1,35 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, Outlet, useLocation } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 
 export function Layout() {
   const { user } = useAuthContext();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
   const location = useLocation();
+  const createRef = useRef<HTMLDivElement>(null);
 
-  // Close mobile menu on route change
+  // Close menus on route change
   useEffect(() => {
     setMenuOpen(false);
+    setCreateOpen(false);
   }, [location.pathname]);
 
-  const navLinks = [
-    { to: '/lobby', label: 'Play' },
-    { to: '/create', label: 'Create Game' },
-    { to: '/groups', label: 'Groups' },
-    { to: user ? '/credits' : '/login', label: user ? `${user.credits} Credits` : 'Sign In' },
+  // Close create dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (createRef.current && !createRef.current.contains(e.target as Node)) {
+        setCreateOpen(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
+  const createItems = [
+    { to: '/create', label: 'Trivia', icon: '🧠' },
+    { to: '/riddle-wordle', label: 'Riddle Wordle', icon: '🧩' },
+    { to: '/hunt/create', label: 'Scavenger Hunt', icon: '🔍' },
   ];
 
   return (
@@ -30,16 +43,65 @@ export function Layout() {
         </Link>
 
         {/* Desktop nav */}
-        <div className="hidden md:flex gap-7">
-          {navLinks.map((link) => (
+        <div className="hidden md:flex items-center gap-7">
+          <Link
+            to="/lobby"
+            className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors"
+          >
+            Play
+          </Link>
+
+          {/* Create Game dropdown */}
+          <div ref={createRef} className="relative">
+            <button
+              onClick={() => setCreateOpen(!createOpen)}
+              className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors flex items-center gap-1"
+            >
+              Create Game
+              <svg className={`w-3.5 h-3.5 transition-transform ${createOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+              </svg>
+            </button>
+            {createOpen && (
+              <div className="absolute top-full right-0 mt-2 w-48 bg-white rounded-xl border border-lamo-border shadow-lg py-1 z-50">
+                {createItems.map((item) => (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className="flex items-center gap-2.5 px-4 py-2.5 text-sm text-lamo-gray hover:bg-lamo-bg hover:text-lamo-dark transition-colors"
+                  >
+                    <span>{item.icon}</span>
+                    <span>{item.label}</span>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <Link
+            to="/groups"
+            className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors"
+          >
+            Groups
+          </Link>
+
+          {/* Account / Sign In */}
+          {user ? (
             <Link
-              key={link.to}
-              to={link.to}
+              to="/credits"
+              className="flex flex-col items-end leading-tight hover:opacity-80 transition-opacity"
+            >
+              <span className="text-sm font-medium text-lamo-dark">My Account</span>
+              <span className="text-[11px] text-lamo-gray-muted">{user.credits} credits</span>
+            </Link>
+          ) : (
+            <Link
+              to="/login"
               className="text-lamo-gray text-sm font-medium hover:text-lamo-dark transition-colors"
             >
-              {link.label}
+              Sign In
             </Link>
-          ))}
+          )}
         </div>
 
         {/* Mobile hamburger button */}
@@ -63,16 +125,51 @@ export function Layout() {
       {/* Mobile menu panel */}
       {menuOpen && (
         <div className="md:hidden bg-white/95 backdrop-blur-xl border-b border-lamo-border px-6 py-4 space-y-3 sticky top-[52px] z-40">
-          {navLinks.map((link) => (
+          <Link
+            to="/lobby"
+            onClick={() => setMenuOpen(false)}
+            className="block text-lamo-gray text-base font-medium hover:text-lamo-dark transition-colors"
+          >
+            Play
+          </Link>
+          <div className="text-lamo-gray-muted text-xs font-semibold uppercase tracking-wide pt-1">
+            Create Game
+          </div>
+          {createItems.map((item) => (
             <Link
-              key={link.to}
-              to={link.to}
+              key={item.to}
+              to={item.to}
+              onClick={() => setMenuOpen(false)}
+              className="flex items-center gap-2 pl-2 text-lamo-gray text-base font-medium hover:text-lamo-dark transition-colors"
+            >
+              <span>{item.icon}</span>
+              <span>{item.label}</span>
+            </Link>
+          ))}
+          <Link
+            to="/groups"
+            onClick={() => setMenuOpen(false)}
+            className="block text-lamo-gray text-base font-medium hover:text-lamo-dark transition-colors"
+          >
+            Groups
+          </Link>
+          {user ? (
+            <Link
+              to="/credits"
               onClick={() => setMenuOpen(false)}
               className="block text-lamo-gray text-base font-medium hover:text-lamo-dark transition-colors"
             >
-              {link.label}
+              My Account <span className="text-sm text-lamo-gray-muted">({user.credits} credits)</span>
             </Link>
-          ))}
+          ) : (
+            <Link
+              to="/login"
+              onClick={() => setMenuOpen(false)}
+              className="block text-lamo-gray text-base font-medium hover:text-lamo-dark transition-colors"
+            >
+              Sign In
+            </Link>
+          )}
         </div>
       )}
 
