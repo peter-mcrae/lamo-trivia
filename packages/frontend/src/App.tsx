@@ -21,6 +21,7 @@ import HuntRoom from '@/pages/HuntRoom';
 import Login from '@/pages/Login';
 import Credits from '@/pages/Credits';
 import CreditsPurchaseSuccess from '@/pages/CreditsPurchaseSuccess';
+import AcceptInvite from '@/pages/AcceptInvite';
 
 function AppRoutes() {
   usePageTracking();
@@ -45,6 +46,7 @@ function AppRoutes() {
         <Route path="/login" element={<Login />} />
         <Route path="/credits" element={<ProtectedRoute><Credits /></ProtectedRoute>} />
         <Route path="/credits/success" element={<ProtectedRoute><CreditsPurchaseSuccess /></ProtectedRoute>} />
+        <Route path="/invite/:token" element={<AcceptInvite />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>

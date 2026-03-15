@@ -7,6 +7,7 @@ import {
   createCoupon, listCoupons, getCoupon, deleteCoupon,
   sendCouponEmail, isValidCouponCode,
 } from '../coupons';
+import { createInvite, sendInviteEmail } from '../invites';
 import { adminAuthMiddleware } from '../middleware/admin-auth';
 
 // --- Input validation helpers ---
@@ -55,12 +56,15 @@ admin.get('/users', async (c) => {
 
   const listResult = await c.env.TRIVIA_KV.list({ prefix, limit, cursor });
 
-  const users: User[] = [];
+  const users: Array<User & { transactionCount: number }> = [];
   for (const key of listResult.keys) {
     const raw = await c.env.TRIVIA_KV.get(key.name);
     if (raw) {
       try {
-        users.push(JSON.parse(raw) as User);
+        const user = JSON.parse(raw) as User;
+        const txRaw = await c.env.TRIVIA_KV.get(`transactions:${user.userId}`);
+        const txCount = txRaw ? (JSON.parse(txRaw) as unknown[]).length : 0;
+        users.push({ ...user, transactionCount: txCount });
       } catch { /* skip malformed */ }
     }
   }
@@ -362,6 +366,40 @@ admin.delete('/coupons/:code', async (c) => {
   }
 
   return c.json({ ok: true });
+});
+
+// POST /api/admin/invite
+admin.post('/invite', async (c) => {
+  const adminIdentity = c.get('adminIdentity');
+  const body = (await c.req.json()) as { email?: string };
+
+  if (!body.email || typeof body.email !== 'string' || !body.email.includes('@')) {
+    return c.json({ error: 'Valid email is required' }, 400);
+  }
+
+  const email = body.email.trim().toLowerCase();
+
+  // Check if user already exists
+  const existingUser = await getUser(email, c.env);
+  if (existingUser) {
+    return c.json({ error: 'User already has an account' }, 400);
+  }
+
+  try {
+    const invite = await createInvite(c.env, email, adminIdentity.email);
+    await sendInviteEmail(c.env, {
+      to: email,
+      inviteToken: invite.token,
+      credits: invite.credits,
+      senderName: 'LAMO Trivia',
+    });
+    return c.json({ ok: true, email, credits: invite.credits });
+  } catch (err) {
+    return c.json(
+      { error: err instanceof Error ? err.message : 'Failed to send invite' },
+      500,
+    );
+  }
 });
 
 // DELETE /api/admin/sessions/:token

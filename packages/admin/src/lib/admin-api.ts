@@ -20,8 +20,10 @@ export interface AdminOverview {
   totalErrors: number;
 }
 
+export type UserWithActivity = User & { transactionCount: number };
+
 export interface AdminUserListResponse {
-  users: User[];
+  users: UserWithActivity[];
   cursor: string | null;
   complete: boolean;
 }
@@ -129,5 +131,12 @@ export const adminApi = {
   deleteCoupon: (code: string) =>
     adminFetch<{ ok: boolean }>(`/coupons/${encodeURIComponent(code)}`, {
       method: 'DELETE',
+    }),
+
+  // Invites
+  inviteUser: (email: string) =>
+    adminFetch<{ ok: boolean; email: string; credits: number }>('/invite', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     }),
 };
