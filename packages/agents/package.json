@@ -1,0 +1,20 @@
+{
+  "name": "lamo-agents",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "explore": "npx tsx src/run-explorer.ts",
+    "explore:mobile": "npx tsx src/run-explorer.ts --mobile",
+    "explore:headed": "npx tsx src/run-explorer.ts --headed"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.52.0",
+    "playwright": "^1.52.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}
