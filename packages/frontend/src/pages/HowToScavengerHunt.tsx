@@ -193,6 +193,49 @@ export default function HowToScavengerHunt() {
             </div>
           </section>
 
+          {/* Host Dashboard */}
+          <section className="mb-12">
+            <h2 className="text-2xl font-bold text-lamo-dark mt-8 mb-4">The Host Dashboard</h2>
+            <p className="text-lamo-gray mb-4">
+              As the hunt host, you have a real-time command center to manage the entire hunt while it's running.
+            </p>
+
+            <div className="space-y-4">
+              <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-2xl">
+                <h3 className="font-semibold text-lamo-dark mb-2">📊 Live Leaderboard & Progress</h3>
+                <p className="text-sm text-lamo-gray">
+                  See every team's score, which items they've found, and which they're still searching for — all updating in real time.
+                  Watch the leaderboard shift as teams submit photos and rack up points.
+                </p>
+              </div>
+
+              <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-2xl">
+                <h3 className="font-semibold text-lamo-dark mb-2">💬 Message Teams</h3>
+                <p className="text-sm text-lamo-gray">
+                  Send messages to all teams during the hunt. Use this to give encouragement, drop bonus hints,
+                  announce time warnings, or add extra challenges on the fly.
+                </p>
+              </div>
+
+              <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-2xl">
+                <h3 className="font-semibold text-lamo-dark mb-2">⚖️ Review AI Appeals</h3>
+                <p className="text-sm text-lamo-gray">
+                  Sometimes the AI gets it wrong — a photo clearly shows the right item but gets rejected.
+                  When a player contests an AI decision, you'll see the appeal with their photo and can
+                  override the verdict and award the points. This keeps the game fair and fun.
+                </p>
+              </div>
+
+              <div className="bg-indigo-50 border border-indigo-200 p-5 rounded-2xl">
+                <h3 className="font-semibold text-lamo-dark mb-2">🎮 Play & Host at the Same Time</h3>
+                <p className="text-sm text-lamo-gray">
+                  You can choose to join as a player while still having access to the host dashboard.
+                  Toggle between hunting for items yourself and checking in on everyone's progress.
+                </p>
+              </div>
+            </div>
+          </section>
+
           {/* Best Practices */}
           <section className="mb-12">
             <h2 className="text-2xl font-bold text-lamo-dark mt-8 mb-4">Best Practices</h2>
@@ -254,13 +297,6 @@ export default function HowToScavengerHunt() {
                 </p>
               </div>
 
-              <div className="bg-lamo-bg p-5 rounded-2xl border border-lamo-border">
-                <h3 className="font-semibold text-lamo-dark mb-2">The Host Can Play Too</h3>
-                <p className="text-sm text-lamo-gray">
-                  When the hunt starts, the host can choose to participate as a player.
-                  You'll also have access to a dashboard showing everyone's progress in real time.
-                </p>
-              </div>
             </div>
           </section>
 
