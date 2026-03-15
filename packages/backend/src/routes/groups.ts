@@ -88,6 +88,35 @@ groups.get('/:groupId', async (c) => {
   return c.json(await res.json());
 });
 
+// DELETE /api/groups/:groupId — delete a group (owner only)
+groups.delete('/:groupId', async (c) => {
+  const user = await getSessionUser(c.req.raw, c.env);
+  if (!user) return c.json({ error: 'Sign in to delete a group' }, 401);
+
+  const groupId = c.req.param('groupId')!;
+  const doId = c.env.PRIVATE_GROUP.idFromName(groupId);
+  const group = c.env.PRIVATE_GROUP.get(doId);
+
+  // Check group exists and verify ownership
+  const stateRes = await group.fetch(new Request('http://internal/state'));
+  if (!stateRes.ok) return c.json({ error: 'Group not found' }, 404);
+  const state = (await stateRes.json()) as { ownerEmail?: string };
+  if (state.ownerEmail !== user.email) {
+    return c.json({ error: 'Only the group owner can delete it' }, 403);
+  }
+
+  // Delete the group
+  await group.fetch(new Request('http://internal/delete', { method: 'POST' }));
+
+  // Remove from owner's group list in KV
+  const ownerKey = `owner-groups:${user.email}`;
+  const existing = await c.env.TRIVIA_KV.get<string[]>(ownerKey, 'json') ?? [];
+  const updated = existing.filter((id) => id !== groupId);
+  await c.env.TRIVIA_KV.put(ownerKey, JSON.stringify(updated));
+
+  return c.json({ ok: true });
+});
+
 // POST /api/groups/:groupId/games — create a game within a group
 groups.post('/:groupId/games', ipRateLimit(groupGameLimiter), async (c) => {
   const groupId = c.req.param('groupId')!;

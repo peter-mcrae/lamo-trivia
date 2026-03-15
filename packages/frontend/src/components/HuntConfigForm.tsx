@@ -102,6 +102,7 @@ export function HuntConfigForm({
   const [maxRetries, setMaxRetries] = useState<number>(HUNT_DEFAULTS.maxRetries);
   const [minPlayers, setMinPlayers] = useState<number>(HUNT_DEFAULTS.minPlayers);
   const [maxPlayers, setMaxPlayers] = useState<number>(HUNT_DEFAULTS.maxPlayers);
+  const [savePhotos, setSavePhotos] = useState(false);
 
   const error = externalError || internalError;
 
@@ -186,6 +187,7 @@ export function HuntConfigForm({
       minPlayers,
       maxPlayers,
       isPrivate: false,
+      savePhotos,
     });
   };
 
@@ -337,9 +339,12 @@ export function HuntConfigForm({
       {/* Max Retries */}
       <div>
         <label className="block text-sm font-medium text-lamo-dark mb-1.5">
-          Max Retries per Item{' '}
+          Photo Verification Retries{' '}
           <span className="text-lamo-gray-muted font-normal">({maxRetries})</span>
         </label>
+        <p className="text-xs text-lamo-gray-muted mb-1.5">
+          How many times a player can re-submit a photo for AI verification per item
+        </p>
         <input
           type="range"
           min={1}
@@ -385,6 +390,29 @@ export function HuntConfigForm({
             ))}
           </select>
         </div>
+      </div>
+
+      {/* Save Photos */}
+      <div className="flex items-center justify-between">
+        <div>
+          <label className="block text-sm font-medium text-lamo-dark">Save Photos in History</label>
+          <p className="text-xs text-lamo-gray-muted mt-0.5">
+            Keep submitted photos viewable in the hunt history after the game ends
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setSavePhotos(!savePhotos)}
+          className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors ${
+            savePhotos ? 'bg-lamo-blue' : 'bg-lamo-border'
+          }`}
+        >
+          <span
+            className={`inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform mt-0.5 ${
+              savePhotos ? 'translate-x-[22px]' : 'translate-x-0.5'
+            }`}
+          />
+        </button>
       </div>
 
       {/* Credit Estimate */}

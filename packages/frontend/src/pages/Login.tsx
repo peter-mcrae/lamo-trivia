@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { SEO } from '@/components/SEO';
 
 export default function Login() {
   const { sendCode, verifyCode } = useAuthContext();
@@ -47,6 +48,11 @@ export default function Login() {
   };
 
   return (
+    <><SEO
+        title="Sign In - LAMO Games"
+        description="Sign in to LAMO Games with a passwordless magic link. No passwords needed."
+        canonical="https://lamotrivia.app/login"
+      />
     <div className="max-w-md mx-auto px-6 py-16">
       <h1 className="text-2xl font-bold text-lamo-dark mb-2">Sign In</h1>
       <p className="text-lamo-gray-muted mb-8">
@@ -116,6 +122,6 @@ export default function Login() {
           </button>
         </form>
       )}
-    </div>
+    </div></>
   );
 }

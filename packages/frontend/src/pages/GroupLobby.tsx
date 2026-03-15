@@ -5,10 +5,12 @@ import { useGroupWebSocket } from '@/hooks/useGroupWebSocket';
 import { useGroupState } from '@/hooks/useGroupState';
 import { useUsername } from '@/hooks/useUsername';
 import { useGroups } from '@/hooks/useGroups';
+import { useAuthContext } from '@/contexts/AuthContext';
 import { UsernameModal } from '@/components/UsernameModal';
 import { GroupGameCard } from '@/components/GroupGameCard';
 import { CreateGroupGameModal } from '@/components/CreateGroupGameModal';
 import { CreateGroupHuntModal } from '@/components/CreateGroupHuntModal';
+import { DeleteGroupModal } from '@/components/DeleteGroupModal';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 
@@ -16,13 +18,16 @@ export default function GroupLobby() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
   const { username, setUsername, hasUsername } = useUsername();
-  const { addGroup, getMemberId, setMemberId } = useGroups();
+  const { addGroup, removeGroup, getMemberId, setMemberId } = useGroups();
+  const { user } = useAuthContext();
   const [copied, setCopied] = useState(false);
   const [showNewGameModal, setShowNewGameModal] = useState(false);
   const [showNewHuntModal, setShowNewHuntModal] = useState(false);
   const [showGameTypeChoice, setShowGameTypeChoice] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
   const [inviteNotification, setInviteNotification] = useState<{
     gameId: string;
     gameName: string;
@@ -91,6 +96,14 @@ export default function GroupLobby() {
       .then((res) => setHuntHistory(res.hunts))
       .catch(() => { /* ignore — non-critical */ });
   }, [groupId]);
+
+  // Check if current user is the group owner
+  useEffect(() => {
+    if (!groupId || !user) return;
+    api.getGroup(groupId)
+      .then((g) => setIsOwner(g.ownerEmail === user.email))
+      .catch(() => {});
+  }, [groupId, user]);
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -232,8 +245,8 @@ export default function GroupLobby() {
                 onClick={() => { setShowGameTypeChoice(false); navigate('/riddle-wordle'); }}
                 className="w-full px-4 py-3 text-left hover:bg-lamo-bg transition-colors border-t border-lamo-border"
               >
-                <p className="text-sm font-medium text-lamo-dark">Riddle Wordle</p>
-                <p className="text-xs text-lamo-gray">Solve riddles Wordle-style</p>
+                <p className="text-sm font-medium text-lamo-dark">Riddle Guess</p>
+                <p className="text-xs text-lamo-gray">Solve riddles letter by letter</p>
               </button>
               <button
                 onClick={() => { setShowGameTypeChoice(false); setShowNewHuntModal(true); }}
@@ -299,6 +312,7 @@ export default function GroupLobby() {
               <GroupGameCard
                 key={game.gameId}
                 game={game}
+                currentUsername={username ?? undefined}
                 onJoin={() => navigate(getGamePath(game))}
               />
             ))}
@@ -313,12 +327,7 @@ export default function GroupLobby() {
         </h3>
         {waitingGames.length === 0 && activeGames.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-lamo-gray-muted mb-4">No games yet. Start one!</p>
-            <div className="flex flex-wrap gap-3 justify-center">
-              <Button onClick={() => setShowNewGameModal(true)}>New Trivia</Button>
-              <Button onClick={() => navigate('/riddle-wordle')}>Riddle Wordle</Button>
-              <Button onClick={() => setShowNewHuntModal(true)}>New Scavenger Hunt</Button>
-            </div>
+            <p className="text-lamo-gray-muted">No games yet. Use the <strong>New Game</strong> button above to start one!</p>
           </div>
         ) : waitingGames.length === 0 ? (
           <p className="text-sm text-lamo-gray-muted py-4">No open games. Create one to get started!</p>
@@ -328,6 +337,7 @@ export default function GroupLobby() {
               <GroupGameCard
                 key={game.gameId}
                 game={game}
+                currentUsername={username ?? undefined}
                 onJoin={() => navigate(getGamePath(game))}
               />
             ))}
@@ -364,6 +374,31 @@ export default function GroupLobby() {
             ))}
           </div>
         </div>
+      )}
+
+      {/* Delete Group (owner only) */}
+      {isOwner && (
+        <div className="mt-8 border-t border-lamo-border pt-6">
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="text-sm text-red-500 hover:text-red-700 font-medium transition-colors"
+          >
+            Delete Group
+          </button>
+        </div>
+      )}
+
+      {/* Delete Group Modal */}
+      {showDeleteModal && (
+        <DeleteGroupModal
+          groupId={groupId!}
+          groupName={groupState.name}
+          onDeleted={() => {
+            removeGroup(groupId!);
+            navigate('/groups');
+          }}
+          onClose={() => setShowDeleteModal(false)}
+        />
       )}
 
       {/* New Game Modal */}

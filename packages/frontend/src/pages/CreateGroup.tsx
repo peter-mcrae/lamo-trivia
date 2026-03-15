@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useGroups } from '@/hooks/useGroups';
 import { useAuthContext } from '@/contexts/AuthContext';
+import { SEO } from '@/components/SEO';
 
 export default function CreateGroup() {
   const navigate = useNavigate();
@@ -50,6 +51,11 @@ export default function CreateGroup() {
   }
 
   return (
+    <><SEO
+        title="Create a Group - LAMO Games"
+        description="Create a private group for trivia, riddle guess, and scavenger hunts with friends and family."
+        canonical="https://lamotrivia.app/group/new"
+      />
     <div className="max-w-lg mx-auto py-10 px-6">
       <h2 className="text-2xl font-bold text-lamo-dark mb-6">Create Private Group</h2>
       <p className="text-sm text-lamo-gray mb-6">
@@ -80,6 +86,6 @@ export default function CreateGroup() {
           {submitting ? 'Creating...' : 'Create Group'}
         </button>
       </form>
-    </div>
+    </div></>
   );
 }

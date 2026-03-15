@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { api } from '@/lib/api';
 import { useGroups } from '@/hooks/useGroups';
+import { SEO } from '@/components/SEO';
 
 export default function JoinGroup() {
   const navigate = useNavigate();
@@ -31,6 +32,11 @@ export default function JoinGroup() {
   };
 
   return (
+    <><SEO
+        title="Join a Group - LAMO Games"
+        description="Join a private LAMO game group with a code. Play trivia, riddle guess, and scavenger hunts with friends and family."
+        canonical="https://lamotrivia.app/group/join"
+      />
     <div className="max-w-lg mx-auto py-10 px-6">
       <h2 className="text-2xl font-bold text-lamo-dark mb-6">Join Private Group</h2>
       <form onSubmit={handleSubmit} className="space-y-6">
@@ -69,6 +75,6 @@ export default function JoinGroup() {
           Create a new group
         </Link>
       </div>
-    </div>
+    </div></>
   );
 }

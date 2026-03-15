@@ -30,7 +30,7 @@ export function Layout() {
 
   const createItems = [
     { to: '/create', label: 'Trivia', icon: '🧠' },
-    { to: '/riddle-wordle', label: 'Riddle Wordle', icon: '🧩' },
+    { to: '/riddle-wordle', label: 'Riddle Guess', icon: '🧩' },
     { to: '/hunt/create', label: 'Scavenger Hunt', icon: '🔍' },
   ];
 
@@ -221,13 +221,13 @@ export function Layout() {
               <h3 className="font-semibold text-lamo-dark mb-4">Games</h3>
               <ul className="space-y-2 text-sm">
                 <li>
-                  <Link to="/lobby" className="text-lamo-gray hover:text-lamo-dark transition-colors">
+                  <Link to="/create" className="text-lamo-gray hover:text-lamo-dark transition-colors">
                     Trivia
                   </Link>
                 </li>
                 <li>
                   <Link to="/riddle-wordle" className="text-lamo-gray hover:text-lamo-dark transition-colors">
-                    Riddle Wordle
+                    Riddle Guess
                   </Link>
                 </li>
                 <li>

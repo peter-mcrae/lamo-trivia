@@ -1,10 +1,9 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { Layout } from '@/components/Layout';
 import { AuthProvider } from '@/contexts/AuthContext';
 import { ProtectedRoute } from '@/components/ProtectedRoute';
 import { usePageTracking } from '@/hooks/usePageTracking';
 import Home from '@/pages/Home';
-import Lobby from '@/pages/Lobby';
 import CreateGame from '@/pages/CreateGame';
 import GameRoom from '@/pages/GameRoom';
 import Groups from '@/pages/Groups';
@@ -31,7 +30,7 @@ function AppRoutes() {
     <Routes>
       <Route element={<Layout />}>
         <Route path="/" element={<Home />} />
-        <Route path="/lobby" element={<Lobby />} />
+        <Route path="/lobby" element={<Navigate to="/create" replace />} />
         <Route path="/create" element={<CreateGame />} />
         <Route path="/game/:gameId" element={<GameRoom />} />
         <Route path="/groups" element={<Groups />} />

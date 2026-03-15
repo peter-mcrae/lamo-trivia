@@ -64,8 +64,24 @@ export class PrivateGroup {
           id: this.group.id,
           name: this.group.name,
           createdAt: this.group.createdAt,
+          ownerEmail: this.group.ownerEmail,
           memberCount: this.group.members.length,
         });
+      }
+
+      // POST /delete — delete the group (close all connections, wipe state)
+      if (request.method === 'POST' && url.pathname === '/delete') {
+        if (!this.group) {
+          return Response.json({ error: 'Group not found' }, { status: 404 });
+        }
+        // Close all WebSocket connections
+        const sockets = this.state.getWebSockets();
+        for (const ws of sockets) {
+          try { ws.close(1000, 'Group deleted'); } catch { /* ignore */ }
+        }
+        this.group = null;
+        await this.state.storage.deleteAll();
+        return Response.json({ ok: true });
       }
 
       // POST /games — register a new game in the group

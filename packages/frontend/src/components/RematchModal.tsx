@@ -5,11 +5,12 @@ import { api } from '@/lib/api';
 
 interface RematchModalProps {
   currentConfig: GameConfig;
+  groupId?: string;
   onRematchCreated: (newGameId: string) => void;
   onClose: () => void;
 }
 
-export function RematchModal({ currentConfig, onRematchCreated, onClose }: RematchModalProps) {
+export function RematchModal({ currentConfig, groupId, onRematchCreated, onClose }: RematchModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -17,7 +18,9 @@ export function RematchModal({ currentConfig, onRematchCreated, onClose }: Remat
     setSubmitting(true);
     setError('');
     try {
-      const result = await api.createGame(config);
+      const result = groupId
+        ? await api.createGroupGame(groupId, config)
+        : await api.createGame(config);
       onRematchCreated(result.gameId);
     } catch {
       setError('Failed to create game. Try again.');

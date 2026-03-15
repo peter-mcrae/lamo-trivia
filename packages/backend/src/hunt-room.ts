@@ -254,8 +254,14 @@ export class ScavengerHuntRoom {
       return;
     }
 
-    if (this.room.players.some((p) => p.username.toLowerCase() === username.toLowerCase())) {
-      this.sendTo(ws, { type: 'error', message: 'Username already taken', code: 'USERNAME_TAKEN' });
+    // If a player with the same username already exists (e.g., returning after navigating away),
+    // re-attach to the existing player instead of creating a duplicate
+    const existingPlayer = this.room.players.find(
+      (p) => p.username.toLowerCase() === username.toLowerCase(),
+    );
+    if (existingPlayer) {
+      ws.serializeAttachment(existingPlayer.id);
+      this.sendTo(ws, { type: 'hunt_state', state: this.getClientHuntState(existingPlayer.id) });
       return;
     }
 
@@ -1157,19 +1163,21 @@ export class ScavengerHuntRoom {
     const hostPlayer = this.room.players.find((p) => p.id === this.room!.hostId);
     const hostSecret = crypto.randomUUID();
 
-    // Collect photo R2 keys for found items
+    // Collect photo R2 keys for found items (only if savePhotos is enabled)
     const photoKeys: Record<string, Record<string, string>> = {};
-    for (const player of this.room.players) {
-      const progress = this.room.progress[player.id];
-      if (!progress) continue;
-      const playerPhotos: Record<string, string> = {};
-      for (const [itemId, itemProgress] of Object.entries(progress.items)) {
-        if (itemProgress.status === 'found' && itemProgress.photoUrl) {
-          playerPhotos[itemId] = itemProgress.photoUrl;
+    if (this.room.config.savePhotos) {
+      for (const player of this.room.players) {
+        const progress = this.room.progress[player.id];
+        if (!progress) continue;
+        const playerPhotos: Record<string, string> = {};
+        for (const [itemId, itemProgress] of Object.entries(progress.items)) {
+          if (itemProgress.status === 'found' && itemProgress.photoUrl) {
+            playerPhotos[itemId] = itemProgress.photoUrl;
+          }
         }
-      }
-      if (Object.keys(playerPhotos).length > 0) {
-        photoKeys[player.id] = playerPhotos;
+        if (Object.keys(playerPhotos).length > 0) {
+          photoKeys[player.id] = playerPhotos;
+        }
       }
     }
 
