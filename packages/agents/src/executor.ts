@@ -69,6 +69,20 @@ export async function executeAction(page: Page, action: AgentAction): Promise<st
       return `Resized viewport to ${action.viewport.width}x${action.viewport.height}`;
     }
 
+    case "keyboard": {
+      if (!action.key) throw new Error("keyboard action requires a key");
+      await page.keyboard.press(action.key);
+      return `Pressed key: ${action.key}`;
+    }
+
+    case "upload": {
+      if (!action.selector) throw new Error("upload action requires a selector");
+      if (!action.filePath) throw new Error("upload action requires a filePath");
+      const fileInput = page.locator(action.selector);
+      await fileInput.setInputFiles(action.filePath);
+      return `Uploaded file ${action.filePath} to ${action.selector}`;
+    }
+
     default:
       throw new Error(`Unknown action type: ${action.type}`);
   }

@@ -3,9 +3,11 @@ import * as path from "node:path";
 import { chromium, type Browser, type Page } from "playwright";
 import type { AgentConfig } from "./config.js";
 import type { TurnLog } from "./types.js";
+import type { TestScenario } from "./scenarios.js";
 import { AgentBrain } from "./brain.js";
 import { executeAction, getPageText, getInteractiveElements } from "./executor.js";
 import { SessionLogger } from "./logger.js";
+import { getPlaceholderPhotoPath, getRandomPhoto } from "./photos.js";
 
 export class ExplorerAgent {
   private config: AgentConfig;
@@ -14,10 +16,12 @@ export class ExplorerAgent {
   private page: Page | null = null;
   private logger: SessionLogger;
   private sessionId: string;
+  private scenario: TestScenario | null;
 
-  constructor(config: AgentConfig) {
+  constructor(config: AgentConfig, scenario?: TestScenario) {
     this.config = config;
-    this.brain = new AgentBrain(config.model);
+    this.scenario = scenario ?? null;
+    this.brain = new AgentBrain(config.model, scenario?.instructions);
     this.sessionId = `${config.agentName}-${Date.now()}`;
     this.logger = new SessionLogger(
       this.sessionId,
@@ -31,7 +35,9 @@ export class ExplorerAgent {
   }
 
   async start(): Promise<void> {
+    const scenarioName = this.scenario?.name ?? "Free Exploration";
     console.log(`\nStarting agent: ${this.config.agentName}`);
+    console.log(`Scenario: ${scenarioName}`);
     console.log(`Session: ${this.sessionId}`);
     console.log(`Target: ${this.config.baseUrl}`);
     console.log(`Max turns: ${this.config.maxTurns}`);
@@ -59,7 +65,10 @@ export class ExplorerAgent {
     }
 
     try {
-      await this.page.goto(this.config.baseUrl, {
+      const startUrl = this.scenario?.startPath
+        ? `${this.config.baseUrl}${this.scenario.startPath}`
+        : this.config.baseUrl;
+      await this.page.goto(startUrl, {
         waitUntil: "networkidle",
         timeout: 30000,
       });
@@ -108,6 +117,12 @@ export class ExplorerAgent {
         let errorMessage: string | undefined;
 
         try {
+          // If the agent wants to upload a file, resolve a real photo path
+          if (observation.action.type === "upload") {
+            const photo = getRandomPhoto();
+            observation.action.filePath = photo?.filePath ?? getPlaceholderPhotoPath();
+          }
+
           await executeAction(page, observation.action);
           // Wait for any navigation / network to settle
           await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});

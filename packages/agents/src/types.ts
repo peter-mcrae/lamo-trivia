@@ -1,5 +1,5 @@
 export interface AgentAction {
-  type: "click" | "type" | "navigate" | "scroll" | "wait" | "select" | "back" | "refresh" | "screenshot" | "resize";
+  type: "click" | "type" | "navigate" | "scroll" | "wait" | "select" | "back" | "refresh" | "screenshot" | "resize" | "keyboard" | "upload";
   /** CSS selector for click/type/select actions */
   selector?: string;
   /** Text to type */
@@ -16,6 +16,10 @@ export interface AgentAction {
   viewport?: { width: number; height: number };
   /** Value for select */
   value?: string;
+  /** Key to press (for keyboard action, e.g., "Enter", "Backspace", "a", "b") */
+  key?: string;
+  /** File path to upload (for upload action) */
+  filePath?: string;
 }
 
 export type IssueSeverity = "critical" | "major" | "minor" | "suggestion";

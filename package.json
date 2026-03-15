@@ -13,6 +13,8 @@
     "agent:explore": "npm run explore --workspace=packages/agents",
     "agent:explore:mobile": "npm run explore:mobile --workspace=packages/agents",
     "agent:explore:headed": "npm run explore:headed --workspace=packages/agents",
+    "agent:scenario": "npm run scenario --workspace=packages/agents --",
+    "agent:scenarios": "npm run scenario:list --workspace=packages/agents",
     "dev": "npm run dev:backend & npm run dev:frontend",
     "dev:backend": "npm run dev --workspace=packages/backend",
     "dev:frontend": "npm run dev --workspace=packages/frontend",

@@ -6,7 +6,9 @@
   "scripts": {
     "explore": "npx tsx src/run-explorer.ts",
     "explore:mobile": "npx tsx src/run-explorer.ts --mobile",
-    "explore:headed": "npx tsx src/run-explorer.ts --headed"
+    "explore:headed": "npx tsx src/run-explorer.ts --headed",
+    "scenario": "npx tsx src/run-scenario.ts",
+    "scenario:list": "npx tsx src/run-scenario.ts --list"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.52.0",

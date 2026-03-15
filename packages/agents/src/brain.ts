@@ -24,15 +24,17 @@ Respond with VALID JSON only (no markdown, no code fences). Use this exact schem
     }
   ],
   "action": {
-    "type": "click | type | navigate | scroll | wait | select | back | refresh | resize",
-    "selector": "CSS selector (for click/type/select)",
+    "type": "click | type | navigate | scroll | wait | select | back | refresh | resize | keyboard | upload",
+    "selector": "CSS selector (for click/type/select/upload)",
     "text": "text to type (for type)",
     "url": "full URL (for navigate)",
     "direction": "up | down (for scroll)",
     "amount": 400,
     "duration": 2000,
     "viewport": { "width": 375, "height": 812 },
-    "value": "option value (for select)"
+    "value": "option value (for select)",
+    "key": "key name (for keyboard, e.g. 'Enter', 'Backspace', 'a', 'b')",
+    "filePath": "__PLACEHOLDER__ (for upload — the system will provide the actual path)"
   },
   "reasoning": "Why you're taking this action"
 }
@@ -60,10 +62,12 @@ export class AgentBrain {
   private client: Anthropic;
   private model: string;
   private conversationHistory: Anthropic.MessageParam[] = [];
+  private scenarioInstructions: string | null;
 
-  constructor(model: string) {
+  constructor(model: string, scenarioInstructions?: string) {
     this.client = new Anthropic();
     this.model = model;
+    this.scenarioInstructions = scenarioInstructions ?? null;
   }
 
   async decide(
@@ -108,10 +112,14 @@ ${interactiveElements.slice(0, 2000)}`,
       this.conversationHistory = this.conversationHistory.slice(-20);
     }
 
+    const systemPrompt = this.scenarioInstructions
+      ? `${EXPLORER_SYSTEM_PROMPT}\n\n--- SCENARIO-SPECIFIC INSTRUCTIONS ---\n${this.scenarioInstructions}`
+      : EXPLORER_SYSTEM_PROMPT;
+
     const response = await this.client.messages.create({
       model: this.model,
       max_tokens: 1024,
-      system: EXPLORER_SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: this.conversationHistory,
     });
 
