@@ -2,6 +2,12 @@ import { useState, useEffect, useCallback } from 'react';
 import type { User } from '@lamo-trivia/shared';
 import { API_BASE, AUTH_TOKEN_KEY, getAuthHeaders } from '@/lib/api';
 
+class AuthError extends Error {
+  constructor(message: string, public status: number) {
+    super(message);
+  }
+}
+
 async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
@@ -13,7 +19,7 @@ async function authFetch<T>(path: string, options?: RequestInit): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({ error: 'Request failed' }));
-    throw new Error((body as { error: string }).error || `Error ${res.status}`);
+    throw new AuthError((body as { error: string }).error || `Error ${res.status}`, res.status);
   }
   return res.json();
 }
@@ -30,9 +36,14 @@ export function useAuth() {
     }
     try {
       const { user: u } = await authFetch<{ user: User | null }>('/auth/me');
-      setUser(u);
+      if (u) {
+        setUser(u);
+      } else {
+        // Server confirmed the session is invalid — clear the token
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+      }
     } catch {
-      localStorage.removeItem(AUTH_TOKEN_KEY);
+      // Network or server error — keep the token and retry next time
     } finally {
       setLoading(false);
     }
@@ -72,12 +83,17 @@ export function useAuth() {
   const refreshUser = useCallback(async () => {
     try {
       const { user: u } = await authFetch<{ user: User | null }>('/auth/me');
-      setUser(u);
-      return u;
+      if (u) {
+        setUser(u);
+        return u;
+      } else {
+        // Server confirmed the session is invalid — clear the token
+        localStorage.removeItem(AUTH_TOKEN_KEY);
+        setUser(null);
+        return null;
+      }
     } catch {
-      // Session may have expired
-      localStorage.removeItem(AUTH_TOKEN_KEY);
-      setUser(null);
+      // Network or server error — keep the token and retry next time
       return null;
     }
   }, []);
