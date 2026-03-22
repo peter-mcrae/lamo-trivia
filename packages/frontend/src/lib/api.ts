@@ -78,7 +78,9 @@ export const api = {
 
   uploadHuntPhoto: async (huntId: string, file: Blob, itemId: string) => {
     const formData = new FormData();
-    formData.append('file', file);
+    // Explicit filename ensures Content-Type header is set correctly in the
+    // multipart body across all browsers (some omit it for raw Blobs).
+    formData.append('file', file, 'photo.jpg');
     formData.append('itemId', itemId);
 
     const response = await fetch(`${API_BASE}/hunts/${huntId}/photos`, {
