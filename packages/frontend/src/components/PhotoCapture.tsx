@@ -16,8 +16,30 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
     if (!file) return;
 
     setSelectedFile(file);
-    const url = URL.createObjectURL(file);
-    setPreview(url);
+
+    // Convert through canvas to handle HEIC/HEIF and other formats browsers can't display
+    const img = new Image();
+    const objectUrl = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(objectUrl);
+      const canvas = document.createElement('canvas');
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.drawImage(img, 0, 0);
+      canvas.toBlob((blob) => {
+        if (blob) {
+          setPreview(URL.createObjectURL(blob));
+        }
+      }, 'image/jpeg', 0.9);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      // Fallback: try direct blob URL (works for JPEG/PNG)
+      setPreview(URL.createObjectURL(file));
+    };
+    img.src = objectUrl;
   };
 
   const handleRetake = () => {

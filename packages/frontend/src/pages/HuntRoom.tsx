@@ -46,7 +46,7 @@ export default function HuntRoom() {
     reset: resetHuntState,
   } = useHuntState();
 
-  const { uploadPhoto, uploading } = usePhotoUpload(huntId!);
+  const { uploadPhoto, uploading, error: uploadError, clearError: clearUploadError } = usePhotoUpload(huntId!);
 
   const onMessage = useCallback(
     (message: Parameters<typeof handleMessage>[0]) => {
@@ -172,6 +172,7 @@ export default function HuntRoom() {
     if (uploadId) {
       send({ type: 'submit_photo', itemId, uploadId });
     }
+    // If uploadId is null, usePhotoUpload sets error state which is displayed below
   };
 
   const handleApproveAppeal = (playerId: string, itemId: string) => {
@@ -538,6 +539,14 @@ export default function HuntRoom() {
                     })}
                   </div>
                 </>
+              )}
+
+              {/* Upload error */}
+              {uploadError && (
+                <div className="fixed bottom-4 left-4 right-4 z-50 mx-auto max-w-sm px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm flex items-center justify-between shadow-lg">
+                  <span>Upload failed: {uploadError}</span>
+                  <button onClick={clearUploadError} className="ml-3 font-bold text-red-400 hover:text-red-600">&times;</button>
+                </div>
               )}
 
               {/* Photo capture modal */}
