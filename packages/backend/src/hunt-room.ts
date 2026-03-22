@@ -128,7 +128,7 @@ export class ScavengerHuntRoom {
     }
 
     const raw = typeof message === 'string' ? message : '';
-    if (raw.length > 2048) {
+    if (raw.length > 8192) {
       this.sendTo(ws, { type: 'error', message: 'Message too large' });
       return;
     }
@@ -174,6 +174,9 @@ export class ScavengerHuntRoom {
           break;
         case 'send_message':
           await this.handleSendMessage(ws, parsed.data.message, parsed.data.targetPlayerId);
+          break;
+        case 'update_config':
+          await this.handleUpdateConfig(ws, parsed.data.config);
           break;
         case 'ping':
           this.sendTo(ws, { type: 'pong' });
@@ -1243,6 +1246,56 @@ export class ScavengerHuntRoom {
     }
   }
 
+  private async handleUpdateConfig(ws: WebSocket, newConfig: Record<string, unknown>): Promise<void> {
+    if (!this.room) return;
+
+    if (this.room.phase !== 'waiting') {
+      this.sendTo(ws, { type: 'error', message: 'Can only update settings before the hunt starts' });
+      return;
+    }
+
+    const playerId = this.getPlayerId(ws);
+    if (playerId !== this.room.hostId) {
+      this.sendTo(ws, { type: 'error', message: 'Only the host can update settings' });
+      return;
+    }
+
+    const parsed = HuntConfigSchema.safeParse(newConfig);
+    if (!parsed.success) {
+      this.sendTo(ws, { type: 'error', message: 'Invalid hunt settings' });
+      return;
+    }
+
+    if (this.room.players.length > parsed.data.maxPlayers) {
+      this.sendTo(ws, {
+        type: 'error',
+        message: `Cannot set max players below current player count (${this.room.players.length})`,
+      });
+      return;
+    }
+
+    // Preserve groupId from original config (not editable)
+    const updatedConfig: HuntConfig = {
+      ...parsed.data,
+      groupId: this.room.config.groupId,
+    };
+
+    this.room.config = updatedConfig;
+    this.room.items = updatedConfig.items;
+    await this.persist();
+
+    // Broadcast full hunt state so all players see updated config
+    const sockets = this.state.getWebSockets();
+    for (const s of sockets) {
+      const pid = this.getPlayerId(s);
+      if (pid) {
+        this.sendTo(s, { type: 'hunt_state', state: this.getClientHuntState(pid) });
+      }
+    }
+
+    await this.notifyGroupOfUpdate();
+  }
+
   private async notifyGroupOfUpdate(): Promise<void> {
     if (!this.room?.config.groupId) return;
     try {
@@ -1252,6 +1305,7 @@ export class ScavengerHuntRoom {
         new Request(`http://internal/games/${this.room.huntId}`, {
           method: 'PUT',
           body: JSON.stringify({
+            name: this.room.config.name,
             playerCount: this.room.players.length,
             phase: this.room.phase,
             hostUsername: this.room.players.find((p) => p.id === this.room!.hostId)?.username || '',

@@ -32,16 +32,16 @@ async function createInitializedRoom() {
 }
 
 describe('GameRoom Security', () => {
-  it('rejects oversized WebSocket messages (>2048 chars) with error', async () => {
+  it('rejects oversized WebSocket messages (>8192 chars) with error', async () => {
     const { room } = await createInitializedRoom();
     const ws = createMockWebSocket();
 
-    // Create a message larger than 2048 characters
+    // Create a message larger than 8192 characters
     const oversizedMessage = JSON.stringify({
       type: 'join_game',
-      username: 'A'.repeat(3000),
+      username: 'A'.repeat(9000),
     });
-    expect(oversizedMessage.length).toBeGreaterThan(2048);
+    expect(oversizedMessage.length).toBeGreaterThan(8192);
 
     await room.webSocketMessage(ws, oversizedMessage);
 
@@ -54,9 +54,9 @@ describe('GameRoom Security', () => {
     const { room } = await createInitializedRoom();
     const ws = createMockWebSocket();
 
-    // A valid ping message (well under 2048 chars)
+    // A valid ping message (well under 8192 chars)
     const normalMessage = JSON.stringify({ type: 'ping' });
-    expect(normalMessage.length).toBeLessThan(2048);
+    expect(normalMessage.length).toBeLessThan(8192);
 
     await room.webSocketMessage(ws, normalMessage);
 

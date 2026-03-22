@@ -708,16 +708,16 @@ describe('ScavengerHuntRoom -- Security', () => {
     room = initialized.room;
   });
 
-  it('rejects oversized messages (>2048 chars)', async () => {
+  it('rejects oversized messages (>8192 chars)', async () => {
     const ws = createMockWebSocket();
     state.acceptWebSocket(ws);
 
     const oversizedMessage = JSON.stringify({
       type: 'join_hunt',
       huntId: 'HUNT-TEST',
-      username: 'A'.repeat(3000),
+      username: 'A'.repeat(9000),
     });
-    expect(oversizedMessage.length).toBeGreaterThan(2048);
+    expect(oversizedMessage.length).toBeGreaterThan(8192);
 
     await room.webSocketMessage(ws, oversizedMessage);
 

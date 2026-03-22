@@ -42,6 +42,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
   }),
   z.object({ type: z.literal('claim_host') }),
   z.object({ type: z.literal('rematch'), newGameId: z.string().min(1) }),
+  z.object({ type: z.literal('update_config'), config: z.record(z.unknown()) }),
   z.object({ type: z.literal('ping') }),
 ]);
 
@@ -118,5 +119,6 @@ export const HuntClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('contest_photo'), itemId: z.string() }),
   z.object({ type: z.literal('claim_host') }),
   z.object({ type: z.literal('send_message'), message: z.string().min(1).max(200), targetPlayerId: z.string().optional() }),
+  z.object({ type: z.literal('update_config'), config: z.record(z.unknown()) }),
   z.object({ type: z.literal('ping') }),
 ]);

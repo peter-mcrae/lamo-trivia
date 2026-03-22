@@ -1,6 +1,6 @@
 import type {
-  GameState, ClientQuestion, Player, GroupState, GroupMember, GroupGame,
-  ClientHuntState, HuntItem, HuntAppeal, HuntResults, HuntTeamSummary,
+  GameState, GameConfig, ClientQuestion, Player, GroupState, GroupMember, GroupGame,
+  ClientHuntState, HuntConfig, HuntItem, HuntAppeal, HuntResults, HuntTeamSummary,
 } from './types';
 
 // Client -> Server
@@ -12,6 +12,7 @@ export type ClientMessage =
   | { type: 'submit_answer'; questionIndex: number; answerIndex: number }
   | { type: 'claim_host' }
   | { type: 'rematch'; newGameId: string }
+  | { type: 'update_config'; config: GameConfig }
   | { type: 'ping' };
 
 // Server -> Client
@@ -25,6 +26,7 @@ export type ServerMessage =
   | { type: 'answer_result'; correct: boolean; correctIndex: number; scores: Record<string, number> }
   | { type: 'game_finished'; finalScores: Record<string, number>; rankings: Player[] }
   | { type: 'rematch'; newGameId: string }
+  | { type: 'config_updated'; config: GameConfig }
   | { type: 'game_expired'; message: string }
   | { type: 'error'; message: string; code?: string }
   | { type: 'pong' };
@@ -67,6 +69,7 @@ export type HuntClientMessage =
   | { type: 'claim_host' }
   | { type: 'contest_photo'; itemId: string }
   | { type: 'send_message'; message: string; targetPlayerId?: string }
+  | { type: 'update_config'; config: HuntConfig }
   | { type: 'ping' };
 
 // Hunt Server -> Client
@@ -89,6 +92,7 @@ export type HuntServerMessage =
   | { type: 'hunt_finished'; results: HuntResults }
   | { type: 'hunt_history_saved'; huntId: string; hostSecret: string }
   | { type: 'host_message'; message: string }
+  | { type: 'config_updated'; config: HuntConfig }
   | { type: 'hunt_expired'; message: string }
   | { type: 'time_warning'; secondsRemaining: number }
   | { type: 'credits_deducted'; amount: number; remaining: number }
