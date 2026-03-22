@@ -291,10 +291,14 @@ export interface HuntHistoryEntry {
   huntId: string;
   config: {
     name: string;
-    items: Array<{ id: string; description: string; basePoints: number }>;
+    items: HuntItem[];
     durationMinutes: number;
     maxRetries: number;
+    basePointsPerItem: number;
     hintPointCost: number;
+    minPlayers: number;
+    maxPlayers: number;
+    savePhotos: boolean;
   };
   hostUsername: string;
   hostSecret: string;

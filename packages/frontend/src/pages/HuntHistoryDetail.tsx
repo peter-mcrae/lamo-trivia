@@ -153,11 +153,32 @@ export default function HuntHistoryDetail() {
         </div>
       )}
 
-      {/* Back button */}
+      {/* Actions */}
       <div className="flex justify-center gap-3 mt-8">
         <Button variant="secondary" onClick={() => navigate('/hunts/history')}>
           Back to History
         </Button>
+        {hunt.groupId ? (
+          <Button
+            onClick={() =>
+              navigate(`/groups/${hunt.groupId}`, {
+                state: { cloneHuntConfig: hunt.config },
+              })
+            }
+          >
+            Clone Hunt
+          </Button>
+        ) : (
+          <Button
+            onClick={() =>
+              navigate('/hunt/create', {
+                state: { cloneHuntConfig: hunt.config },
+              })
+            }
+          >
+            Clone Hunt
+          </Button>
+        )}
       </div>
     </div>
   );
