@@ -18,6 +18,8 @@ import CategoryPage from '@/pages/CategoryPage';
 import RiddleWordle from '@/pages/RiddleWordle';
 import CreateHunt from '@/pages/CreateHunt';
 import HuntRoom from '@/pages/HuntRoom';
+import HuntHistory from '@/pages/HuntHistory';
+import HuntHistoryDetail from '@/pages/HuntHistoryDetail';
 import Login from '@/pages/Login';
 import Credits from '@/pages/Credits';
 import CreditsPurchaseSuccess from '@/pages/CreditsPurchaseSuccess';
@@ -43,6 +45,8 @@ function AppRoutes() {
         <Route path="/trivia/:categoryId" element={<CategoryPage />} />
         <Route path="/riddle-wordle" element={<RiddleWordle />} />
         <Route path="/hunt/create" element={<CreateHunt />} />
+        <Route path="/hunts/history" element={<HuntHistory />} />
+        <Route path="/hunt/:huntId/history" element={<HuntHistoryDetail />} />
         <Route path="/hunt/:huntId" element={<HuntRoom />} />
         <Route path="/login" element={<Login />} />
         <Route path="/credits" element={<ProtectedRoute><Credits /></ProtectedRoute>} />
