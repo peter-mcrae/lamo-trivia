@@ -1,16 +1,17 @@
 import { useState } from 'react';
-import type { HuntConfigInput } from '@lamo-trivia/shared';
+import type { HuntConfigInput, HuntConfig } from '@lamo-trivia/shared';
 import { HuntConfigForm } from './HuntConfigForm';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { api } from '@/lib/api';
 
 interface CreateGroupHuntModalProps {
   groupId: string;
+  initialConfig?: Partial<HuntConfig>;
   onHuntCreated: (huntId: string) => void;
   onClose: () => void;
 }
 
-export function CreateGroupHuntModal({ groupId, onHuntCreated, onClose }: CreateGroupHuntModalProps) {
+export function CreateGroupHuntModal({ groupId, initialConfig, onHuntCreated, onClose }: CreateGroupHuntModalProps) {
   const { user } = useAuthContext();
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -31,7 +32,7 @@ export function CreateGroupHuntModal({ groupId, onHuntCreated, onClose }: Create
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto p-6">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-bold text-lamo-dark">New Scavenger Hunt</h2>
+          <h2 className="text-xl font-bold text-lamo-dark">{initialConfig ? 'Clone Scavenger Hunt' : 'New Scavenger Hunt'}</h2>
           <button
             onClick={onClose}
             className="text-lamo-gray-muted hover:text-lamo-dark transition-colors text-2xl leading-none px-1"
@@ -58,6 +59,7 @@ export function CreateGroupHuntModal({ groupId, onHuntCreated, onClose }: Create
             <a href="/credits" className="text-lamo-blue hover:underline">Buy more</a>
           </p>
           <HuntConfigForm
+            initialConfig={initialConfig}
             submitLabel="Create Hunt"
             submittingLabel="Creating..."
             onSubmit={handleSubmit}

@@ -1,6 +1,6 @@
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useEffect, useRef, useState, useCallback } from 'react';
-import type { GroupServerMessage, HuntHistorySummary } from '@lamo-trivia/shared';
+import type { GroupServerMessage, HuntHistorySummary, HuntConfig } from '@lamo-trivia/shared';
 import { useGroupWebSocket } from '@/hooks/useGroupWebSocket';
 import { useGroupState } from '@/hooks/useGroupState';
 import { useUsername } from '@/hooks/useUsername';
@@ -17,12 +17,23 @@ import { api } from '@/lib/api';
 export default function GroupLobby() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [cloneHuntConfig] = useState(
+    () => (location.state as { cloneHuntConfig?: Partial<HuntConfig> } | null)?.cloneHuntConfig,
+  );
+
+  // Clear navigation state so back/forward doesn't re-trigger clone
+  useEffect(() => {
+    if (cloneHuntConfig) {
+      window.history.replaceState({}, '');
+    }
+  }, [cloneHuntConfig]);
   const { username, setUsername, hasUsername } = useUsername();
   const { addGroup, removeGroup, getMemberId, setMemberId } = useGroups();
   const { user } = useAuthContext();
   const [copied, setCopied] = useState(false);
   const [showNewGameModal, setShowNewGameModal] = useState(false);
-  const [showNewHuntModal, setShowNewHuntModal] = useState(false);
+  const [showNewHuntModal, setShowNewHuntModal] = useState(!!cloneHuntConfig);
   const [showGameTypeChoice, setShowGameTypeChoice] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
   const [showRenameModal, setShowRenameModal] = useState(false);
@@ -414,6 +425,7 @@ export default function GroupLobby() {
       {showNewHuntModal && (
         <CreateGroupHuntModal
           groupId={groupId!}
+          initialConfig={cloneHuntConfig}
           onHuntCreated={handleHuntCreated}
           onClose={() => setShowNewHuntModal(false)}
         />
