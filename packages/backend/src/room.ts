@@ -1,5 +1,5 @@
 import type { Player, GameConfig, GamePhase, Question, ClientQuestion, GameState, Avatar } from '@lamo-trivia/shared';
-import { ClientMessageSchema, AVATARS, GAME_EXPIRY_MS } from '@lamo-trivia/shared';
+import { ClientMessageSchema, GameConfigSchema, AVATARS, GAME_EXPIRY_MS } from '@lamo-trivia/shared';
 import { getOpenAIKey } from './env';
 import type { Env } from './env';
 import { getQuestions, saveAIQuestionsToBank } from './questions';
@@ -108,9 +108,9 @@ export class GameRoom {
       }
     }
 
-    // Guard against oversized messages (max 2KB is plenty for any valid client message)
+    // Guard against oversized messages (8KB to allow config updates)
     const raw = typeof message === 'string' ? message : '';
-    if (raw.length > 2048) {
+    if (raw.length > 8192) {
       this.sendTo(ws, { type: 'error', message: 'Message too large' });
       return;
     }
@@ -144,6 +144,9 @@ export class GameRoom {
           break;
         case 'rematch':
           await this.handleRematch(ws, parsed.data.newGameId);
+          break;
+        case 'update_config':
+          await this.handleUpdateConfig(ws, parsed.data.config);
           break;
         case 'ping':
           this.sendTo(ws, { type: 'pong' });
@@ -660,6 +663,50 @@ export class GameRoom {
 
   // --- Helpers ---
 
+  private async handleUpdateConfig(ws: WebSocket, newConfig: Record<string, unknown>): Promise<void> {
+    if (!this.room) return;
+
+    if (this.room.phase !== 'waiting') {
+      this.sendTo(ws, { type: 'error', message: 'Can only update settings before the game starts' });
+      return;
+    }
+
+    const playerId = this.getPlayerId(ws);
+    if (playerId !== this.room.hostId) {
+      this.sendTo(ws, { type: 'error', message: 'Only the host can update settings' });
+      return;
+    }
+
+    const parsed = GameConfigSchema.safeParse(newConfig);
+    if (!parsed.success) {
+      this.sendTo(ws, { type: 'error', message: 'Invalid game settings' });
+      return;
+    }
+
+    if (this.room.players.length > parsed.data.maxPlayers) {
+      this.sendTo(ws, {
+        type: 'error',
+        message: `Cannot set max players below current player count (${this.room.players.length})`,
+      });
+      return;
+    }
+
+    // Preserve groupId from original config (not editable)
+    const updatedConfig: GameConfig = {
+      ...parsed.data,
+      groupId: this.room.config.groupId,
+    };
+
+    this.room.config = updatedConfig;
+    await this.persist();
+
+    // Broadcast full game state so all players see updated config
+    this.broadcast({ type: 'game_state', state: this.getClientGameState() });
+
+    // Notify group of the update (e.g. name change)
+    await this.notifyGroupOfUpdate();
+  }
+
   private async notifyGroupOfUpdate(): Promise<void> {
     if (!this.room?.config.groupId) return;
     try {
@@ -669,6 +716,7 @@ export class GameRoom {
         new Request(`http://internal/games/${this.room.gameId}`, {
           method: 'PUT',
           body: JSON.stringify({
+            name: this.room.config.name,
             playerCount: this.room.players.length,
             phase: this.room.phase,
             hostUsername: this.room.players.find((p) => p.id === this.room!.hostId)?.username || '',

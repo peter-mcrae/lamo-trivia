@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import type { HuntItem, HuntClue } from '@lamo-trivia/shared';
+import type { HuntItem, HuntClue, HuntConfig } from '@lamo-trivia/shared';
 import type { HuntConfigInput } from '@lamo-trivia/shared';
 import { HUNT_DEFAULTS, HUNT_LIMITS } from '@lamo-trivia/shared';
 import { HuntItemBuilder } from '@/components/HuntItemBuilder';
 
 interface HuntConfigFormProps {
+  /** Pre-fill values (e.g. for editing). Omit to use HUNT_DEFAULTS. */
+  initialConfig?: Partial<HuntConfig>;
   submitLabel: string;
   submittingLabel: string;
   onSubmit: (config: HuntConfigInput) => void | Promise<void>;
@@ -12,6 +14,8 @@ interface HuntConfigFormProps {
   error?: string;
   showCreditEstimate?: boolean;
   userCredits?: number;
+  /** Optional cancel handler — renders a cancel button if provided */
+  onCancel?: () => void;
 }
 
 function createEmptyItem(): HuntItem {
@@ -80,6 +84,7 @@ function parseAIItems(json: string): HuntItem[] {
 }
 
 export function HuntConfigForm({
+  initialConfig,
   submitLabel,
   submittingLabel,
   onSubmit,
@@ -87,6 +92,7 @@ export function HuntConfigForm({
   error: externalError,
   showCreditEstimate,
   userCredits,
+  onCancel,
 }: HuntConfigFormProps) {
   const [internalError, setInternalError] = useState('');
   const [promptCopied, setPromptCopied] = useState(false);
@@ -94,15 +100,15 @@ export function HuntConfigForm({
   const [pasteValue, setPasteValue] = useState('');
   const [pasteError, setPasteError] = useState('');
 
-  const [name, setName] = useState('');
-  const [durationMinutes, setDurationMinutes] = useState<number>(HUNT_DEFAULTS.durationMinutes);
-  const [items, setItems] = useState<HuntItem[]>([createEmptyItem()]);
-  const [basePointsPerItem, setBasePointsPerItem] = useState<number>(HUNT_DEFAULTS.basePointsPerItem);
-  const [hintPointCost, setHintPointCost] = useState<number>(HUNT_DEFAULTS.hintPointCost);
-  const [maxRetries, setMaxRetries] = useState<number>(HUNT_DEFAULTS.maxRetries);
-  const [minPlayers, setMinPlayers] = useState<number>(HUNT_DEFAULTS.minPlayers);
-  const [maxPlayers, setMaxPlayers] = useState<number>(HUNT_DEFAULTS.maxPlayers);
-  const [savePhotos, setSavePhotos] = useState(false);
+  const [name, setName] = useState(initialConfig?.name ?? '');
+  const [durationMinutes, setDurationMinutes] = useState<number>(initialConfig?.durationMinutes ?? HUNT_DEFAULTS.durationMinutes);
+  const [items, setItems] = useState<HuntItem[]>(initialConfig?.items?.length ? initialConfig.items : [createEmptyItem()]);
+  const [basePointsPerItem, setBasePointsPerItem] = useState<number>(initialConfig?.basePointsPerItem ?? HUNT_DEFAULTS.basePointsPerItem);
+  const [hintPointCost, setHintPointCost] = useState<number>(initialConfig?.hintPointCost ?? HUNT_DEFAULTS.hintPointCost);
+  const [maxRetries, setMaxRetries] = useState<number>(initialConfig?.maxRetries ?? HUNT_DEFAULTS.maxRetries);
+  const [minPlayers, setMinPlayers] = useState<number>(initialConfig?.minPlayers ?? HUNT_DEFAULTS.minPlayers);
+  const [maxPlayers, setMaxPlayers] = useState<number>(initialConfig?.maxPlayers ?? HUNT_DEFAULTS.maxPlayers);
+  const [savePhotos, setSavePhotos] = useState(initialConfig?.savePhotos ?? false);
 
   const error = externalError || internalError;
 
@@ -440,14 +446,25 @@ export function HuntConfigForm({
       {/* Error */}
       {error && <p className="text-red-500 text-sm">{error}</p>}
 
-      {/* Submit */}
-      <button
-        type="submit"
-        disabled={submitting || (showCreditEstimate && userCredits != null && userCredits < items.length * maxRetries * maxPlayers)}
-        className="w-full px-6 py-3 bg-lamo-blue text-white font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors disabled:opacity-50"
-      >
-        {submitting ? submittingLabel : submitLabel}
-      </button>
+      {/* Submit / Cancel */}
+      <div className={onCancel ? 'flex gap-3' : ''}>
+        <button
+          type="submit"
+          disabled={submitting || (showCreditEstimate && userCredits != null && userCredits < items.length * maxRetries * maxPlayers)}
+          className={`${onCancel ? 'flex-1' : 'w-full'} px-6 py-3 bg-lamo-blue text-white font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors disabled:opacity-50`}
+        >
+          {submitting ? submittingLabel : submitLabel}
+        </button>
+        {onCancel && (
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-6 py-3 border border-lamo-border text-lamo-dark font-semibold rounded-pill hover:bg-lamo-bg transition-colors"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
     </form>
   );
 }

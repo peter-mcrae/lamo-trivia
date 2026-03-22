@@ -215,49 +215,49 @@ export default function GroupLobby() {
   return (
     <div className="max-w-3xl mx-auto py-10 px-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-lamo-dark">{groupState.name}</h2>
-          <div className="flex items-center gap-2 mt-1">
-            <p className="text-sm text-lamo-gray-muted">
-              Code: <span className="font-mono font-bold text-lamo-dark">{groupState.id}</span>
-            </p>
+      <div className="mb-4">
+        <h2 className="text-2xl font-bold text-lamo-dark">{groupState.name}</h2>
+        <div className="flex items-center gap-2 mt-1">
+          <p className="text-sm text-lamo-gray-muted">
+            Code: <span className="font-mono font-bold text-lamo-dark">{groupState.id}</span>
+          </p>
+          <button
+            onClick={handleShare}
+            className="text-xs px-2.5 py-1 rounded-full bg-lamo-blue/10 text-lamo-blue font-medium hover:bg-lamo-blue/20 transition-colors"
+          >
+            {copied ? 'Copied!' : 'Share'}
+          </button>
+        </div>
+      </div>
+
+      {/* New Game */}
+      <div className="relative mb-6">
+        <Button onClick={() => setShowGameTypeChoice(!showGameTypeChoice)}>New Game</Button>
+        {showGameTypeChoice && (
+          <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-lamo-border z-40 overflow-hidden">
             <button
-              onClick={handleShare}
-              className="text-xs px-2.5 py-1 rounded-full bg-lamo-blue/10 text-lamo-blue font-medium hover:bg-lamo-blue/20 transition-colors"
+              onClick={() => { setShowGameTypeChoice(false); setShowNewGameModal(true); }}
+              className="w-full px-4 py-3 text-left hover:bg-lamo-bg transition-colors"
             >
-              {copied ? 'Copied!' : 'Share'}
+              <p className="text-sm font-medium text-lamo-dark">Trivia</p>
+              <p className="text-xs text-lamo-gray">Answer questions in real-time</p>
+            </button>
+            <button
+              onClick={() => { setShowGameTypeChoice(false); navigate('/riddle-wordle'); }}
+              className="w-full px-4 py-3 text-left hover:bg-lamo-bg transition-colors border-t border-lamo-border"
+            >
+              <p className="text-sm font-medium text-lamo-dark">Riddle Guess</p>
+              <p className="text-xs text-lamo-gray">Solve riddles letter by letter</p>
+            </button>
+            <button
+              onClick={() => { setShowGameTypeChoice(false); setShowNewHuntModal(true); }}
+              className="w-full px-4 py-3 text-left hover:bg-lamo-bg transition-colors border-t border-lamo-border"
+            >
+              <p className="text-sm font-medium text-lamo-dark">Scavenger Hunt</p>
+              <p className="text-xs text-lamo-gray">Find items and snap photos</p>
             </button>
           </div>
-        </div>
-        <div className="relative">
-          <Button onClick={() => setShowGameTypeChoice(!showGameTypeChoice)}>New Game</Button>
-          {showGameTypeChoice && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-lamo-border z-40 overflow-hidden">
-              <button
-                onClick={() => { setShowGameTypeChoice(false); setShowNewGameModal(true); }}
-                className="w-full px-4 py-3 text-left hover:bg-lamo-bg transition-colors"
-              >
-                <p className="text-sm font-medium text-lamo-dark">Trivia</p>
-                <p className="text-xs text-lamo-gray">Answer questions in real-time</p>
-              </button>
-              <button
-                onClick={() => { setShowGameTypeChoice(false); navigate('/riddle-wordle'); }}
-                className="w-full px-4 py-3 text-left hover:bg-lamo-bg transition-colors border-t border-lamo-border"
-              >
-                <p className="text-sm font-medium text-lamo-dark">Riddle Guess</p>
-                <p className="text-xs text-lamo-gray">Solve riddles letter by letter</p>
-              </button>
-              <button
-                onClick={() => { setShowGameTypeChoice(false); setShowNewHuntModal(true); }}
-                className="w-full px-4 py-3 text-left hover:bg-lamo-bg transition-colors border-t border-lamo-border"
-              >
-                <p className="text-sm font-medium text-lamo-dark">Scavenger Hunt</p>
-                <p className="text-xs text-lamo-gray">Find items and snap photos</p>
-              </button>
-            </div>
-          )}
-        </div>
+        )}
       </div>
 
       {/* Game invite notification */}

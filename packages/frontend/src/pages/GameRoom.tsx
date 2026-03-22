@@ -12,6 +12,7 @@ import { ScoreBoard } from '../components/ScoreBoard';
 import { RematchModal } from '../components/RematchModal';
 import { Button } from '../components/ui/Button';
 import { GroupMembersCard } from '../components/GroupMembersCard';
+import { GameConfigForm } from '../components/GameConfigForm';
 import { api } from '../lib/api';
 
 export default function GameRoom() {
@@ -23,6 +24,7 @@ export default function GameRoom() {
   const [timeLeft, setTimeLeft] = useState(0);
   const [copied, setCopied] = useState(false);
   const [expiryTimeLeft, setExpiryTimeLeft] = useState<number | null>(null);
+  const [showEditSettings, setShowEditSettings] = useState(false);
   const [showRematchModal, setShowRematchModal] = useState(false);
   const [groupName, setGroupName] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -347,6 +349,7 @@ export default function GameRoom() {
               </p>
             </div>
           ) : (
+            <>
             <div className="flex gap-3">
               {isHost && (
                 <Button onClick={handleStartGame} disabled={!canStart}>
@@ -364,10 +367,47 @@ export default function GameRoom() {
                   </button>
                 </div>
               )}
+              {isHost && (
+                <button
+                  onClick={() => setShowEditSettings(true)}
+                  className="px-4 py-2.5 border border-lamo-border text-lamo-dark text-sm font-semibold rounded-pill hover:bg-lamo-bg transition-colors"
+                >
+                  Edit Settings
+                </button>
+              )}
               <Button variant="secondary" onClick={() => navigate(backPath)}>
                 Leave
               </Button>
             </div>
+
+            {/* Edit Settings Modal */}
+            {showEditSettings && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowEditSettings(false)}>
+                <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl font-bold text-lamo-dark">Edit Settings</h2>
+                    <button
+                      onClick={() => setShowEditSettings(false)}
+                      className="text-lamo-gray-muted hover:text-lamo-dark transition-colors text-2xl leading-none px-1"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                  <GameConfigForm
+                    initialConfig={gameState.config}
+                    submitLabel="Update Settings"
+                    submittingLabel="Updating..."
+                    onSubmit={(config) => {
+                      send({ type: 'update_config', config });
+                      setShowEditSettings(false);
+                    }}
+                    submitting={false}
+                    onCancel={() => setShowEditSettings(false)}
+                  />
+                </div>
+              </div>
+            )}
+            </>
           )}
         </div>
       )}
