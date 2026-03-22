@@ -13,21 +13,19 @@ async function resizeImage(file: File): Promise<Blob> {
 
       let { width, height } = img;
 
-      // Only resize if larger than max
-      if (width <= MAX_DIMENSION && height <= MAX_DIMENSION) {
-        resolve(file);
-        return;
+      // Scale down if larger than max, maintaining aspect ratio
+      if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+        if (width > height) {
+          height = Math.round((height * MAX_DIMENSION) / width);
+          width = MAX_DIMENSION;
+        } else {
+          width = Math.round((width * MAX_DIMENSION) / height);
+          height = MAX_DIMENSION;
+        }
       }
 
-      // Scale down maintaining aspect ratio
-      if (width > height) {
-        height = Math.round((height * MAX_DIMENSION) / width);
-        width = MAX_DIMENSION;
-      } else {
-        width = Math.round((width * MAX_DIMENSION) / height);
-        height = MAX_DIMENSION;
-      }
-
+      // Always convert through canvas to produce JPEG
+      // (handles HEIC/HEIF from iOS and other unsupported formats)
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
