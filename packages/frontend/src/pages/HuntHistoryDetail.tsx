@@ -161,7 +161,7 @@ export default function HuntHistoryDetail() {
         {hunt.groupId ? (
           <Button
             onClick={() =>
-              navigate(`/groups/${hunt.groupId}`, {
+              navigate(`/group/${hunt.groupId}`, {
                 state: { cloneHuntConfig: hunt.config },
               })
             }
