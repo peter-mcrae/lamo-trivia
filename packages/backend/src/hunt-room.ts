@@ -45,6 +45,7 @@ export class ScavengerHuntRoom {
   private env: Env;
   private room: HuntRoomState | null = null;
   private wsRates = new Map<WebSocket, { count: number; start: number }>();
+  private wsEmails = new Map<WebSocket, string>();
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -98,6 +99,10 @@ export class ScavengerHuntRoom {
         const pair = new WebSocketPair();
         const [client, server] = Object.values(pair);
         this.state.acceptWebSocket(server);
+        const email = request.headers.get('X-User-Email');
+        if (email) {
+          this.wsEmails.set(server, email);
+        }
         return new Response(null, { status: 101, webSocket: client });
       }
 
@@ -282,9 +287,19 @@ export class ScavengerHuntRoom {
 
     this.room.players.push(player);
 
-    if (this.room.hostId === '') {
+    // Assign host: prefer the creator (matched by email), otherwise first joiner
+    const wsEmail = this.wsEmails.get(ws);
+    if (this.room.hostEmail && wsEmail && wsEmail === this.room.hostEmail) {
+      this.room.hostId = playerId;
+      if (this.room.players.length > 1) {
+        this.broadcast({ type: 'host_changed', hostId: playerId });
+      }
+    } else if (this.room.hostId === '') {
       this.room.hostId = playerId;
     }
+
+    // Clean up email mapping — no longer needed
+    this.wsEmails.delete(ws);
 
     await this.persist();
 

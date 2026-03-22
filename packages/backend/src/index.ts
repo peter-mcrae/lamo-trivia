@@ -40,13 +40,29 @@ export default {
 
       // WebSocket upgrade: /ws/hunt/:huntId
       if (url.pathname.startsWith('/ws/hunt/') && request.headers.get('Upgrade') === 'websocket') {
-        const huntId = url.pathname.split('/ws/hunt/')[1];
+        const huntId = url.pathname.split('/ws/hunt/')[1]?.split('?')[0];
         if (!huntId) {
           return new Response('Missing hunt ID', { status: 400 });
         }
+        // Resolve user email from token query param so the DO can identify the creator
+        const token = url.searchParams.get('token');
+        let userEmail: string | undefined;
+        if (token) {
+          const raw = await env.TRIVIA_KV.get(`session:${token}`);
+          if (raw) {
+            const session = JSON.parse(raw) as { email: string; expiresAt: number };
+            if (Date.now() <= session.expiresAt) {
+              userEmail = session.email;
+            }
+          }
+        }
+        const headers = new Headers(request.headers);
+        if (userEmail) {
+          headers.set('X-User-Email', userEmail);
+        }
         const roomId = env.SCAVENGER_HUNT_ROOM.idFromName(huntId);
         const room = env.SCAVENGER_HUNT_ROOM.get(roomId);
-        return room.fetch(request);
+        return room.fetch(new Request(request.url, { method: request.method, headers, body: request.body }));
       }
 
       // WebSocket upgrade: /ws/group/:groupId
