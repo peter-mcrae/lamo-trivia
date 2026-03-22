@@ -140,6 +140,7 @@ export interface HuntItemProgress {
   foundAt?: number;
   photoUrl?: string;
   lastRejectedPhotoUrl?: string;
+  pendingReviewSince?: number;
 }
 
 export interface HuntPlayerProgress {
