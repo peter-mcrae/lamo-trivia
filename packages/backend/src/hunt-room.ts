@@ -132,6 +132,17 @@ export class ScavengerHuntRoom {
       }
     }
 
+    // Resilience checks on every message during active play
+    if (this.room?.phase === 'playing') {
+      // Fallback: end hunt if alarm chain failed and endsAt has passed
+      if (this.room.endsAt && now > this.room.endsAt) {
+        await this.finishHunt();
+        return;
+      }
+      // Auto-reset items stuck in pending_review for >60s (API failure or DO restart)
+      await this.resetStuckPendingReviews(now);
+    }
+
     const raw = typeof message === 'string' ? message : '';
     if (raw.length > 8192) {
       this.sendTo(ws, { type: 'error', message: 'Message too large' });
@@ -183,9 +194,17 @@ export class ScavengerHuntRoom {
         case 'update_config':
           await this.handleUpdateConfig(ws, parsed.data.config);
           break;
-        case 'ping':
+        case 'ping': {
           this.sendTo(ws, { type: 'pong' });
+          // During active/finished phases, resync full state to recover from missed broadcasts
+          if (this.room && (this.room.phase === 'playing' || this.room.phase === 'finished')) {
+            const pingPlayerId = this.getPlayerId(ws);
+            if (pingPlayerId) {
+              this.sendTo(ws, { type: 'hunt_state', state: this.getClientHuntState(pingPlayerId) });
+            }
+          }
           break;
+        }
       }
     } catch (err) {
       console.error('WebSocket message error', {
@@ -623,6 +642,7 @@ export class ScavengerHuntRoom {
 
     // Mark as pending review
     itemProgress.status = 'pending_review';
+    itemProgress.pendingReviewSince = Date.now();
     itemProgress.attemptsUsed++;
     itemProgress.lastRejectedPhotoUrl = undefined;
     await this.persist();
@@ -640,6 +660,7 @@ export class ScavengerHuntRoom {
       const photoObj = await this.env.R2_HUNT_PHOTOS.get(photoKey);
       if (!photoObj) {
         itemProgress.status = 'searching';
+        itemProgress.pendingReviewSince = undefined;
         await this.persist();
         this.sendTo(ws, { type: 'error', message: 'Photo not found. Please try again.' });
         return;
@@ -680,6 +701,7 @@ export class ScavengerHuntRoom {
 
       if (result.accepted) {
         currentProgress.status = 'found';
+        currentProgress.pendingReviewSince = undefined;
         currentProgress.foundAt = Date.now();
         currentProgress.photoUrl = photoKey;
 
@@ -704,6 +726,7 @@ export class ScavengerHuntRoom {
         if (attemptsRemaining <= 0) {
           // Auto-create appeal
           currentProgress.status = 'rejected';
+          currentProgress.pendingReviewSince = undefined;
           const player = this.room.players.find((p) => p.id === playerId);
           const appeal: HuntAppeal = {
             playerId,
@@ -729,6 +752,7 @@ export class ScavengerHuntRoom {
           await this.checkAllTeamsComplete();
         } else {
           currentProgress.status = 'searching';
+          currentProgress.pendingReviewSince = undefined;
           currentProgress.lastRejectedPhotoUrl = photoKey;
           await this.persist();
 
@@ -755,6 +779,7 @@ export class ScavengerHuntRoom {
         const currentProgress = this.room.progress[playerId]?.items[itemId];
         if (currentProgress && currentProgress.status === 'pending_review') {
           currentProgress.status = 'searching';
+          currentProgress.pendingReviewSince = undefined;
           currentProgress.attemptsUsed--; // Don't count failed verification as an attempt
           await this.persist();
         }
@@ -1003,6 +1028,45 @@ export class ScavengerHuntRoom {
   }
 
   // --- Alarm actions ---
+
+  private async resetStuckPendingReviews(now: number): Promise<void> {
+    if (!this.room || this.room.phase !== 'playing') return;
+
+    const STUCK_THRESHOLD_MS = 60_000;
+    let anyReset = false;
+
+    for (const player of this.room.players) {
+      const progress = this.room.progress[player.id];
+      if (!progress) continue;
+
+      for (const [itemId, item] of Object.entries(progress.items)) {
+        if (
+          item.status === 'pending_review' &&
+          item.pendingReviewSince &&
+          now - item.pendingReviewSince > STUCK_THRESHOLD_MS
+        ) {
+          item.status = 'searching';
+          item.pendingReviewSince = undefined;
+          item.attemptsUsed = Math.max(0, item.attemptsUsed - 1);
+          anyReset = true;
+
+          const ws = this.findPlayerWebSocket(player.id);
+          if (ws) {
+            this.sendTo(ws, {
+              type: 'photo_rejected',
+              itemId,
+              reason: 'Verification timed out. Please try again.',
+              attemptsRemaining: this.room.config.maxRetries - item.attemptsUsed,
+            });
+          }
+        }
+      }
+    }
+
+    if (anyReset) {
+      await this.persist();
+    }
+  }
 
   private async finishHunt(): Promise<void> {
     if (!this.room || this.room.phase === 'finished') return;
