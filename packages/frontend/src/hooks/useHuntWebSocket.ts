@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { HuntClientMessage, HuntServerMessage } from '@lamo-trivia/shared';
+import { AUTH_TOKEN_KEY } from '@/lib/api';
 
 interface UseHuntWebSocketOptions {
   huntId: string;
@@ -10,13 +11,15 @@ interface UseHuntWebSocketOptions {
 
 function buildWsUrl(huntId: string): string {
   const apiUrl = import.meta.env.VITE_API_URL;
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const query = token ? `?token=${encodeURIComponent(token)}` : '';
   if (apiUrl) {
     const url = new URL(apiUrl);
     const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${url.host}/ws/hunt/${huntId}`;
+    return `${protocol}//${url.host}/ws/hunt/${huntId}${query}`;
   }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.host}/ws/hunt/${huntId}`;
+  return `${protocol}//${window.location.host}/ws/hunt/${huntId}${query}`;
 }
 
 const MAX_RECONNECT_DELAY = 10_000;
