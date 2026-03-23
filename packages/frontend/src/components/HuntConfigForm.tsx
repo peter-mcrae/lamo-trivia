@@ -102,7 +102,11 @@ export function HuntConfigForm({
 
   const [name, setName] = useState(initialConfig?.name ?? '');
   const [durationMinutes, setDurationMinutes] = useState<number>(initialConfig?.durationMinutes ?? HUNT_DEFAULTS.durationMinutes);
-  const [items, setItems] = useState<HuntItem[]>(initialConfig?.items?.length ? initialConfig.items : [createEmptyItem()]);
+  const [items, setItems] = useState<HuntItem[]>(
+    initialConfig?.items?.length
+      ? initialConfig.items.map((item) => ({ ...item, clues: item.clues ?? [] }))
+      : [createEmptyItem()],
+  );
   const [basePointsPerItem, setBasePointsPerItem] = useState<number>(initialConfig?.basePointsPerItem ?? HUNT_DEFAULTS.basePointsPerItem);
   const [hintPointCost, setHintPointCost] = useState<number>(initialConfig?.hintPointCost ?? HUNT_DEFAULTS.hintPointCost);
   const [maxRetries, setMaxRetries] = useState<number>(initialConfig?.maxRetries ?? HUNT_DEFAULTS.maxRetries);

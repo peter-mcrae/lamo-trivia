@@ -71,8 +71,8 @@ export default function HuntHistoryDetail() {
             {new Date(hunt.finishedAt).toLocaleTimeString()}
           </p>
           <p className="text-xs text-lamo-gray-muted mt-0.5">
-            {hunt.config.durationMinutes} min &middot; {hunt.config.items.length} items &middot;{' '}
-            {hunt.players.length} teams
+            {hunt.config.durationMinutes} min &middot; {hunt.config.items?.length ?? 0} items &middot;{' '}
+            {hunt.players?.length ?? 0} teams
           </p>
         </div>
         {isHost && (
@@ -110,11 +110,11 @@ export default function HuntHistoryDetail() {
       <HuntResults results={hunt.results} players={hunt.players as any} />
 
       {/* Photos Section */}
-      {Object.keys(hunt.photoKeys).length > 0 && (
+      {Object.keys(hunt.photoKeys ?? {}).length > 0 && (
         <div className="mt-10">
           <h2 className="text-xl font-bold text-lamo-dark mb-4">Photos</h2>
-          {hunt.players.map((player) => {
-            const playerPhotos = hunt.photoKeys[player.id];
+          {(hunt.players ?? []).map((player) => {
+            const playerPhotos = (hunt.photoKeys ?? {})[player.id];
             if (!playerPhotos || Object.keys(playerPhotos).length === 0) return null;
 
             return (
@@ -125,7 +125,7 @@ export default function HuntHistoryDetail() {
                 </h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {Object.entries(playerPhotos).map(([itemId, photoKey]) => {
-                    const item = hunt.config.items.find((i) => i.id === itemId);
+                    const item = (hunt.config.items ?? []).find((i) => i.id === itemId);
                     const photoFileName = photoKey.split('/').pop() || photoKey;
                     return (
                       <div
