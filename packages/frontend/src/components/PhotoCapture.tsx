@@ -32,11 +32,18 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
       }
     }
 
-    setPreview(URL.createObjectURL(previewBlob));
+    // Use FileReader to create a data URL — more reliable than blob URLs
+    // on mobile browsers, especially for camera captures on iOS Safari
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setPreview(reader.result);
+      }
+    };
+    reader.readAsDataURL(previewBlob);
   };
 
   const handleRetake = () => {
-    if (preview) URL.revokeObjectURL(preview);
     setPreview(null);
     setSelectedFile(null);
     // Reset the input so the same file can be re-selected
