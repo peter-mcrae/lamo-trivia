@@ -13,25 +13,27 @@ export function HuntItemBuilder({ item, onChange, onRemove, index }: HuntItemBui
     onChange({ ...item, description });
   };
 
+  const clues = item.clues ?? [];
+
   const addClue = () => {
-    if (item.clues.length >= HUNT_LIMITS.maxCluesPerItem) return;
+    if (clues.length >= HUNT_LIMITS.maxCluesPerItem) return;
     const newClue: HuntClue = {
       id: crypto.randomUUID(),
       text: '',
       pointCost: 200,
     };
-    onChange({ ...item, clues: [...item.clues, newClue] });
+    onChange({ ...item, clues: [...clues, newClue] });
   };
 
   const updateClue = (clueIndex: number, updates: Partial<HuntClue>) => {
-    const updatedClues = item.clues.map((clue, i) =>
+    const updatedClues = clues.map((clue, i) =>
       i === clueIndex ? { ...clue, ...updates } : clue,
     );
     onChange({ ...item, clues: updatedClues });
   };
 
   const removeClue = (clueIndex: number) => {
-    onChange({ ...item, clues: item.clues.filter((_, i) => i !== clueIndex) });
+    onChange({ ...item, clues: clues.filter((_, i) => i !== clueIndex) });
   };
 
   return (
@@ -68,10 +70,10 @@ export function HuntItemBuilder({ item, onChange, onRemove, index }: HuntItemBui
       </div>
 
       {/* Clues */}
-      {item.clues.length > 0 && (
+      {clues.length > 0 && (
         <div className="space-y-3">
           <label className="block text-sm font-medium text-lamo-dark">Clues</label>
-          {item.clues.map((clue, clueIndex) => (
+          {clues.map((clue, clueIndex) => (
             <div
               key={clue.id}
               className="flex items-start gap-2 border border-lamo-border rounded-xl p-3 bg-lamo-bg"
@@ -116,7 +118,7 @@ export function HuntItemBuilder({ item, onChange, onRemove, index }: HuntItemBui
       )}
 
       {/* Add Clue Button */}
-      {item.clues.length < HUNT_LIMITS.maxCluesPerItem && (
+      {clues.length < HUNT_LIMITS.maxCluesPerItem && (
         <button
           type="button"
           onClick={addClue}

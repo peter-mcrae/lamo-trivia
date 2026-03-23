@@ -92,9 +92,9 @@ export function HuntItemCard({
       </p>
 
       {/* Clues */}
-      {item.clues.length > 0 && (
+      {(item.clues ?? []).length > 0 && (
         <div className="space-y-2 mb-4">
-          {item.clues.map((clue, i) => {
+          {(item.clues ?? []).map((clue, i) => {
             const isRevealed = progress.cluesRevealed.includes(clue.id);
 
             if (isRevealed) {
