@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import heic2any from 'heic2any';
 import { Button } from '@/components/ui/Button';
 
 interface PhotoCaptureProps {
@@ -11,35 +12,27 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
   const [preview, setPreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setSelectedFile(file);
 
-    // Convert through canvas to handle HEIC/HEIF and other formats browsers can't display
-    const img = new Image();
-    const objectUrl = URL.createObjectURL(file);
-    img.onload = () => {
-      URL.revokeObjectURL(objectUrl);
-      const canvas = document.createElement('canvas');
-      canvas.width = img.width;
-      canvas.height = img.height;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) return;
-      ctx.drawImage(img, 0, 0);
-      canvas.toBlob((blob) => {
-        if (blob) {
-          setPreview(URL.createObjectURL(blob));
-        }
-      }, 'image/jpeg', 0.9);
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(objectUrl);
-      // Fallback: try direct blob URL (works for JPEG/PNG)
-      setPreview(URL.createObjectURL(file));
-    };
-    img.src = objectUrl;
+    // Convert HEIC/HEIF to JPEG so the browser can display a preview
+    const isHeic = file.type === 'image/heic' || file.type === 'image/heif'
+      || /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
+
+    let previewBlob: Blob = file;
+    if (isHeic) {
+      try {
+        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
+        previewBlob = Array.isArray(converted) ? converted[0] : converted;
+      } catch {
+        // Conversion failed — fall through and try displaying the original
+      }
+    }
+
+    setPreview(URL.createObjectURL(previewBlob));
   };
 
   const handleRetake = () => {
