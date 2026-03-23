@@ -1,19 +1,31 @@
 import { useState, useCallback } from 'react';
+import heic2any from 'heic2any';
 import { api } from '@/lib/api';
 
 const MAX_DIMENSION = 1024;
 
-async function resizeImage(file: File): Promise<File> {
+function isHeic(file: File): boolean {
+  return file.type === 'image/heic' || file.type === 'image/heif'
+    || /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
+}
+
+/** Convert HEIC/HEIF to a JPEG blob the browser can work with. */
+async function ensureBrowserCompatible(file: File): Promise<Blob> {
+  if (!isHeic(file)) return file;
+  const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.8 });
+  return Array.isArray(converted) ? converted[0] : converted;
+}
+
+function resizeViaCanvas(blob: Blob): Promise<File> {
   return new Promise((resolve, reject) => {
     const img = new Image();
-    const url = URL.createObjectURL(file);
+    const url = URL.createObjectURL(blob);
 
     img.onload = () => {
       URL.revokeObjectURL(url);
 
       let { width, height } = img;
 
-      // Scale down if larger than max, maintaining aspect ratio
       if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
         if (width > height) {
           height = Math.round((height * MAX_DIMENSION) / width);
@@ -24,8 +36,6 @@ async function resizeImage(file: File): Promise<File> {
         }
       }
 
-      // Always convert through canvas to produce JPEG
-      // (handles HEIC/HEIF from iOS and other unsupported formats)
       const canvas = document.createElement('canvas');
       canvas.width = width;
       canvas.height = height;
@@ -37,11 +47,9 @@ async function resizeImage(file: File): Promise<File> {
 
       ctx.drawImage(img, 0, 0, width, height);
       canvas.toBlob(
-        (blob) => {
-          if (blob) {
-            // Wrap in a File with explicit name and type so FormData
-            // always sends the correct Content-Type multipart header
-            resolve(new File([blob], 'photo.jpg', { type: 'image/jpeg' }));
+        (b) => {
+          if (b) {
+            resolve(new File([b], 'photo.jpg', { type: 'image/jpeg' }));
           } else {
             reject(new Error('Failed to compress image'));
           }
@@ -60,14 +68,12 @@ async function resizeImage(file: File): Promise<File> {
   });
 }
 
-/** Attempt to resize via canvas; if that fails, return the original file
- *  as long as it's an accepted image type. */
 async function prepareImage(file: File): Promise<File> {
   try {
-    return await resizeImage(file);
+    const compatible = await ensureBrowserCompatible(file);
+    return await resizeViaCanvas(compatible);
   } catch {
-    // Canvas processing failed (e.g. unsupported format, memory pressure).
-    // Fall back to the original file if it's an accepted type and within size.
+    // Fall back to the original file if it's an accepted type
     const accepted = ['image/jpeg', 'image/png', 'image/webp'];
     if (accepted.includes(file.type)) {
       return file;
