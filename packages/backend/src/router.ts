@@ -577,19 +577,34 @@ export async function handleRequest(request: Request, env: Env): Promise<Respons
         return Response.json({ error: 'Photo too large (max 5MB)' }, { status: 400 });
       }
 
-      // Validate content type
+      // Read file bytes once for both validation and storage
+      const buffer = await file.arrayBuffer();
+
+      // Determine content type: trust declared type if valid, otherwise
+      // detect from magic bytes (some mobile browsers send wrong Content-Type)
       const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-      if (!allowedTypes.includes(file.type)) {
-        return Response.json({ error: 'Invalid file type. Use JPEG, PNG, or WebP.' }, { status: 400 });
+      let contentType = file.type;
+      if (!allowedTypes.includes(contentType)) {
+        const bytes = new Uint8Array(buffer);
+        if (bytes.length >= 3 && bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) {
+          contentType = 'image/jpeg';
+        } else if (bytes.length >= 4 && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) {
+          contentType = 'image/png';
+        } else if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+          && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) {
+          contentType = 'image/webp';
+        } else {
+          return Response.json({ error: 'Invalid file type. Use JPEG, PNG, or WebP.' }, { status: 400 });
+        }
       }
 
       const uploadId = crypto.randomUUID();
-      const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+      const ext = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
       const key = `${huntId}/${uploadId}.${ext}`;
 
       // Store in R2
-      await env.R2_HUNT_PHOTOS.put(key, await file.arrayBuffer(), {
-        httpMetadata: { contentType: file.type },
+      await env.R2_HUNT_PHOTOS.put(key, buffer, {
+        httpMetadata: { contentType },
       });
 
       return Response.json({ uploadId: `${uploadId}.${ext}` });

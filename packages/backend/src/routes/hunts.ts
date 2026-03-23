@@ -13,6 +13,19 @@ function isValidPhotoFilename(name: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(jpg|png|webp)$/.test(name);
 }
 
+/** Detect image type from file magic bytes when Content-Type is missing/wrong */
+function detectImageType(bytes: Uint8Array): string | null {
+  if (bytes.length < 4) return null;
+  // JPEG: FF D8 FF
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'image/jpeg';
+  // PNG: 89 50 4E 47
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'image/png';
+  // WebP: RIFF....WEBP
+  if (bytes.length >= 12 && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+    && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'image/webp';
+  return null;
+}
+
 const hunts = new Hono<{ Bindings: Env }>();
 
 // POST /api/hunts — create a scavenger hunt
@@ -91,17 +104,28 @@ hunts.post('/:huntId/photos', ipRateLimit(photoUploadLimiter), async (c) => {
     return c.json({ error: 'Photo too large (max 5MB)' }, 400);
   }
 
+  // Read file bytes once for both validation and storage
+  const buffer = await file.arrayBuffer();
+
+  // Determine content type: trust the declared type if valid, otherwise
+  // detect from magic bytes. Some mobile browsers send Blobs from
+  // canvas.toBlob() with an empty or incorrect Content-Type header.
   const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-  if (!allowedTypes.includes(file.type)) {
-    return c.json({ error: 'Invalid file type. Use JPEG, PNG, or WebP.' }, 400);
+  let contentType: string = file.type;
+  if (!allowedTypes.includes(contentType)) {
+    const detected = detectImageType(new Uint8Array(buffer));
+    if (!detected) {
+      return c.json({ error: 'Invalid file type. Use JPEG, PNG, or WebP.' }, 400);
+    }
+    contentType = detected;
   }
 
   const uploadId = crypto.randomUUID();
-  const ext = file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'jpg';
+  const ext = contentType === 'image/png' ? 'png' : contentType === 'image/webp' ? 'webp' : 'jpg';
   const key = `${huntId}/${uploadId}.${ext}`;
 
-  await c.env.R2_HUNT_PHOTOS.put(key, await file.arrayBuffer(), {
-    httpMetadata: { contentType: file.type },
+  await c.env.R2_HUNT_PHOTOS.put(key, buffer, {
+    httpMetadata: { contentType },
   });
 
   return c.json({ uploadId: `${uploadId}.${ext}` });
