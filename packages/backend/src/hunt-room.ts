@@ -699,6 +699,10 @@ export class ScavengerHuntRoom {
       const currentProgress = this.room.progress[playerId]?.items[itemId];
       if (!currentProgress) return;
 
+      // Re-lookup the player's WebSocket — the original `ws` may be stale
+      // if the player disconnected and reconnected during async verification
+      const currentWs = this.findPlayerWebSocket(playerId) ?? ws;
+
       if (result.accepted) {
         currentProgress.status = 'found';
         currentProgress.pendingReviewSince = undefined;
@@ -711,7 +715,7 @@ export class ScavengerHuntRoom {
 
         await this.persist();
 
-        this.sendTo(ws, {
+        this.sendTo(currentWs, {
           type: 'photo_accepted',
           itemId,
           pointsEarned,
@@ -740,7 +744,7 @@ export class ScavengerHuntRoom {
           this.room.pendingAppeals.push(appeal);
           await this.persist();
 
-          this.sendTo(ws, { type: 'appeal_submitted', itemId });
+          this.sendTo(currentWs, { type: 'appeal_submitted', itemId });
 
           // Notify host
           const hostWs = this.findPlayerWebSocket(this.room.hostId);
@@ -756,7 +760,7 @@ export class ScavengerHuntRoom {
           currentProgress.lastRejectedPhotoUrl = photoKey;
           await this.persist();
 
-          this.sendTo(ws, {
+          this.sendTo(currentWs, {
             type: 'photo_rejected',
             itemId,
             reason: result.reason,
@@ -785,7 +789,16 @@ export class ScavengerHuntRoom {
         }
       }
 
-      this.sendTo(ws, { type: 'error', message: 'Photo verification failed. Please try again.' });
+      // Send photo_rejected (not just error) so the frontend clears the verifying state
+      const errorWs = this.findPlayerWebSocket(playerId) ?? ws;
+      const attemptsUsed = this.room?.progress[playerId]?.items[itemId]?.attemptsUsed ?? 0;
+      const maxRetries = this.room?.config.maxRetries ?? 3;
+      this.sendTo(errorWs, {
+        type: 'photo_rejected',
+        itemId,
+        reason: 'Photo verification failed. Please try again.',
+        attemptsRemaining: maxRetries - attemptsUsed,
+      });
     }
   }
 

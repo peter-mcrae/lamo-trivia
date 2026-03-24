@@ -26,6 +26,14 @@ export function useHuntState() {
         if (message.state.allTeams) {
           setAllTeams(message.state.allTeams);
         }
+        // Rebuild verifyingItems from items with pending_review status (e.g. after rejoin)
+        if (message.state.myProgress?.items) {
+          setVerifyingItems(new Set(
+            Object.values(message.state.myProgress.items)
+              .filter((item: any) => item.status === 'pending_review')
+              .map((item: any) => item.itemId),
+          ));
+        }
         break;
 
       case 'player_joined':
