@@ -16,6 +16,7 @@ export function useHuntState() {
   const [timeWarning, setTimeWarning] = useState<number | null>(null);
   const [allTeams, setAllTeams] = useState<HuntTeamSummary[] | null>(null);
   const [rejectedItems, setRejectedItems] = useState<Map<string, string>>(new Map());
+  const [deniedItems, setDeniedItems] = useState<Map<string, string>>(new Map());
   const [hostMessages, setHostMessages] = useState<string[]>([]);
 
   const handleMessage = useCallback((message: HuntServerMessage) => {
@@ -119,6 +120,11 @@ export function useHuntState() {
           next.delete(message.itemId);
           return next;
         });
+        setDeniedItems((prev) => {
+          const next = new Map(prev);
+          next.delete(message.itemId);
+          return next;
+        });
         break;
 
       case 'photo_accepted':
@@ -201,6 +207,16 @@ export function useHuntState() {
           next.delete(message.itemId);
           return next;
         });
+        setRejectedItems((prev) => {
+          const next = new Map(prev);
+          next.delete(message.itemId);
+          return next;
+        });
+        setDeniedItems((prev) => {
+          const next = new Map(prev);
+          next.delete(message.itemId);
+          return next;
+        });
         setMyProgress((prev) => {
           if (!prev) return prev;
           const itemProgress = prev.items[message.itemId];
@@ -220,6 +236,23 @@ export function useHuntState() {
         setVerifyingItems((prev) => {
           const next = new Set(prev);
           next.delete(message.itemId);
+          return next;
+        });
+        // Clear AI rejection reason so contest button doesn't reappear
+        setRejectedItems((prev) => {
+          const next = new Map(prev);
+          next.delete(message.itemId);
+          return next;
+        });
+        // Show host denial feedback
+        setDeniedItems((prev) => {
+          const next = new Map(prev);
+          next.set(
+            message.itemId,
+            message.returnToSearching
+              ? 'Host denied your appeal. Try a different photo.'
+              : 'Host denied your appeal — no attempts remaining.',
+          );
           return next;
         });
         setMyProgress((prev) => {
@@ -280,6 +313,7 @@ export function useHuntState() {
     setTimeWarning(null);
     setAllTeams(null);
     setRejectedItems(new Map());
+    setDeniedItems(new Map());
     setHostMessages([]);
   }, []);
 
@@ -300,6 +334,7 @@ export function useHuntState() {
     timeWarning,
     allTeams,
     rejectedItems,
+    deniedItems,
     hostMessages,
     dismissHostMessage,
     handleMessage,

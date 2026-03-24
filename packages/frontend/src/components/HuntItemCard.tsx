@@ -6,6 +6,7 @@ interface HuntItemCardProps {
   isVerifying: boolean;
   maxRetries: number;
   rejectionReason?: string;
+  deniedMessage?: string;
   onRevealClue: (itemId: string, clueId: string) => void;
   onTakePhoto: (itemId: string) => void;
   onContestPhoto: (itemId: string) => void;
@@ -60,6 +61,7 @@ export function HuntItemCard({
   isVerifying,
   maxRetries,
   rejectionReason,
+  deniedMessage,
   onRevealClue,
   onTakePhoto,
   onContestPhoto,
@@ -123,10 +125,17 @@ export function HuntItemCard({
         </div>
       )}
 
-      {/* Rejection reason */}
+      {/* Rejection reason (AI) */}
       {rejectionReason && !isFound && !isHostReviewing && (
         <div className="mb-3 px-3 py-2 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-700">
           Photo rejected: {rejectionReason}
+        </div>
+      )}
+
+      {/* Host denial message */}
+      {deniedMessage && !isFound && !isHostReviewing && (
+        <div className="mb-3 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-sm text-red-600">
+          {deniedMessage}
         </div>
       )}
 

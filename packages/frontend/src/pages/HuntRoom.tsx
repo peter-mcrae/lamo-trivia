@@ -40,6 +40,7 @@ export default function HuntRoom() {
     verifyingItems,
     allTeams,
     rejectedItems,
+    deniedItems,
     hostMessages,
     dismissHostMessage,
     handleMessage,
@@ -531,6 +532,7 @@ export default function HuntRoom() {
                           isVerifying={verifyingItems.has(item.id)}
                           maxRetries={huntState.config.maxRetries}
                           rejectionReason={rejectedItems.get(item.id)}
+                          deniedMessage={deniedItems.get(item.id)}
                           onRevealClue={handleRevealClue}
                           onTakePhoto={handleTakePhoto}
                           onContestPhoto={handleContestPhoto}
