@@ -1026,6 +1026,10 @@ export class ScavengerHuntRoom {
 
     if (this.room.players.length === 0) return;
 
+    // Don't finish the hunt while there are pending appeals — the host
+    // still needs to approve or reject them, which may change item status
+    if (this.room.pendingAppeals.length > 0) return;
+
     const allDone = this.room.players.every((player) => {
       const progress = this.room!.progress[player.id];
       if (!progress) return false;
