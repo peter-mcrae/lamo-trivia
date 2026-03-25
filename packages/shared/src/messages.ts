@@ -83,8 +83,8 @@ export type HuntServerMessage =
   | { type: 'clue_revealed'; itemId: string; clueId: string; clueText: string; newScore: number }
   | { type: 'photo_verifying'; itemId: string }
   | { type: 'photo_accepted'; itemId: string; pointsEarned: number; newScore: number }
-  | { type: 'photo_rejected'; itemId: string; reason: string; attemptsRemaining: number }
-  | { type: 'appeal_submitted'; itemId: string }
+  | { type: 'photo_rejected'; itemId: string; reason: string; attemptsRemaining: number; attemptsUsed: number }
+  | { type: 'appeal_submitted'; itemId: string; attemptsUsed: number }
   | { type: 'appeal_received'; appeal: HuntAppeal }
   | { type: 'appeal_approved'; itemId: string; pointsEarned: number; newScore: number }
   | { type: 'appeal_rejected'; itemId: string; returnToSearching?: boolean }

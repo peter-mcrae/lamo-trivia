@@ -635,6 +635,11 @@ export class ScavengerHuntRoom {
       return;
     }
 
+    if (itemProgress.status === 'pending_review') {
+      this.sendTo(ws, { type: 'error', message: 'Verification in progress. Please wait.' });
+      return;
+    }
+
     if (itemProgress.attemptsUsed >= this.room.config.maxRetries) {
       this.sendTo(ws, { type: 'error', message: 'No attempts remaining' });
       return;
@@ -696,6 +701,7 @@ export class ScavengerHuntRoom {
 
       // Re-read state in case it changed during async call
       if (!this.room) return;
+      if (this.room.phase !== 'playing') return;
       const currentProgress = this.room.progress[playerId]?.items[itemId];
       if (!currentProgress) return;
 
@@ -744,7 +750,7 @@ export class ScavengerHuntRoom {
           this.room.pendingAppeals.push(appeal);
           await this.persist();
 
-          this.sendTo(currentWs, { type: 'appeal_submitted', itemId });
+          this.sendTo(currentWs, { type: 'appeal_submitted', itemId, attemptsUsed: currentProgress.attemptsUsed });
 
           // Notify host
           const hostWs = this.findPlayerWebSocket(this.room.hostId);
@@ -765,6 +771,7 @@ export class ScavengerHuntRoom {
             itemId,
             reason: result.reason,
             attemptsRemaining,
+            attemptsUsed: currentProgress.attemptsUsed,
           });
 
           this.notifyHostOfTeamUpdate();
@@ -798,6 +805,7 @@ export class ScavengerHuntRoom {
         itemId,
         reason: 'Photo verification failed. Please try again.',
         attemptsRemaining: maxRetries - attemptsUsed,
+        attemptsUsed,
       });
     }
   }
@@ -945,7 +953,7 @@ export class ScavengerHuntRoom {
     this.room.pendingAppeals.push(appeal);
     await this.persist();
 
-    this.sendTo(ws, { type: 'appeal_submitted', itemId });
+    this.sendTo(ws, { type: 'appeal_submitted', itemId, attemptsUsed: itemProgress.attemptsUsed });
 
     const hostWs = this.findPlayerWebSocket(this.room.hostId);
     if (hostWs) {

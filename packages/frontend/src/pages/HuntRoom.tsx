@@ -223,7 +223,7 @@ export default function HuntRoom() {
     );
   }
 
-  const isHost = huntState.players.find((p) => p.username === username)?.id === huntState.hostId;
+  const isHost = huntState.myProgress.playerId === huntState.hostId;
   const playerCount = huntState.players.length;
   const canStart = isHost && playerCount >= huntState.config.minPlayers;
 

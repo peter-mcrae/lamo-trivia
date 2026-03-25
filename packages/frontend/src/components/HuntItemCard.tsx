@@ -12,7 +12,7 @@ interface HuntItemCardProps {
   onContestPhoto: (itemId: string) => void;
 }
 
-function StatusBadge({ status, isVerifying }: { status: HuntItemProgress['status']; isVerifying: boolean }) {
+function StatusBadge({ status, isVerifying, isAppealDenied }: { status: HuntItemProgress['status']; isVerifying: boolean; isAppealDenied?: boolean }) {
   if (isVerifying) {
     return (
       <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-lamo-blue/10 text-lamo-blue">
@@ -33,6 +33,13 @@ function StatusBadge({ status, isVerifying }: { status: HuntItemProgress['status
         </span>
       );
     case 'rejected':
+      if (isAppealDenied) {
+        return (
+          <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-red-100 text-red-700">
+            Rejected
+          </span>
+        );
+      }
       return (
         <span className="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full bg-amber-100 text-amber-700">
           <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
@@ -67,10 +74,11 @@ export function HuntItemCard({
   onContestPhoto,
 }: HuntItemCardProps) {
   const isFound = progress.status === 'found';
-  const isHostReviewing = progress.status === 'rejected';
+  const isAppealDenied = progress.status === 'rejected' && !!deniedMessage;
+  const isHostReviewing = progress.status === 'rejected' && !isAppealDenied;
   const attemptsRemaining = maxRetries - progress.attemptsUsed;
-  const canTakePhoto = !isFound && !isVerifying && !isHostReviewing && attemptsRemaining > 0 && progress.status !== 'pending_review';
-  const canContest = !!rejectionReason && !isFound && !isVerifying && !isHostReviewing && attemptsRemaining > 0;
+  const canTakePhoto = !isFound && !isVerifying && !isHostReviewing && !isAppealDenied && attemptsRemaining > 0 && progress.status !== 'pending_review';
+  const canContest = !!rejectionReason && !isFound && !isVerifying && !isHostReviewing && !isAppealDenied && attemptsRemaining > 0;
 
   return (
     <div
@@ -85,7 +93,7 @@ export function HuntItemCard({
         <p className={`font-medium ${isFound ? 'text-green-800' : 'text-lamo-dark'}`}>
           {item.description}
         </p>
-        <StatusBadge status={progress.status} isVerifying={isVerifying} />
+        <StatusBadge status={progress.status} isVerifying={isVerifying} isAppealDenied={isAppealDenied} />
       </div>
 
       {/* Points */}

@@ -170,7 +170,7 @@ export function useHuntState() {
               [message.itemId]: {
                 ...itemProgress,
                 status: 'searching' as const,
-                attemptsUsed: itemProgress.attemptsUsed + 1,
+                attemptsUsed: message.attemptsUsed,
               },
             },
           };
@@ -191,7 +191,11 @@ export function useHuntState() {
             ...prev,
             items: {
               ...prev.items,
-              [message.itemId]: { ...itemProgress, status: 'rejected' as const },
+              [message.itemId]: {
+                ...itemProgress,
+                status: 'rejected' as const,
+                attemptsUsed: message.attemptsUsed,
+              },
             },
           };
         });
