@@ -23,6 +23,11 @@ function buildWsUrl(huntId: string): string {
 }
 
 const MAX_RECONNECT_DELAY = 10_000;
+// Heartbeat keeps the connection verified and triggers the server's state
+// resync on each ping. A ping that goes unanswered by the next tick means the
+// socket is a zombie (TCP silently dropped while backgrounded) — close it so
+// the reconnect logic kicks in instead of sending messages into the void.
+const HEARTBEAT_INTERVAL_MS = 15_000;
 
 export function useHuntWebSocket({ huntId, onMessage, onOpen, onClose }: UseHuntWebSocketOptions) {
   const wsRef = useRef<WebSocket | null>(null);
@@ -30,6 +35,7 @@ export function useHuntWebSocket({ huntId, onMessage, onOpen, onClose }: UseHunt
   const reconnectAttemptRef = useRef(0);
   const reconnectTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const unmountedRef = useRef(false);
+  const pingOutstandingRef = useRef(false);
 
   // Use refs for callbacks to avoid stale closures
   const onMessageRef = useRef(onMessage);
@@ -49,6 +55,7 @@ export function useHuntWebSocket({ huntId, onMessage, onOpen, onClose }: UseHunt
       if (wsRef.current === ws) {
         setConnected(true);
         reconnectAttemptRef.current = 0;
+        pingOutstandingRef.current = false;
       }
       onOpenRef.current?.();
     };
@@ -56,6 +63,9 @@ export function useHuntWebSocket({ huntId, onMessage, onOpen, onClose }: UseHunt
     ws.onmessage = (event) => {
       try {
         const message = JSON.parse(event.data) as HuntServerMessage;
+        if (message.type === 'pong') {
+          pingOutstandingRef.current = false;
+        }
         onMessageRef.current?.(message);
       } catch {
         console.error('Failed to parse WebSocket message');
@@ -84,8 +94,42 @@ export function useHuntWebSocket({ huntId, onMessage, onOpen, onClose }: UseHunt
 
     connect();
 
+    const heartbeat = setInterval(() => {
+      const ws = wsRef.current;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+      if (pingOutstandingRef.current) {
+        // No pong since the last ping — zombie socket, force a reconnect
+        ws.close();
+        return;
+      }
+      pingOutstandingRef.current = true;
+      ws.send(JSON.stringify({ type: 'ping' }));
+    }, HEARTBEAT_INTERVAL_MS);
+
+    // Returning from a backgrounded tab (e.g. after using the camera) is
+    // exactly when sockets die silently — probe immediately rather than
+    // waiting for the next heartbeat or backoff timer
+    const onVisibilityChange = () => {
+      if (document.visibilityState !== 'visible' || unmountedRef.current) return;
+      const ws = wsRef.current;
+      if (ws?.readyState === WebSocket.OPEN) {
+        pingOutstandingRef.current = true;
+        ws.send(JSON.stringify({ type: 'ping' }));
+      } else if (ws && ws.readyState !== WebSocket.CONNECTING) {
+        if (reconnectTimerRef.current) {
+          clearTimeout(reconnectTimerRef.current);
+          reconnectTimerRef.current = null;
+        }
+        reconnectAttemptRef.current = 0;
+        connect();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
       unmountedRef.current = true;
+      clearInterval(heartbeat);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;

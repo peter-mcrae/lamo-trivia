@@ -4,6 +4,7 @@ import type {
   ClientHuntState, HuntTeamSummary, HuntItemStatus, HuntHistoryEntry,
   HuntHistorySummary,
 } from '@lamo-trivia/shared';
+import type { HuntServerMessage } from '@lamo-trivia/shared';
 import { HuntClientMessageSchema, HuntConfigSchema, AVATARS, HUNT_EXPIRY_MS } from '@lamo-trivia/shared';
 import { getAnthropicKey } from './env';
 import type { Env } from './env';
@@ -45,7 +46,6 @@ export class ScavengerHuntRoom {
   private env: Env;
   private room: HuntRoomState | null = null;
   private wsRates = new Map<WebSocket, { count: number; start: number }>();
-  private wsEmails = new Map<WebSocket, string>();
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -99,9 +99,11 @@ export class ScavengerHuntRoom {
         const pair = new WebSocketPair();
         const [client, server] = Object.values(pair);
         this.state.acceptWebSocket(server);
+        // Stash the email in the attachment (survives hibernation, unlike in-memory
+        // maps) until join_hunt replaces it with the playerId
         const email = request.headers.get('X-User-Email');
         if (email) {
-          this.wsEmails.set(server, email);
+          server.serializeAttachment({ pendingEmail: email });
         }
         return new Response(null, { status: 101, webSocket: client });
       }
@@ -134,13 +136,23 @@ export class ScavengerHuntRoom {
 
     // Resilience checks on every message during active play
     if (this.room?.phase === 'playing') {
-      // Fallback: end hunt if alarm chain failed and endsAt has passed
+      // Fallback: end hunt if alarm chain failed and endsAt has passed.
+      // Keep processing the message — handlers respond with a proper error
+      // for a finished hunt instead of silently dropping the action.
       if (this.room.endsAt && now > this.room.endsAt) {
         await this.finishHunt();
-        return;
+      } else {
+        // Auto-reset items stuck in pending_review for >60s (API failure or DO restart)
+        await this.resetStuckPendingReviews(now);
       }
-      // Auto-reset items stuck in pending_review for >60s (API failure or DO restart)
-      await this.resetStuckPendingReviews(now);
+    } else if (
+      this.room?.phase === 'starting' &&
+      this.room.startedAt &&
+      now - this.room.startedAt > 30_000
+    ) {
+      // Fallback: the start_playing alarm was lost (e.g. DO died between
+      // persist and setAlarm) — don't leave players stuck on the countdown
+      await this.startHuntPlaying();
     }
 
     const raw = typeof message === 'string' ? message : '';
@@ -288,6 +300,7 @@ export class ScavengerHuntRoom {
     );
     if (existingPlayer) {
       ws.serializeAttachment(existingPlayer.id);
+      this.closeStaleSockets(existingPlayer.id, ws);
       this.sendTo(ws, { type: 'hunt_state', state: this.getClientHuntState(existingPlayer.id) });
       return;
     }
@@ -302,12 +315,13 @@ export class ScavengerHuntRoom {
       score: 0,
     };
 
+    // Read the creator email before the playerId attachment replaces it
+    const wsEmail = this.getPendingEmail(ws);
     ws.serializeAttachment(playerId);
 
     this.room.players.push(player);
 
     // Assign host: prefer the creator (matched by email), otherwise first joiner
-    const wsEmail = this.wsEmails.get(ws);
     if (this.room.hostEmail && wsEmail && wsEmail === this.room.hostEmail) {
       this.room.hostId = playerId;
       if (this.room.players.length > 1) {
@@ -316,9 +330,6 @@ export class ScavengerHuntRoom {
     } else if (this.room.hostId === '') {
       this.room.hostId = playerId;
     }
-
-    // Clean up email mapping — no longer needed
-    this.wsEmails.delete(ws);
 
     await this.persist();
 
@@ -350,6 +361,7 @@ export class ScavengerHuntRoom {
 
     // Re-attach WebSocket to this player
     ws.serializeAttachment(existingPlayer.id);
+    this.closeStaleSockets(existingPlayer.id, ws);
 
     // Send current state — includes their progress
     this.sendTo(ws, { type: 'hunt_state', state: this.getClientHuntState(existingPlayer.id) });
@@ -382,6 +394,13 @@ export class ScavengerHuntRoom {
 
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
+
+    // If the player reconnected, a late close of the old socket must not
+    // remove them or transfer host away from their live connection
+    const otherActive = this.state.getWebSockets().some(
+      (s) => s !== ws && this.getPlayerId(s) === playerId,
+    );
+    if (otherActive) return;
 
     // During playing/finished, don't remove the player — just detach the WebSocket
     // so they can rejoin and see their progress/results
@@ -422,6 +441,13 @@ export class ScavengerHuntRoom {
   private async handleStartHunt(ws: WebSocket): Promise<void> {
     if (!this.room) return;
 
+    // Without this guard a duplicate start_hunt (double-click, stale tab) would
+    // re-deduct credits and re-initialize progress, wiping a hunt mid-play
+    if (this.room.phase !== 'waiting') {
+      this.sendTo(ws, { type: 'error', message: 'Hunt has already started' });
+      return;
+    }
+
     const playerId = this.getPlayerId(ws);
     if (playerId !== this.room.hostId) {
       this.sendTo(ws, { type: 'error', message: 'Only the host can start the hunt' });
@@ -450,35 +476,46 @@ export class ScavengerHuntRoom {
       }
       await this.env.TRIVIA_KV.put(lockKey, '1', { expirationTtl: 60 });
 
-      const host = await getUser(this.room.hostEmail, this.env);
-      if (!host || host.credits < creditsNeeded) {
-        await this.env.TRIVIA_KV.delete(lockKey);
+      try {
+        const host = await getUser(this.room.hostEmail, this.env);
+        if (!host || host.credits < creditsNeeded) {
+          await this.env.TRIVIA_KV.delete(lockKey);
+          this.sendTo(ws, {
+            type: 'error',
+            message: 'Not enough credits to start this hunt',
+          });
+          return;
+        }
+
+        host.credits -= creditsNeeded;
+        await updateUser(host, this.env);
+
+        await addCreditTransaction(host.userId, {
+          type: 'deduction',
+          amount: creditsNeeded,
+          timestamp: Date.now(),
+          details: `Hunt "${this.room.config.name}" — ${this.room.items.length} items × ${this.room.config.maxRetries} retries × ${participantCount} teams`,
+          huntId: this.room.huntId,
+        }, this.env);
+
+        this.room.creditsDeducted = creditsNeeded;
+
+        // Notify host of deduction
         this.sendTo(ws, {
-          type: 'error',
-          message: 'Not enough credits to start this hunt',
+          type: 'credits_deducted',
+          amount: creditsNeeded,
+          remaining: host.credits,
         });
+      } catch (err) {
+        // Release the lock so a retry isn't refused for the next 60s
+        await this.env.TRIVIA_KV.delete(lockKey);
+        console.error('Credit deduction failed', {
+          huntId: this.room.huntId,
+          error: err instanceof Error ? err.message : String(err),
+        });
+        this.sendTo(ws, { type: 'error', message: 'Failed to start hunt. Please try again.' });
         return;
       }
-
-      host.credits -= creditsNeeded;
-      await updateUser(host, this.env);
-
-      await addCreditTransaction(host.userId, {
-        type: 'deduction',
-        amount: creditsNeeded,
-        timestamp: Date.now(),
-        details: `Hunt "${this.room.config.name}" — ${this.room.items.length} items × ${this.room.config.maxRetries} retries × ${participantCount} teams`,
-        huntId: this.room.huntId,
-      }, this.env);
-
-      this.room.creditsDeducted = creditsNeeded;
-
-      // Notify host of deduction
-      this.sendTo(ws, {
-        type: 'credits_deducted',
-        amount: creditsNeeded,
-        remaining: host.credits,
-      });
     }
 
     // Initialize progress for all players (including host, who also plays)
@@ -616,7 +653,14 @@ export class ScavengerHuntRoom {
   }
 
   private async handleSubmitPhoto(ws: WebSocket, itemId: string, uploadId: string): Promise<void> {
-    if (!this.room || this.room.phase !== 'playing') return;
+    if (!this.room) return;
+
+    if (this.room.phase !== 'playing' || (this.room.endsAt && Date.now() > this.room.endsAt)) {
+      // Tell the player instead of silently dropping — clock skew plus a slow
+      // upload makes a just-too-late final submission look like a broken button
+      this.sendTo(ws, { type: 'error', message: 'The hunt has ended' });
+      return;
+    }
 
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
@@ -626,6 +670,14 @@ export class ScavengerHuntRoom {
 
     const itemProgress = progress.items[itemId];
     if (!itemProgress) {
+      this.sendTo(ws, { type: 'error', message: 'Item not found' });
+      return;
+    }
+
+    // Resolve the item before mutating any state, so a bad itemId can't
+    // strand the progress entry in pending_review
+    const item = this.room.items.find((i) => i.id === itemId);
+    if (!item) {
       this.sendTo(ws, { type: 'error', message: 'Item not found' });
       return;
     }
@@ -650,6 +702,7 @@ export class ScavengerHuntRoom {
     itemProgress.pendingReviewSince = Date.now();
     itemProgress.attemptsUsed++;
     itemProgress.lastRejectedPhotoUrl = undefined;
+    itemProgress.activeUploadId = uploadId;
     await this.persist();
 
     this.sendTo(ws, { type: 'photo_verifying', itemId });
@@ -657,8 +710,6 @@ export class ScavengerHuntRoom {
     // Verify the photo asynchronously
     try {
       const apiKey = await getAnthropicKey(this.env);
-      const item = this.room.items.find((i) => i.id === itemId);
-      if (!item) return;
 
       // Fetch photo from R2
       const photoKey = `${this.room.huntId}/${uploadId}`;
@@ -666,6 +717,8 @@ export class ScavengerHuntRoom {
       if (!photoObj) {
         itemProgress.status = 'searching';
         itemProgress.pendingReviewSince = undefined;
+        itemProgress.attemptsUsed--; // Nothing was verified — refund the attempt
+        itemProgress.activeUploadId = undefined;
         await this.persist();
         this.sendTo(ws, { type: 'error', message: 'Photo not found. Please try again.' });
         return;
@@ -701,17 +754,33 @@ export class ScavengerHuntRoom {
 
       // Re-read state in case it changed during async call
       if (!this.room) return;
-      if (this.room.phase !== 'playing') return;
       const currentProgress = this.room.progress[playerId]?.items[itemId];
       if (!currentProgress) return;
+
+      // A stuck-review reset or a newer submission superseded this verification
+      // while we were waiting on the API — discard the stale result
+      if (currentProgress.activeUploadId !== uploadId) return;
 
       // Re-lookup the player's WebSocket — the original `ws` may be stale
       // if the player disconnected and reconnected during async verification
       const currentWs = this.findPlayerWebSocket(playerId) ?? ws;
 
+      if (this.room.phase !== 'playing') {
+        currentProgress.status = 'searching';
+        currentProgress.pendingReviewSince = undefined;
+        currentProgress.activeUploadId = undefined;
+        await this.persist();
+        this.sendTo(currentWs, {
+          type: 'error',
+          message: 'The hunt ended before your photo finished verifying',
+        });
+        return;
+      }
+
       if (result.accepted) {
         currentProgress.status = 'found';
         currentProgress.pendingReviewSince = undefined;
+        currentProgress.activeUploadId = undefined;
         currentProgress.foundAt = Date.now();
         currentProgress.photoUrl = photoKey;
 
@@ -737,6 +806,7 @@ export class ScavengerHuntRoom {
           // Auto-create appeal
           currentProgress.status = 'rejected';
           currentProgress.pendingReviewSince = undefined;
+          currentProgress.activeUploadId = undefined;
           const player = this.room.players.find((p) => p.id === playerId);
           const appeal: HuntAppeal = {
             playerId,
@@ -763,6 +833,7 @@ export class ScavengerHuntRoom {
         } else {
           currentProgress.status = 'searching';
           currentProgress.pendingReviewSince = undefined;
+          currentProgress.activeUploadId = undefined;
           currentProgress.lastRejectedPhotoUrl = photoKey;
           await this.persist();
 
@@ -785,12 +856,18 @@ export class ScavengerHuntRoom {
         error: err instanceof Error ? err.message : String(err),
       });
 
-      // Reset status on error so player can retry
+      // Reset status on error so player can retry — but only if this upload is
+      // still the one being verified (a reset/resubmission may have superseded it)
       if (this.room) {
         const currentProgress = this.room.progress[playerId]?.items[itemId];
-        if (currentProgress && currentProgress.status === 'pending_review') {
+        if (
+          currentProgress &&
+          currentProgress.status === 'pending_review' &&
+          currentProgress.activeUploadId === uploadId
+        ) {
           currentProgress.status = 'searching';
           currentProgress.pendingReviewSince = undefined;
+          currentProgress.activeUploadId = undefined;
           currentProgress.attemptsUsed--; // Don't count failed verification as an attempt
           await this.persist();
         }
@@ -1072,6 +1149,7 @@ export class ScavengerHuntRoom {
         ) {
           item.status = 'searching';
           item.pendingReviewSince = undefined;
+          item.activeUploadId = undefined;
           item.attemptsUsed = Math.max(0, item.attemptsUsed - 1);
           anyReset = true;
 
@@ -1082,6 +1160,7 @@ export class ScavengerHuntRoom {
               itemId,
               reason: 'Verification timed out. Please try again.',
               attemptsRemaining: this.room.config.maxRetries - item.attemptsUsed,
+              attemptsUsed: item.attemptsUsed,
             });
           }
         }
@@ -1096,10 +1175,47 @@ export class ScavengerHuntRoom {
   private async finishHunt(): Promise<void> {
     if (!this.room || this.room.phase === 'finished') return;
 
+    // Grace period: a photo submitted before the deadline may still be mid-
+    // verification. Defer the finish briefly so the result counts instead of
+    // being discarded; the 60s cap matches the stuck-review threshold.
+    if (this.room.endsAt && Date.now() < this.room.endsAt + 60_000) {
+      const anyPendingReview = Object.values(this.room.progress).some((progress) =>
+        Object.values(progress.items).some((item) => item.status === 'pending_review'),
+      );
+      if (anyPendingReview) {
+        this.room.nextAlarmAction = 'end_hunt';
+        await this.persist();
+        await this.state.storage.setAlarm(Date.now() + 10_000);
+        return;
+      }
+    }
+
     this.room.phase = 'finished';
     this.room.nextAlarmAction = 'cleanup_hunt';
 
-    // Clear any pending appeals since the hunt is over
+    // Anything still unverified at this point is abandoned — clear the status
+    // so clients don't render a permanent "Verifying..." badge
+    for (const progress of Object.values(this.room.progress)) {
+      for (const item of Object.values(progress.items)) {
+        if (item.status === 'pending_review') {
+          item.status = 'searching';
+          item.pendingReviewSince = undefined;
+          item.activeUploadId = undefined;
+        }
+      }
+    }
+
+    // Clear any pending appeals since the hunt is over — but tell the
+    // affected players their appeal was never reviewed
+    for (const appeal of this.room.pendingAppeals) {
+      const appealWs = this.findPlayerWebSocket(appeal.playerId);
+      if (appealWs) {
+        this.sendTo(appealWs, {
+          type: 'error',
+          message: `The hunt ended before the host reviewed your appeal for "${appeal.itemDescription}"`,
+        });
+      }
+    }
     this.room.pendingAppeals = [];
 
     const results = this.buildResults();
@@ -1123,7 +1239,7 @@ export class ScavengerHuntRoom {
     this.broadcast({ type: 'hunt_finished', results });
     await this.notifyGroupOfUpdate();
 
-    // Clean up after 20 minutes
+    // Keep the finished room around for rejoins/results until HUNT_EXPIRY_MS passes
     await this.state.storage.setAlarm(Date.now() + HUNT_EXPIRY_MS);
   }
 
@@ -1426,7 +1542,28 @@ export class ScavengerHuntRoom {
   }
 
   private getPlayerId(ws: WebSocket): string | null {
-    return ws.deserializeAttachment() as string | null;
+    const attachment = ws.deserializeAttachment() as string | { pendingEmail: string } | null;
+    return typeof attachment === 'string' ? attachment : null;
+  }
+
+  private getPendingEmail(ws: WebSocket): string | null {
+    const attachment = ws.deserializeAttachment() as string | { pendingEmail: string } | null;
+    return attachment && typeof attachment === 'object' ? attachment.pendingEmail : null;
+  }
+
+  /**
+   * Close any other sockets attached to this player so async verification
+   * results can't be delivered to a dead connection from before a reconnect.
+   */
+  private closeStaleSockets(playerId: string, currentWs: WebSocket): void {
+    for (const other of this.state.getWebSockets()) {
+      if (other === currentWs || this.getPlayerId(other) !== playerId) continue;
+      try {
+        other.close(1000, 'Replaced by a new connection');
+      } catch {
+        // Already closed
+      }
+    }
   }
 
   private findPlayerWebSocket(playerId: string): WebSocket | null {
@@ -1508,7 +1645,7 @@ export class ScavengerHuntRoom {
     this.sendTo(hostWs, { type: 'teams_updated', teams: this.buildTeamSummaries() });
   }
 
-  private sendTo(ws: WebSocket, message: object): void {
+  private sendTo(ws: WebSocket, message: HuntServerMessage): void {
     try {
       ws.send(JSON.stringify(message));
     } catch {
@@ -1516,7 +1653,7 @@ export class ScavengerHuntRoom {
     }
   }
 
-  private broadcast(message: object): void {
+  private broadcast(message: HuntServerMessage): void {
     const json = JSON.stringify(message);
     const sockets = this.state.getWebSockets();
     for (const ws of sockets) {
@@ -1528,7 +1665,7 @@ export class ScavengerHuntRoom {
     }
   }
 
-  private broadcastExcept(excludeWs: WebSocket, message: object): void {
+  private broadcastExcept(excludeWs: WebSocket, message: HuntServerMessage): void {
     const json = JSON.stringify(message);
     const sockets = this.state.getWebSockets();
     for (const ws of sockets) {

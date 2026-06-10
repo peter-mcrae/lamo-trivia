@@ -133,6 +133,16 @@ export function useHuntState() {
           next.delete(message.itemId);
           return next;
         });
+        setRejectedItems((prev) => {
+          const next = new Map(prev);
+          next.delete(message.itemId);
+          return next;
+        });
+        setDeniedItems((prev) => {
+          const next = new Map(prev);
+          next.delete(message.itemId);
+          return next;
+        });
         setMyProgress((prev) => {
           if (!prev) return prev;
           const itemProgress = prev.items[message.itemId];
@@ -170,7 +180,9 @@ export function useHuntState() {
               [message.itemId]: {
                 ...itemProgress,
                 status: 'searching' as const,
-                attemptsUsed: message.attemptsUsed,
+                // Defensive fallback: a malformed message must never poison
+                // attemptsUsed (undefined → NaN disables the submit button)
+                attemptsUsed: message.attemptsUsed ?? itemProgress.attemptsUsed,
               },
             },
           };
