@@ -141,6 +141,9 @@ export interface HuntItemProgress {
   photoUrl?: string;
   lastRejectedPhotoUrl?: string;
   pendingReviewSince?: number;
+  /** Upload being verified — guards against a stale async verification
+   *  result landing after the item was reset or resubmitted. */
+  activeUploadId?: string;
 }
 
 export interface HuntPlayerProgress {

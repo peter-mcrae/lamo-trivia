@@ -1326,3 +1326,101 @@ describe('ScavengerHuntRoom -- Hunt History', () => {
     expect(meta.totalItems).toBe(3);
   });
 });
+
+describe('ScavengerHuntRoom -- Stuck verification recovery', () => {
+  let state: MockDurableObjectState;
+  let env: Env;
+  let room: ScavengerHuntRoom;
+
+  beforeEach(async () => {
+    ({ state, env, room } = await createInitializedHunt());
+  });
+
+  it('resets a stuck pending_review and sends a well-formed photo_rejected', async () => {
+    const { playerWs, playerId } = await startHuntWithPlayer(room, state);
+
+    const stored = (await state.storage.get('room')) as any;
+    const itemProgress = stored.progress[playerId].items['item-1'];
+    itemProgress.status = 'pending_review';
+    itemProgress.pendingReviewSince = Date.now() - 61_000;
+    itemProgress.attemptsUsed = 1;
+    itemProgress.activeUploadId = 'upload-stuck';
+
+    // Any message during play triggers the stuck-review sweep
+    await room.webSocketMessage(playerWs, JSON.stringify({ type: 'ping' }));
+
+    const rejected = getSentMessages(playerWs).find(
+      (m: any) => m.type === 'photo_rejected',
+    ) as any;
+    expect(rejected).toBeDefined();
+    // Regression: this message used to omit attemptsUsed, which the frontend
+    // trusts blindly — undefined made the remaining-attempts math NaN and
+    // permanently disabled the submit button for that item
+    expect(rejected.attemptsUsed).toBe(0);
+    expect(rejected.attemptsRemaining).toBe(3);
+
+    expect(itemProgress.status).toBe('searching');
+    expect(itemProgress.activeUploadId).toBeUndefined();
+  });
+
+  it('rejects a duplicate start_hunt instead of re-initializing a live hunt', async () => {
+    const { hostWs, playerId } = await startHuntWithPlayer(room, state);
+
+    const stored = (await state.storage.get('room')) as any;
+    stored.progress[playerId].items['item-1'].status = 'found';
+
+    await room.webSocketMessage(hostWs, JSON.stringify({ type: 'start_hunt' }));
+
+    const last = getLastMessage(hostWs) as any;
+    expect(last.type).toBe('error');
+    expect(last.message).toMatch(/already started/i);
+    // Progress must not have been wiped
+    expect(stored.phase).toBe('playing');
+    expect(stored.progress[playerId].items['item-1'].status).toBe('found');
+  });
+});
+
+describe('ScavengerHuntRoom -- End-of-hunt verification grace', () => {
+  let state: MockDurableObjectState;
+  let env: Env;
+  let room: ScavengerHuntRoom;
+
+  beforeEach(async () => {
+    ({ state, env, room } = await createInitializedHunt());
+  });
+
+  it('defers finishing while a verification is pending within the grace window', async () => {
+    const { playerId } = await startHuntWithPlayer(room, state);
+
+    const stored = (await state.storage.get('room')) as any;
+    stored.endsAt = Date.now() - 1000;
+    stored.nextAlarmAction = 'end_hunt';
+    const itemProgress = stored.progress[playerId].items['item-1'];
+    itemProgress.status = 'pending_review';
+    itemProgress.pendingReviewSince = Date.now() - 5000;
+
+    await room.alarm();
+
+    // A photo submitted before the deadline is still verifying — the hunt
+    // must wait for the result instead of discarding it
+    expect(stored.phase).toBe('playing');
+    expect(stored.nextAlarmAction).toBe('end_hunt');
+  });
+
+  it('finishes once the grace window expires, clearing stuck pending reviews', async () => {
+    const { playerId } = await startHuntWithPlayer(room, state);
+
+    const stored = (await state.storage.get('room')) as any;
+    stored.endsAt = Date.now() - 61_000;
+    stored.nextAlarmAction = 'end_hunt';
+    const itemProgress = stored.progress[playerId].items['item-1'];
+    itemProgress.status = 'pending_review';
+    itemProgress.pendingReviewSince = Date.now() - 70_000;
+
+    await room.alarm();
+
+    expect(stored.phase).toBe('finished');
+    // No permanent "Verifying..." badge after the hunt ends
+    expect(itemProgress.status).toBe('searching');
+  });
+});

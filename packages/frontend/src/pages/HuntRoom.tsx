@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useEffect, useRef, useState, useCallback } from 'react';
+import type { HuntClientMessage } from '@lamo-trivia/shared';
 import { useHuntWebSocket } from '../hooks/useHuntWebSocket';
 import { useHuntState } from '../hooks/useHuntState';
 import { usePhotoUpload } from '../hooks/usePhotoUpload';
@@ -27,6 +28,11 @@ export default function HuntRoom() {
   const [showEditSettings, setShowEditSettings] = useState(false);
   const joinedRef = useRef(false);
   const hasJoinedOnceRef = useRef(false);
+  // A submit_photo that may not have reached the server — cleared when the
+  // server acks it, retried once after the next full state sync if it didn't
+  const pendingSubmitRef = useRef<{ itemId: string; uploadId: string } | null>(null);
+  const sendRef = useRef<((message: HuntClientMessage) => boolean) | null>(null);
+  const expiredTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const {
     huntState,
@@ -38,6 +44,7 @@ export default function HuntRoom() {
     appeals,
     setAppeals,
     verifyingItems,
+    timeWarning,
     allTeams,
     rejectedItems,
     deniedItems,
@@ -63,12 +70,32 @@ export default function HuntRoom() {
       }
       if (message.type === 'hunt_expired') {
         setError('This hunt has expired. Returning...');
-        setTimeout(() => navigate('/groups'), 3000);
+        expiredTimerRef.current = setTimeout(() => navigate('/groups'), 3000);
         return;
       }
-      // Clear errors on successful state receipt
+      // Server acked (or resolved) the submission — nothing left to retry
+      if (
+        (message.type === 'photo_verifying' ||
+          message.type === 'photo_accepted' ||
+          message.type === 'photo_rejected' ||
+          message.type === 'appeal_submitted') &&
+        pendingSubmitRef.current?.itemId === message.itemId
+      ) {
+        pendingSubmitRef.current = null;
+      }
       if (message.type === 'hunt_state') {
+        // Clear errors on successful state receipt
         setError(null);
+        // If a submit was sent into a dead socket, the resynced state still
+        // shows the item as searching — retry it once over this connection
+        const pending = pendingSubmitRef.current;
+        if (pending) {
+          pendingSubmitRef.current = null;
+          const status = message.state.myProgress?.items[pending.itemId]?.status;
+          if (status === 'searching') {
+            sendRef.current?.({ type: 'submit_photo', itemId: pending.itemId, uploadId: pending.uploadId });
+          }
+        }
       }
       handleMessage(message);
     },
@@ -79,6 +106,7 @@ export default function HuntRoom() {
     huntId: huntId!,
     onMessage,
   });
+  sendRef.current = send;
 
   // Reset all state when navigating to a new hunt
   useEffect(() => {
@@ -123,6 +151,54 @@ export default function HuntRoom() {
   useEffect(() => {
     if (error) setStartingHunt(false);
   }, [error]);
+
+  // Auto-dismiss the error banner during play — mid-game it otherwise
+  // persists until the next full state sync
+  useEffect(() => {
+    if (!error || !huntState) return;
+    const id = setTimeout(() => setError(null), 8000);
+    return () => clearTimeout(id);
+  }, [error, huntState !== null]);
+
+  // If the host role lands on us mid-hunt (previous host disconnected), keep
+  // the play UI visible instead of abruptly swapping to the observer dashboard
+  const wasHostRef = useRef<boolean | null>(null);
+  useEffect(() => {
+    if (!huntState) {
+      wasHostRef.current = null;
+      return;
+    }
+    const hosting = huntState.myProgress.playerId === huntState.hostId;
+    if (wasHostRef.current !== null && !wasHostRef.current && hosting && huntState.phase === 'playing') {
+      setHostWantsToPlay(true);
+    }
+    wasHostRef.current = hosting;
+  }, [huntState]);
+
+  // If the countdown hits 0 and the hunt_started broadcast never arrives
+  // (lost alarm or missed message), ping so the server resyncs/recovers
+  useEffect(() => {
+    if (huntState?.phase !== 'starting' || countdown !== 0) return;
+    const id = setInterval(() => send({ type: 'ping' }), 5000);
+    return () => clearInterval(id);
+  }, [huntState?.phase, countdown, send]);
+
+  // Surface the server's 5-minute/1-minute warnings briefly
+  const [showTimeWarning, setShowTimeWarning] = useState(false);
+  useEffect(() => {
+    if (timeWarning === null) return;
+    setShowTimeWarning(true);
+    const id = setTimeout(() => setShowTimeWarning(false), 10_000);
+    return () => clearTimeout(id);
+  }, [timeWarning]);
+
+  // Don't yank the user to /groups if they navigated away before the
+  // hunt-expired redirect fired
+  useEffect(() => {
+    return () => {
+      if (expiredTimerRef.current) clearTimeout(expiredTimerRef.current);
+    };
+  }, []);
 
   const handleStartHunt = () => {
     setStartingHunt(true);
@@ -171,20 +247,33 @@ export default function HuntRoom() {
 
     const uploadId = await uploadPhoto(file, itemId);
     if (uploadId) {
-      send({ type: 'submit_photo', itemId, uploadId });
+      // Track until the server acks with photo_verifying — the upload goes
+      // over HTTP and can succeed while the WebSocket is silently dead
+      pendingSubmitRef.current = { itemId, uploadId };
+      if (!send({ type: 'submit_photo', itemId, uploadId })) {
+        setError('Connection lost — your photo will be submitted automatically once reconnected.');
+      }
     }
     // If uploadId is null, usePhotoUpload sets error state which is displayed below
   };
 
   const handleApproveAppeal = (playerId: string, itemId: string) => {
-    send({ type: 'approve_appeal', playerId, itemId });
+    // Only remove the appeal locally once the message actually went out —
+    // otherwise it vanishes from the dashboard but stays pending on the server
+    if (!send({ type: 'approve_appeal', playerId, itemId })) {
+      setError('Connection lost — please try again.');
+      return;
+    }
     setAppeals((prev) =>
       prev.filter((a) => !(a.playerId === playerId && a.itemId === itemId)),
     );
   };
 
   const handleRejectAppeal = (playerId: string, itemId: string) => {
-    send({ type: 'reject_appeal', playerId, itemId });
+    if (!send({ type: 'reject_appeal', playerId, itemId })) {
+      setError('Connection lost — please try again.');
+      return;
+    }
     setAppeals((prev) =>
       prev.filter((a) => !(a.playerId === playerId && a.itemId === itemId)),
     );
@@ -231,8 +320,9 @@ export default function HuntRoom() {
     <div className="max-w-3xl mx-auto py-10 px-6">
       {/* Error banner */}
       {error && (
-        <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
-          {error}
+        <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm flex items-center justify-between gap-3">
+          <span>{error}</span>
+          <button onClick={() => setError(null)} className="font-bold text-red-400 hover:text-red-600 flex-shrink-0">&times;</button>
         </div>
       )}
 
@@ -375,13 +465,26 @@ export default function HuntRoom() {
         <div className="flex flex-col items-center justify-center py-20">
           <p className="text-lamo-gray-muted mb-4">Hunt starting in</p>
           <div className="text-7xl font-bold text-lamo-blue animate-pulse">{countdown}</div>
-          <p className="text-sm text-lamo-gray-muted mt-6">Get ready to hunt!</p>
+          <p className="text-sm text-lamo-gray-muted mt-6">
+            {countdown === 0 ? 'Taking longer than expected — hang tight...' : 'Get ready to hunt!'}
+          </p>
         </div>
       )}
 
       {/* Playing Phase */}
       {huntState.phase === 'playing' && (
         <div>
+          {/* Time warning */}
+          {showTimeWarning && timeWarning !== null && (
+            <div className="mb-4 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-700 text-sm font-medium">
+              {timeWarning >= 120
+                ? `${Math.round(timeWarning / 60)} minutes`
+                : timeWarning >= 60
+                  ? '1 minute'
+                  : `${timeWarning} seconds`} remaining!
+            </div>
+          )}
+
           {/* Host message notifications */}
           {hostMessages.length > 0 && (
             <div className="mb-4 space-y-2">
@@ -427,7 +530,7 @@ export default function HuntRoom() {
                 huntId={huntId!}
                 teams={allTeams}
                 items={items}
-                endsAt={huntState.endsAt!}
+                endsAt={huntState.endsAt ?? Date.now()}
                 appeals={appeals}
                 onApprove={handleApproveAppeal}
                 onReject={handleRejectAppeal}
@@ -456,7 +559,7 @@ export default function HuntRoom() {
                         huntId={huntId!}
                         teams={allTeams}
                         items={items}
-                        endsAt={huntState.endsAt!}
+                        endsAt={huntState.endsAt ?? Date.now()}
                         appeals={appeals}
                         onApprove={handleApproveAppeal}
                         onReject={handleRejectAppeal}
@@ -499,7 +602,12 @@ export default function HuntRoom() {
               {/* Team completion screen */}
               {myProgress && items.length > 0 && items.every((item) => {
                 const ip = myProgress.items[item.id];
-                return ip && (ip.status === 'found' || ip.status === 'rejected');
+                if (!ip) return false;
+                if (ip.status === 'found') return true;
+                // 'rejected' means an appeal is pending host review — only a
+                // dead end once all attempts are used; otherwise the player
+                // can still hunt, so keep the item list (and submit UI) visible
+                return ip.status === 'rejected' && ip.attemptsUsed >= huntState.config.maxRetries;
               }) ? (
                 <div className="text-center py-12">
                   <div className="text-5xl mb-4">

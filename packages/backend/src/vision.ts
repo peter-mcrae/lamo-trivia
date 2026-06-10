@@ -57,6 +57,8 @@ export async function verifyHuntPhoto(
 
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
+      // 25s timeout keeps two attempts plus backoff under the hunt room's
+      // 60s stuck-review threshold, so a hung fetch can't strand the item
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -65,6 +67,7 @@ export async function verifyHuntPhoto(
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify(body),
+        signal: AbortSignal.timeout(25_000),
       });
 
       if (response.status === 429 && attempt === 0) {
@@ -139,6 +142,8 @@ export async function verifyWithHaiku(
     ],
   };
 
+  // Short timeout — Haiku is observational only, but verifyAndCompare awaits
+  // both models, so a slow Haiku call must not hold up the player's result
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
@@ -147,6 +152,7 @@ export async function verifyWithHaiku(
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify(body),
+    signal: AbortSignal.timeout(10_000),
   });
 
   if (!response.ok) {

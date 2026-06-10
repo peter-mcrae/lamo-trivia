@@ -11,11 +11,15 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // HEIC conversion can take seconds — if the user re-picks before it
+  // finishes, the slower (older) result must not overwrite the newer preview
+  const previewRequestRef = useRef(0);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const requestId = ++previewRequestRef.current;
     setSelectedFile(file);
 
     // Convert HEIC/HEIF to JPEG so the browser can display a preview
@@ -32,11 +36,13 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
       }
     }
 
+    if (previewRequestRef.current !== requestId) return;
+
     // Use FileReader to create a data URL — more reliable than blob URLs
     // on mobile browsers, especially for camera captures on iOS Safari
     const reader = new FileReader();
     reader.onload = () => {
-      if (typeof reader.result === 'string') {
+      if (previewRequestRef.current === requestId && typeof reader.result === 'string') {
         setPreview(reader.result);
       }
     };
@@ -44,6 +50,7 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
   };
 
   const handleRetake = () => {
+    previewRequestRef.current++;
     setPreview(null);
     setSelectedFile(null);
     // Reset the input so the same file can be re-selected
