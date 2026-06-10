@@ -59,8 +59,8 @@ export type GroupServerMessage =
 
 // Hunt Client -> Server
 export type HuntClientMessage =
-  | { type: 'join_hunt'; huntId: string; username: string }
-  | { type: 'rejoin_hunt'; huntId: string; username: string }
+  | { type: 'join_hunt'; huntId: string; username: string; rejoinToken?: string }
+  | { type: 'rejoin_hunt'; huntId: string; username: string; rejoinToken?: string }
   | { type: 'leave_hunt' }
   | { type: 'start_hunt' }
   | { type: 'reveal_clue'; itemId: string; clueId: string }
@@ -75,6 +75,7 @@ export type HuntClientMessage =
 
 // Hunt Server -> Client
 export type HuntServerMessage =
+  | { type: 'join_confirmed'; playerId: string; rejoinToken: string }
   | { type: 'hunt_state'; state: ClientHuntState }
   | { type: 'player_joined'; player: Player }
   | { type: 'player_left'; playerId: string; newHostId?: string }

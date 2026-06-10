@@ -61,11 +61,17 @@ export default function HuntRoom() {
       if (message.type === 'error') {
         if (message.code === 'USERNAME_TAKEN') {
           setError('That username is taken. Please choose another.');
+          sessionStorage.removeItem(`hunt-rejoin-token:${huntId}`);
           clearUsername();
           joinedRef.current = false;
           return;
         }
         setError(message.message);
+        return;
+      }
+      if (message.type === 'join_confirmed') {
+        // Store the secret rejoin token so we can reclaim our player on reconnect
+        sessionStorage.setItem(`hunt-rejoin-token:${huntId}`, message.rejoinToken);
         return;
       }
       if (message.type === 'hunt_expired') {
@@ -99,7 +105,7 @@ export default function HuntRoom() {
       }
       handleMessage(message);
     },
-    [handleMessage, navigate, clearUsername],
+    [handleMessage, navigate, clearUsername, huntId],
   );
 
   const { connected, send } = useHuntWebSocket({
@@ -121,9 +127,14 @@ export default function HuntRoom() {
   // Join or rejoin hunt once connected and have a username
   useEffect(() => {
     if (connected && hasUsername && !joinedRef.current) {
-      // If we've joined before (reconnecting), use rejoin_hunt
-      const messageType = hasJoinedOnceRef.current ? 'rejoin_hunt' : 'join_hunt';
-      if (send({ type: messageType, huntId: huntId!, username: username! } as any)) {
+      // The token rides along on both paths: rejoin_hunt requires it, and
+      // join_hunt needs it for the existing-username re-attach after a
+      // fresh page load
+      const rejoinToken = sessionStorage.getItem(`hunt-rejoin-token:${huntId}`) ?? undefined;
+      const message: HuntClientMessage = hasJoinedOnceRef.current
+        ? { type: 'rejoin_hunt', huntId: huntId!, username: username!, rejoinToken }
+        : { type: 'join_hunt', huntId: huntId!, username: username!, rejoinToken };
+      if (send(message)) {
         joinedRef.current = true;
         hasJoinedOnceRef.current = true;
       }

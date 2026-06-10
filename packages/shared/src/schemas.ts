@@ -109,8 +109,8 @@ export const VerifyCodeRequestSchema = z.object({
 });
 
 export const HuntClientMessageSchema = z.discriminatedUnion('type', [
-  z.object({ type: z.literal('join_hunt'), huntId: z.string(), username: UsernameSchema }),
-  z.object({ type: z.literal('rejoin_hunt'), huntId: z.string(), username: UsernameSchema }),
+  z.object({ type: z.literal('join_hunt'), huntId: z.string(), username: UsernameSchema, rejoinToken: z.string().min(1).optional() }),
+  z.object({ type: z.literal('rejoin_hunt'), huntId: z.string(), username: UsernameSchema, rejoinToken: z.string().min(1).optional() }),
   z.object({ type: z.literal('leave_hunt') }),
   z.object({ type: z.literal('start_hunt') }),
   z.object({ type: z.literal('reveal_clue'), itemId: z.string(), clueId: z.string() }),

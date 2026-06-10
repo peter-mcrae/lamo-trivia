@@ -35,11 +35,19 @@ interface HuntRoomState {
   createdAt: number;
   startedAt?: number;
   endsAt?: number;
+  // Secret per-player rejoin tokens (playerId → token). Kept out of the
+  // Player objects, which are broadcast to all clients.
+  rejoinTokens: Record<string, string>;
 }
 
 // Per-connection message rate limiting
 const WS_RATE_WINDOW_MS = 10_000;
 const WS_RATE_MAX_MESSAGES = 30;
+
+// How long a dropped connection may stay gone before the player is removed
+// from the lobby (waiting) or loses host (playing). Phones background
+// constantly mid-hunt — camera, lock screen — so don't react instantly.
+const DISCONNECT_GRACE_MS = 60_000;
 
 export class ScavengerHuntRoom {
   private state: DurableObjectState;
@@ -52,7 +60,11 @@ export class ScavengerHuntRoom {
     this.env = env;
     this.state.blockConcurrencyWhile(async () => {
       const stored = await this.state.storage.get<HuntRoomState>('room');
-      if (stored) this.room = stored;
+      if (stored) {
+        // Backfill fields added after the room was persisted
+        stored.rejoinTokens ??= {};
+        this.room = stored;
+      }
     });
   }
 
@@ -85,6 +97,7 @@ export class ScavengerHuntRoom {
           pendingAppeals: [],
           nextAlarmAction: 'expire_hunt',
           createdAt: Date.now(),
+          rejoinTokens: {},
         };
         await this.persist();
 
@@ -155,6 +168,12 @@ export class ScavengerHuntRoom {
       await this.startHuntPlaying();
     }
 
+    // Lazily act on players who dropped past the grace period (the single
+    // alarm slot belongs to the game timer chain, so no dedicated alarm)
+    if (this.room) {
+      await this.sweepDisconnectedPlayers(now);
+    }
+
     const raw = typeof message === 'string' ? message : '';
     if (raw.length > 8192) {
       this.sendTo(ws, { type: 'error', message: 'Message too large' });
@@ -171,13 +190,13 @@ export class ScavengerHuntRoom {
 
       switch (parsed.data.type) {
         case 'join_hunt':
-          await this.handleJoin(ws, parsed.data.username);
+          await this.handleJoin(ws, parsed.data.username, parsed.data.rejoinToken);
           break;
         case 'rejoin_hunt':
-          await this.handleRejoin(ws, parsed.data.username);
+          await this.handleRejoin(ws, parsed.data.username, parsed.data.rejoinToken);
           break;
         case 'leave_hunt':
-          await this.handleLeave(ws);
+          await this.handleLeave(ws, true);
           break;
         case 'start_hunt':
           await this.handleStartHunt(ws);
@@ -232,6 +251,11 @@ export class ScavengerHuntRoom {
     await this.handleLeave(ws);
   }
 
+  async webSocketError(ws: WebSocket): Promise<void> {
+    this.wsRates.delete(ws);
+    await this.handleLeave(ws);
+  }
+
   async alarm(): Promise<void> {
     if (!this.room) return;
 
@@ -269,7 +293,7 @@ export class ScavengerHuntRoom {
 
   // --- Handlers ---
 
-  private async handleJoin(ws: WebSocket, username: string): Promise<void> {
+  private async handleJoin(ws: WebSocket, username: string, rejoinToken?: string): Promise<void> {
     if (!this.room) {
       this.sendTo(ws, { type: 'error', message: 'Hunt not found', code: 'HUNT_NOT_FOUND' });
       return;
@@ -281,7 +305,7 @@ export class ScavengerHuntRoom {
         (p) => p.username.toLowerCase() === username.toLowerCase(),
       );
       if (existing) {
-        await this.handleRejoin(ws, username);
+        await this.handleRejoin(ws, username, rejoinToken);
         return;
       }
       this.sendTo(ws, { type: 'error', message: 'Hunt already started', code: 'HUNT_STARTED' });
@@ -299,9 +323,7 @@ export class ScavengerHuntRoom {
       (p) => p.username.toLowerCase() === username.toLowerCase(),
     );
     if (existingPlayer) {
-      ws.serializeAttachment(existingPlayer.id);
-      this.closeStaleSockets(existingPlayer.id, ws);
-      this.sendTo(ws, { type: 'hunt_state', state: this.getClientHuntState(existingPlayer.id) });
+      await this.reattachPlayer(ws, existingPlayer, rejoinToken);
       return;
     }
 
@@ -321,6 +343,10 @@ export class ScavengerHuntRoom {
 
     this.room.players.push(player);
 
+    // Secret rejoin token — sent only to this player's own socket
+    const newToken = crypto.randomUUID();
+    this.room.rejoinTokens[playerId] = newToken;
+
     // Assign host: prefer the creator (matched by email), otherwise first joiner
     if (this.room.hostEmail && wsEmail && wsEmail === this.room.hostEmail) {
       this.room.hostId = playerId;
@@ -333,12 +359,62 @@ export class ScavengerHuntRoom {
 
     await this.persist();
 
+    this.sendTo(ws, { type: 'join_confirmed', playerId, rejoinToken: newToken });
     this.sendTo(ws, { type: 'hunt_state', state: this.getClientHuntState(playerId) });
     this.broadcastExcept(ws, { type: 'player_joined', player });
     await this.notifyGroupOfUpdate();
   }
 
-  private async handleRejoin(ws: WebSocket, username: string): Promise<void> {
+  /**
+   * Re-attach a socket to an existing player after verifying the rejoin
+   * token. Tokens didn't always exist — players from older hunts are
+   * grandfathered in and issued one on their first reconnect.
+   */
+  private async reattachPlayer(
+    ws: WebSocket,
+    player: Player,
+    rejoinToken: string | undefined,
+  ): Promise<boolean> {
+    if (!this.room) return false;
+
+    const expectedToken = this.room.rejoinTokens[player.id];
+    if (expectedToken && rejoinToken !== expectedToken) {
+      this.sendTo(ws, {
+        type: 'error',
+        message: 'That username is taken in this hunt',
+        code: 'USERNAME_TAKEN',
+      });
+      return false;
+    }
+
+    // Read the creator email before the playerId attachment replaces it
+    const wsEmail = this.getPendingEmail(ws);
+    ws.serializeAttachment(player.id);
+    this.closeStaleSockets(player.id, ws);
+
+    const token = expectedToken ?? crypto.randomUUID();
+    this.room.rejoinTokens[player.id] = token;
+    player.disconnectedAt = undefined;
+
+    // The creator is the durable host — restore the role if it drifted to
+    // another player while they were disconnected
+    if (
+      this.room.hostEmail &&
+      wsEmail === this.room.hostEmail &&
+      this.room.hostId !== player.id
+    ) {
+      this.room.hostId = player.id;
+      this.broadcast({ type: 'host_changed', hostId: player.id });
+    }
+
+    await this.persist();
+
+    this.sendTo(ws, { type: 'join_confirmed', playerId: player.id, rejoinToken: token });
+    this.sendTo(ws, { type: 'hunt_state', state: this.getClientHuntState(player.id) });
+    return true;
+  }
+
+  private async handleRejoin(ws: WebSocket, username: string, rejoinToken?: string): Promise<void> {
     if (!this.room) {
       this.sendTo(ws, { type: 'error', message: 'Hunt not found', code: 'HUNT_NOT_FOUND' });
       return;
@@ -352,19 +428,17 @@ export class ScavengerHuntRoom {
     if (!existingPlayer) {
       // If hunt is still in waiting phase, redirect to normal join
       if (this.room.phase === 'waiting') {
-        await this.handleJoin(ws, username);
+        await this.handleJoin(ws, username, rejoinToken);
       } else {
         this.sendTo(ws, { type: 'error', message: 'Player not found in this hunt', code: 'PLAYER_NOT_FOUND' });
       }
       return;
     }
 
-    // Re-attach WebSocket to this player
-    ws.serializeAttachment(existingPlayer.id);
-    this.closeStaleSockets(existingPlayer.id, ws);
-
-    // Send current state — includes their progress
-    this.sendTo(ws, { type: 'hunt_state', state: this.getClientHuntState(existingPlayer.id) });
+    // Verifies the rejoin token, re-attaches the socket, restores host to
+    // the creator, and sends join_confirmed + hunt_state
+    const reattached = await this.reattachPlayer(ws, existingPlayer, rejoinToken);
+    if (!reattached) return;
 
     // If playing, also send the items (normally sent via hunt_started)
     if (this.room.phase === 'playing' && this.room.endsAt) {
@@ -389,7 +463,7 @@ export class ScavengerHuntRoom {
     }
   }
 
-  private async handleLeave(ws: WebSocket): Promise<void> {
+  private async handleLeave(ws: WebSocket, explicit = false): Promise<void> {
     if (!this.room) return;
 
     const playerId = this.getPlayerId(ws);
@@ -402,40 +476,109 @@ export class ScavengerHuntRoom {
     );
     if (otherActive) return;
 
+    // A dropped connection isn't a departure. Mark the time and let the
+    // sweep act only if the player stays gone past the grace period.
+    if (!explicit) {
+      const player = this.room.players.find((p) => p.id === playerId);
+      if (player && !player.disconnectedAt) {
+        player.disconnectedAt = Date.now();
+        await this.persist();
+      }
+      return;
+    }
+
     // During playing/finished, don't remove the player — just detach the WebSocket
     // so they can rejoin and see their progress/results
     if (this.room.phase === 'playing' || this.room.phase === 'finished') {
-      // Transfer host if needed
-      const wasHost = this.room.hostId === playerId;
-      if (wasHost) {
-        const connectedPlayers = this.room.players.filter((p) => {
-          if (p.id === playerId) return false;
-          return this.findPlayerWebSocket(p.id) !== null;
-        });
-        if (connectedPlayers.length > 0) {
-          this.room.hostId = connectedPlayers[0].id;
-          await this.persist();
-          this.broadcast({ type: 'host_changed', hostId: this.room.hostId });
-        }
+      if (this.room.hostId === playerId) {
+        await this.transferHost(playerId);
       }
       return;
     }
 
     // During waiting/starting, fully remove the player
+    await this.removePlayer(playerId);
+  }
+
+  /** Fully remove a player during the waiting/starting phases. */
+  private async removePlayer(playerId: string): Promise<void> {
+    if (!this.room) return;
+
     const wasHost = this.room.hostId === playerId;
 
     this.room.players = this.room.players.filter((p) => p.id !== playerId);
     delete this.room.progress[playerId];
+    delete this.room.rejoinTokens[playerId];
 
     let newHostId: string | undefined;
     if (wasHost && this.room.players.length > 0) {
       this.room.hostId = this.room.players[0].id;
       newHostId = this.room.hostId;
+    } else if (wasHost) {
+      // Reset so the next joiner is auto-assigned host
+      this.room.hostId = '';
     }
 
     await this.persist();
     this.broadcast({ type: 'player_left', playerId, ...(newHostId ? { newHostId } : {}) });
     await this.notifyGroupOfUpdate();
+  }
+
+  /** Hand host to the first connected player and bring them up to speed. */
+  private async transferHost(fromPlayerId: string): Promise<void> {
+    if (!this.room || this.room.hostId !== fromPlayerId) return;
+
+    const candidate = this.room.players.find(
+      (p) => p.id !== fromPlayerId && this.findPlayerWebSocket(p.id) !== null,
+    );
+    if (!candidate) return;
+
+    this.room.hostId = candidate.id;
+    await this.persist();
+    this.broadcast({ type: 'host_changed', hostId: candidate.id });
+
+    // Pending appeals only flow to the host at creation or rejoin time —
+    // the incoming host needs them pushed or they'd rot unreviewed
+    const hostWs = this.findPlayerWebSocket(candidate.id);
+    if (hostWs) {
+      for (const appeal of this.room.pendingAppeals) {
+        this.sendTo(hostWs, { type: 'appeal_received', appeal });
+      }
+    }
+  }
+
+  /**
+   * Act on players whose connection has been gone past the grace period:
+   * remove them from a waiting lobby, or transfer host away mid-hunt.
+   * Called lazily from the message path — the alarm slot is taken by the
+   * game timer chain.
+   */
+  private async sweepDisconnectedPlayers(now: number): Promise<void> {
+    if (!this.room) return;
+
+    let cleared = false;
+    for (const player of [...this.room.players]) {
+      if (!player.disconnectedAt) continue;
+
+      if (this.findPlayerWebSocket(player.id)) {
+        // Reconnected without a clean rejoin — clear the marker
+        player.disconnectedAt = undefined;
+        cleared = true;
+        continue;
+      }
+
+      if (now - player.disconnectedAt < DISCONNECT_GRACE_MS) continue;
+
+      if (this.room.phase === 'waiting') {
+        await this.removePlayer(player.id);
+      } else if (this.room.phase === 'playing' && this.room.hostId === player.id) {
+        await this.transferHost(player.id);
+      }
+    }
+
+    if (cleared) {
+      await this.persist();
+    }
   }
 
   private async handleStartHunt(ws: WebSocket): Promise<void> {
@@ -453,6 +596,10 @@ export class ScavengerHuntRoom {
       this.sendTo(ws, { type: 'error', message: 'Only the host can start the hunt' });
       return;
     }
+
+    // Don't count (or bill credits for) players who dropped out of the
+    // lobby past the grace period
+    await this.sweepDisconnectedPlayers(Date.now());
 
     const participantCount = this.room.players.length;
     if (participantCount < this.room.config.minPlayers) {
@@ -1046,8 +1193,8 @@ export class ScavengerHuntRoom {
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
 
-    if (this.room.phase !== 'waiting') {
-      this.sendTo(ws, { type: 'error', message: 'Can only claim host during waiting phase' });
+    if (this.room.phase !== 'waiting' && this.room.phase !== 'playing') {
+      this.sendTo(ws, { type: 'error', message: 'Cannot claim host right now' });
       return;
     }
 
@@ -1071,6 +1218,13 @@ export class ScavengerHuntRoom {
     this.room.hostId = playerId;
     await this.persist();
     this.broadcast({ type: 'host_changed', hostId: playerId });
+
+    // A mid-hunt host needs the pending appeals pushed to them
+    if (this.room.phase === 'playing') {
+      for (const appeal of this.room.pendingAppeals) {
+        this.sendTo(ws, { type: 'appeal_received', appeal });
+      }
+    }
   }
 
   private async handleSendMessage(ws: WebSocket, message: string, targetPlayerId?: string): Promise<void> {
