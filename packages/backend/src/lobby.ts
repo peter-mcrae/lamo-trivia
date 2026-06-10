@@ -77,7 +77,7 @@ export class GameLobby {
         return Response.json({ gameId, ...listing });
       }
 
-      // GET /admin/games — return ALL games (admin only, called from admin-routes)
+      // GET /admin/games — return ALL games (admin only, called from routes/admin)
       if (request.method === 'GET' && url.pathname === '/admin/games') {
         const allGames = Array.from(this.games.values());
         return Response.json({ games: allGames });
