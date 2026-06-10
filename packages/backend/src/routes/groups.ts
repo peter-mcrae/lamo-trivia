@@ -24,7 +24,7 @@ groups.post('/', ipRateLimit(groupCreateLimiter), async (c) => {
     return c.json({ error: parsed.error.flatten() }, 400);
   }
 
-  const groupId = generateGroupId();
+  let groupId = generateGroupId();
   const doId = c.env.PRIVATE_GROUP.idFromName(groupId);
   const group = c.env.PRIVATE_GROUP.get(doId);
   const res = await group.fetch(
@@ -45,7 +45,7 @@ groups.post('/', ipRateLimit(groupCreateLimiter), async (c) => {
         body: JSON.stringify({ id: retryId, name: parsed.data, ownerEmail: user.email }),
       }),
     );
-    return c.json({ groupId: retryId, name: parsed.data });
+    groupId = retryId;
   }
 
   // Index group by owner email for recovery
