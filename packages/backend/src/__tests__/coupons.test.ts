@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { handleRequest } from '../router';
+import { app } from '../app';
 import { createMockEnv } from './mocks';
 import {
   createCoupon, getCoupon, redeemCoupon, deleteCoupon,
@@ -240,8 +240,12 @@ describe('Coupon redemption', () => {
   });
 });
 
-describe('Coupon API routes (via router)', () => {
+describe('Coupon API routes (via app)', () => {
   let env: Env;
+
+  function fetchApp(request: Request, e: Env) {
+    return app.fetch(request, e);
+  }
 
   function adminRequest(path: string, opts: RequestInit = {}) {
     return new Request(`http://localhost${path}`, {
@@ -264,7 +268,7 @@ describe('Coupon API routes (via router)', () => {
       method: 'POST',
       body: JSON.stringify({ credits: 25, maxUses: 5, note: 'Test' }),
     });
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
     expect(response.status).toBe(200);
 
     const data = (await response.json()) as any;
@@ -277,7 +281,7 @@ describe('Coupon API routes (via router)', () => {
       method: 'POST',
       body: JSON.stringify({ credits: 0 }),
     });
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
     expect(response.status).toBe(400);
   });
 
@@ -293,7 +297,7 @@ describe('Coupon API routes (via router)', () => {
     });
 
     const request = adminRequest('/api/admin/coupons');
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
     const data = (await response.json()) as any;
     expect(data.coupons).toHaveLength(1);
     expect(data.coupons[0].code).toBe('TEST1');
@@ -310,7 +314,7 @@ describe('Coupon API routes (via router)', () => {
     });
 
     const request = adminRequest('/api/admin/coupons/TODEL', { method: 'DELETE' });
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
     expect(response.status).toBe(200);
 
     const coupon = await getCoupon(env, 'TODEL');
@@ -323,7 +327,7 @@ describe('Coupon API routes (via router)', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: 'TEST' }),
     });
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
     expect(response.status).toBe(401);
   });
 
@@ -352,7 +356,7 @@ describe('Coupon API routes (via router)', () => {
       },
       body: JSON.stringify({ code: 'GIFT25' }),
     });
-    const response = await handleRequest(request, env);
+    const response = await fetchApp(request, env);
     expect(response.status).toBe(200);
 
     const data = (await response.json()) as any;
