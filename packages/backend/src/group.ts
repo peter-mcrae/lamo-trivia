@@ -270,6 +270,19 @@ export class PrivateGroup {
     if (memberId) {
       member = this.group.members.find((m) => m.memberId === memberId);
       if (member) {
+        // Reject renames that collide with another member — duplicate names
+        // would permanently break recover_member
+        const taken = this.group.members.some(
+          (m) => m.memberId !== memberId && m.username.toLowerCase() === username.toLowerCase(),
+        );
+        if (taken) {
+          this.sendTo(ws, {
+            type: 'error',
+            message: 'That username is already taken in this group',
+            code: 'USERNAME_TAKEN',
+          });
+          return;
+        }
         // Update username if changed
         member.username = username;
         member.online = true;

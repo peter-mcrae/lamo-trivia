@@ -6,7 +6,7 @@ import type {
 // Client -> Server
 export type ClientMessage =
   | { type: 'join_game'; gameId: string; username: string }
-  | { type: 'rejoin_game'; gameId: string; username: string }
+  | { type: 'rejoin_game'; gameId: string; username: string; rejoinToken: string }
   | { type: 'leave_game' }
   | { type: 'start_game' }
   | { type: 'submit_answer'; questionIndex: number; answerIndex: number }
@@ -17,12 +17,13 @@ export type ClientMessage =
 
 // Server -> Client
 export type ServerMessage =
+  | { type: 'join_confirmed'; playerId: string; rejoinToken: string }
   | { type: 'game_state'; state: GameState }
   | { type: 'player_joined'; player: Player }
   | { type: 'player_left'; playerId: string; newHostId?: string }
   | { type: 'host_changed'; hostId: string }
   | { type: 'game_starting'; countdown: number }
-  | { type: 'question'; question: ClientQuestion; questionIndex: number; totalQuestions: number }
+  | { type: 'question'; question: ClientQuestion; questionIndex: number; totalQuestions: number; remainingMs?: number }
   | { type: 'answer_result'; correct: boolean; correctIndex: number; scores: Record<string, number> }
   | { type: 'game_finished'; finalScores: Record<string, number>; rankings: Player[] }
   | { type: 'rematch'; newGameId: string }

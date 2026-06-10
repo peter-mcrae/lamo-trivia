@@ -1,3 +1,6 @@
+/** Canonical game ID format: 4 uppercase letters (no I/O) + hyphen + 4 digits */
+export const GAME_ID_REGEX = /^[A-HJ-NP-Z]{4}-[0-9]{4}$/;
+
 /**
  * Generate a game ID: 4 uppercase letters (excluding I/O for readability) + hyphen + 4 digits.
  * Example: "ABCD-1234"

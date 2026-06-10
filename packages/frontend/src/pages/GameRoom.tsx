@@ -43,6 +43,7 @@ export default function GameRoom() {
     countdown,
     setCountdown,
     rankings,
+    questionRemainingMs,
     handleMessage,
     reset: resetGameState,
   } = useGameState();
@@ -51,6 +52,15 @@ export default function GameRoom() {
     (message: Parameters<typeof handleMessage>[0]) => {
       if (message.type === 'error') {
         setError(message.message);
+        return;
+      }
+      if (message.type === 'join_confirmed') {
+        // Store the secret rejoin token so we can reclaim our player on reconnect
+        try {
+          sessionStorage.setItem(`rejoin-token:${gameId}`, message.rejoinToken);
+        } catch {
+          // sessionStorage unavailable
+        }
         return;
       }
       if (message.type === 'game_expired') {
@@ -65,7 +75,7 @@ export default function GameRoom() {
       }
       handleMessage(message);
     },
-    [handleMessage, navigate],
+    [handleMessage, navigate, gameId],
   );
 
   const { connected, send } = useWebSocket({
@@ -96,9 +106,18 @@ export default function GameRoom() {
   // Join or rejoin game once connected and have a username
   useEffect(() => {
     if (connected && hasUsername && !joinedRef.current) {
-      // If we previously had game state, this is a reconnection
-      const messageType = hadGameStateRef.current ? 'rejoin_game' : 'join_game';
-      if (send({ type: messageType, gameId: gameId!, username: username! })) {
+      // If we previously had game state (and hold a rejoin token), this is a reconnection
+      let rejoinToken: string | null = null;
+      try {
+        rejoinToken = sessionStorage.getItem(`rejoin-token:${gameId}`);
+      } catch {
+        // sessionStorage unavailable
+      }
+      const message =
+        hadGameStateRef.current && rejoinToken
+          ? { type: 'rejoin_game' as const, gameId: gameId!, username: username!, rejoinToken }
+          : { type: 'join_game' as const, gameId: gameId!, username: username! };
+      if (send(message)) {
         joinedRef.current = true;
       }
     }
@@ -113,7 +132,12 @@ export default function GameRoom() {
 
     if (gameState?.phase === 'playing' && currentQuestion && !answerResult) {
       const total = gameState.config.timePerQuestion;
-      setTimeLeft(total);
+      // After a mid-question rejoin, start from the server's remaining time
+      const initial =
+        questionRemainingMs !== null
+          ? Math.min(total, Math.ceil(questionRemainingMs / 1000))
+          : total;
+      setTimeLeft(initial);
       timerRef.current = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
@@ -129,7 +153,7 @@ export default function GameRoom() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [gameState?.phase, currentQuestion, answerResult, gameState?.config.timePerQuestion]);
+  }, [gameState?.phase, currentQuestion, answerResult, gameState?.config.timePerQuestion, questionRemainingMs]);
 
   // Countdown timer for "starting" phase (3 → 2 → 1)
   useEffect(() => {
