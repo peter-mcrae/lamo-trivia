@@ -124,10 +124,12 @@ export function createMockDurableObjectState(): MockDurableObjectState {
     blockConcurrencyWhile: async (callback: () => Promise<void>) => {
       await callback();
     },
+    // Route through state._webSockets so tests can simulate disconnects by
+    // reassigning it (e.g. state._webSockets = state._webSockets.filter(...))
     acceptWebSocket: (ws: WebSocket) => {
-      webSockets.push(ws);
+      state._webSockets.push(ws);
     },
-    getWebSockets: () => webSockets,
+    getWebSockets: () => state._webSockets,
     waitUntil: () => {},
     abort: () => {},
   } as unknown as MockDurableObjectState;

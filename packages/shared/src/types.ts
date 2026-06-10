@@ -9,6 +9,9 @@ export interface Player {
   avatar: Avatar;
   connectedAt: number;
   score: number;
+  /** Set when the player's last socket dropped without an explicit leave —
+   *  removal/host-transfer waits out a grace period in case they return. */
+  disconnectedAt?: number;
 }
 
 export type ScoringMethod = 'speed-bonus' | 'correct-only';

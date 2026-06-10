@@ -89,6 +89,18 @@ async function joinPlayer(
   return ws;
 }
 
+/** Fetch the persisted rejoin token issued to a player at join time. */
+async function getRejoinToken(
+  state: MockDurableObjectState,
+  username: string,
+): Promise<string> {
+  const stored = (await state.storage.get('room')) as any;
+  const player = stored.players.find(
+    (p: any) => p.username.toLowerCase() === username.toLowerCase(),
+  );
+  return stored.rejoinTokens[player.id];
+}
+
 /**
  * Helper: join host + one player, start the hunt, enter playing phase.
  * Returns { hostWs, playerWs, hostId, playerId }.
@@ -202,16 +214,18 @@ describe('ScavengerHuntRoom -- Join/Leave', () => {
     room = initialized.room;
   });
 
-  it('join_hunt adds player and sends hunt_state', async () => {
+  it('join_hunt adds player and sends join_confirmed + hunt_state', async () => {
     const ws = await joinPlayer(room, state, 'Alice');
 
     const msgs = getSentMessages(ws);
-    expect(msgs).toHaveLength(1);
-    expect(msgs[0].type).toBe('hunt_state');
-    expect(msgs[0].state.id).toBe('HUNT-TEST');
-    expect(msgs[0].state.phase).toBe('waiting');
-    expect(msgs[0].state.players).toHaveLength(1);
-    expect(msgs[0].state.players[0].username).toBe('Alice');
+    expect(msgs).toHaveLength(2);
+    expect(msgs[0].type).toBe('join_confirmed');
+    expect(msgs[0].rejoinToken).toBeTruthy();
+    expect(msgs[1].type).toBe('hunt_state');
+    expect(msgs[1].state.id).toBe('HUNT-TEST');
+    expect(msgs[1].state.phase).toBe('waiting');
+    expect(msgs[1].state.players).toHaveLength(1);
+    expect(msgs[1].state.players[0].username).toBe('Alice');
   });
 
   it('join_hunt broadcasts player_joined to others', async () => {
@@ -220,10 +234,11 @@ describe('ScavengerHuntRoom -- Join/Leave', () => {
 
     const ws2 = await joinPlayer(room, state, 'Bob');
 
-    // ws2 gets hunt_state
+    // ws2 gets join_confirmed then hunt_state
     const ws2Msgs = getSentMessages(ws2);
-    expect(ws2Msgs[0].type).toBe('hunt_state');
-    expect(ws2Msgs[0].state.players).toHaveLength(2);
+    expect(ws2Msgs[0].type).toBe('join_confirmed');
+    expect(ws2Msgs[1].type).toBe('hunt_state');
+    expect(ws2Msgs[1].state.players).toHaveLength(2);
 
     // ws1 gets player_joined broadcast
     const ws1Msgs = getSentMessages(ws1);
@@ -236,11 +251,29 @@ describe('ScavengerHuntRoom -- Join/Leave', () => {
     const ws = await joinPlayer(room, state, 'Alice');
 
     const msgs = getSentMessages(ws);
-    const huntState = msgs[0].state;
+    const huntState = msgs.find((m: any) => m.type === 'hunt_state').state;
     expect(huntState.hostId).toBe(huntState.players[0].id);
   });
 
   it('join_hunt re-attaches duplicate usernames during waiting phase (case insensitive)', async () => {
+    await joinPlayer(room, state, 'Alice');
+    const token = await getRejoinToken(state, 'Alice');
+
+    const ws2 = createMockWebSocket();
+    state.acceptWebSocket(ws2);
+    await room.webSocketMessage(
+      ws2,
+      JSON.stringify({ type: 'join_hunt', huntId: 'HUNT-TEST', username: 'alice', rejoinToken: token }),
+    );
+
+    const msgs = getSentMessages(ws2);
+    expect(msgs[0].type).toBe('join_confirmed');
+    expect(msgs[1].type).toBe('hunt_state');
+    // Should re-attach to existing player, not create a new one
+    expect(msgs[1].state.players).toHaveLength(1);
+  });
+
+  it('join_hunt rejects a duplicate username without the rejoin token', async () => {
     await joinPlayer(room, state, 'Alice');
 
     const ws2 = createMockWebSocket();
@@ -251,9 +284,8 @@ describe('ScavengerHuntRoom -- Join/Leave', () => {
     );
 
     const msgs = getSentMessages(ws2);
-    expect(msgs[0].type).toBe('hunt_state');
-    // Should re-attach to existing player, not create a new one
-    expect(msgs[0].state.players).toHaveLength(1);
+    expect(msgs[0].type).toBe('error');
+    expect(msgs[0].code).toBe('USERNAME_TAKEN');
   });
 
   it('join_hunt rejects when hunt is full', async () => {
@@ -364,20 +396,29 @@ describe('ScavengerHuntRoom -- Join/Leave', () => {
     expect(stored.hostId).toBe(stored.players[0].id);
   });
 
-  it('webSocketClose triggers leave', async () => {
+  it('webSocketClose marks the player disconnected; sweep removes them after the grace period', async () => {
     const ws1 = await joinPlayer(room, state, 'Alice');
     const ws2 = await joinPlayer(room, state, 'Bob');
     ws1._sent.length = 0;
     ws2._sent.length = 0;
 
+    // Drop Bob's socket and close it — within the grace period he stays
+    state._webSockets = state._webSockets.filter((w: any) => w !== ws2);
     await room.webSocketClose(ws2);
 
-    const ws1Msgs = getSentMessages(ws1);
-    expect(ws1Msgs.some((m: any) => m.type === 'player_left')).toBe(true);
+    let stored = (await state.storage.get('room')) as any;
+    expect(stored.players).toHaveLength(2);
+    const bob = stored.players.find((p: any) => p.username === 'Bob');
+    expect(bob.disconnectedAt).toBeDefined();
 
-    const stored = (await state.storage.get('room')) as any;
+    // Past the grace period, the next message sweeps him out
+    bob.disconnectedAt = Date.now() - 61_000;
+    await room.webSocketMessage(ws1, JSON.stringify({ type: 'ping' }));
+
+    stored = (await state.storage.get('room')) as any;
     expect(stored.players).toHaveLength(1);
     expect(stored.players[0].username).toBe('Alice');
+    expect(getSentMessages(ws1).some((m: any) => m.type === 'player_left')).toBe(true);
   });
 });
 
@@ -686,15 +727,21 @@ describe('ScavengerHuntRoom -- Claim Host', () => {
     expect(msgs[0].message).toBe('Current host is still connected');
   });
 
-  it('claim_host rejects outside waiting phase', async () => {
+  it('claim_host during playing requires the current host to be disconnected', async () => {
     const { hostWs, playerWs } = await startHuntWithPlayer(room, state);
 
-    // Player tries to claim host during playing phase
+    // Host still connected → rejected
+    await room.webSocketMessage(playerWs, JSON.stringify({ type: 'claim_host' }));
+    const rejected = getSentMessages(playerWs).find((m: any) => m.type === 'error');
+    expect(rejected.message).toBe('Current host is still connected');
+
+    // Host's socket gone → claim succeeds
+    state._webSockets = state._webSockets.filter((w: any) => w !== hostWs);
+    playerWs._sent.length = 0;
     await room.webSocketMessage(playerWs, JSON.stringify({ type: 'claim_host' }));
 
     const msgs = getSentMessages(playerWs);
-    expect(msgs[0].type).toBe('error');
-    expect(msgs[0].message).toBe('Can only claim host during waiting phase');
+    expect(msgs.some((m: any) => m.type === 'host_changed')).toBe(true);
   });
 });
 
@@ -953,12 +1000,13 @@ describe('ScavengerHuntRoom -- Host Dashboard', () => {
     await room.alarm();
 
     // Rejoin host to get a fresh hunt_state
+    const hostToken = await getRejoinToken(state, 'Host');
     state._webSockets = state._webSockets.filter((ws: any) => ws !== hostWs);
     const hostWs2 = createMockWebSocket();
     state.acceptWebSocket(hostWs2);
     await room.webSocketMessage(
       hostWs2,
-      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Host' }),
+      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Host', rejoinToken: hostToken }),
     );
 
     const msgs = getSentMessages(hostWs2);
@@ -983,12 +1031,13 @@ describe('ScavengerHuntRoom -- Host Dashboard', () => {
     await room.alarm();
 
     // Rejoin player to get a fresh hunt_state
+    const playerToken = await getRejoinToken(state, 'Player1');
     state._webSockets = state._webSockets.filter((ws: any) => ws !== playerWs);
     const playerWs2 = createMockWebSocket();
     state.acceptWebSocket(playerWs2);
     await room.webSocketMessage(
       playerWs2,
-      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Player1' }),
+      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Player1', rejoinToken: playerToken }),
     );
 
     const msgs = getSentMessages(playerWs2);
@@ -1051,6 +1100,7 @@ describe('ScavengerHuntRoom -- Rejoin', () => {
     const { playerWs } = await startHuntWithPlayer(room, state);
 
     // Simulate disconnect of player
+    const token = await getRejoinToken(state, 'Player1');
     state._webSockets = state._webSockets.filter((ws: any) => ws !== playerWs);
 
     // Rejoin with a new WebSocket
@@ -1058,7 +1108,7 @@ describe('ScavengerHuntRoom -- Rejoin', () => {
     state.acceptWebSocket(ws2);
     await room.webSocketMessage(
       ws2,
-      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Player1' }),
+      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Player1', rejoinToken: token }),
     );
 
     const msgs = getSentMessages(ws2);
@@ -1089,6 +1139,7 @@ describe('ScavengerHuntRoom -- Rejoin', () => {
     await room.alarm(); // end_hunt
 
     // Simulate disconnect
+    const token = await getRejoinToken(state, 'Bob');
     state._webSockets = state._webSockets.filter((ws: any) => ws !== playerWs);
 
     // Rejoin
@@ -1096,7 +1147,7 @@ describe('ScavengerHuntRoom -- Rejoin', () => {
     state.acceptWebSocket(ws2);
     await room.webSocketMessage(
       ws2,
-      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Bob' }),
+      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Bob', rejoinToken: token }),
     );
 
     const msgs = getSentMessages(ws2);
@@ -1112,6 +1163,7 @@ describe('ScavengerHuntRoom -- Rejoin', () => {
     const { playerWs } = await startHuntWithPlayer(room, state);
 
     // Disconnect player
+    const token = await getRejoinToken(state, 'Player1');
     state._webSockets = state._webSockets.filter((ws: any) => ws !== playerWs);
 
     // Try join_hunt (not rejoin_hunt) — should auto-redirect to rejoin
@@ -1119,7 +1171,7 @@ describe('ScavengerHuntRoom -- Rejoin', () => {
     state.acceptWebSocket(ws2);
     await room.webSocketMessage(
       ws2,
-      JSON.stringify({ type: 'join_hunt', huntId: 'HUNT-TEST', username: 'Player1' }),
+      JSON.stringify({ type: 'join_hunt', huntId: 'HUNT-TEST', username: 'Player1', rejoinToken: token }),
     );
 
     const msgs = getSentMessages(ws2);
@@ -1191,6 +1243,7 @@ describe('ScavengerHuntRoom -- Rejoin', () => {
     });
 
     // Disconnect host
+    const token = await getRejoinToken(state, 'Host');
     state._webSockets = state._webSockets.filter((ws: any) => ws !== hostWs);
 
     // Host reconnects
@@ -1198,7 +1251,7 @@ describe('ScavengerHuntRoom -- Rejoin', () => {
     state.acceptWebSocket(hostWs2);
     await room.webSocketMessage(
       hostWs2,
-      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Host' }),
+      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Host', rejoinToken: token }),
     );
 
     const msgs = getSentMessages(hostWs2);
@@ -1422,5 +1475,149 @@ describe('ScavengerHuntRoom -- End-of-hunt verification grace', () => {
     expect(stored.phase).toBe('finished');
     // No permanent "Verifying..." badge after the hunt ends
     expect(itemProgress.status).toBe('searching');
+  });
+});
+
+describe('ScavengerHuntRoom -- Rejoin tokens & host stability', () => {
+  let state: MockDurableObjectState;
+  let env: Env;
+  let room: ScavengerHuntRoom;
+
+  beforeEach(async () => {
+    ({ state, env, room } = await createInitializedHunt());
+  });
+
+  it('rejoin_hunt rejects a wrong token', async () => {
+    const { playerWs } = await startHuntWithPlayer(room, state);
+    state._webSockets = state._webSockets.filter((w: any) => w !== playerWs);
+
+    const ws2 = createMockWebSocket();
+    state.acceptWebSocket(ws2);
+    await room.webSocketMessage(
+      ws2,
+      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Player1', rejoinToken: 'wrong-token' }),
+    );
+
+    const msgs = getSentMessages(ws2);
+    expect(msgs[0].type).toBe('error');
+    expect(msgs[0].code).toBe('USERNAME_TAKEN');
+
+    // The impostor socket must not be attached to the player
+    const stored = (await state.storage.get('room')) as any;
+    const playerId = stored.players.find((p: any) => p.username === 'Player1').id;
+    expect((ws2 as any).deserializeAttachment()).not.toBe(playerId);
+  });
+
+  it('grandfathers players from hunts created before tokens existed', async () => {
+    const { playerWs, playerId } = await startHuntWithPlayer(room, state);
+
+    // Simulate a pre-token room: no stored token for this player
+    const stored = (await state.storage.get('room')) as any;
+    delete stored.rejoinTokens[playerId];
+
+    state._webSockets = state._webSockets.filter((w: any) => w !== playerWs);
+    const ws2 = createMockWebSocket();
+    state.acceptWebSocket(ws2);
+    await room.webSocketMessage(
+      ws2,
+      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Player1' }),
+    );
+
+    // Rejoin succeeds and a token is issued for next time
+    const msgs = getSentMessages(ws2);
+    expect(msgs[0].type).toBe('join_confirmed');
+    expect(msgs[0].rejoinToken).toBeTruthy();
+    expect(stored.rejoinTokens[playerId]).toBe(msgs[0].rejoinToken);
+  });
+
+  it('host disconnect mid-hunt only transfers host after the grace period, with appeals pushed', async () => {
+    const { hostWs, playerWs, hostId, playerId } = await startHuntWithPlayer(room, state);
+
+    const stored = (await state.storage.get('room')) as any;
+    stored.pendingAppeals.push({
+      playerId,
+      playerUsername: 'Player1',
+      itemId: 'item-1',
+      itemDescription: 'A red fire hydrant',
+      photoUrl: 'HUNT-TEST/test-photo.jpg',
+      timestamp: Date.now(),
+      isContest: false,
+    });
+
+    // Host's socket drops
+    state._webSockets = state._webSockets.filter((w: any) => w !== hostWs);
+    await room.webSocketClose(hostWs);
+
+    // Within the grace period the host keeps the role
+    expect(stored.hostId).toBe(hostId);
+    const host = stored.players.find((p: any) => p.id === hostId);
+    expect(host.disconnectedAt).toBeDefined();
+
+    // Past the grace period, the next message hands host to Player1
+    host.disconnectedAt = Date.now() - 61_000;
+    playerWs._sent.length = 0;
+    await room.webSocketMessage(playerWs, JSON.stringify({ type: 'ping' }));
+
+    expect(stored.hostId).toBe(playerId);
+    const msgs = getSentMessages(playerWs);
+    expect(msgs.some((m: any) => m.type === 'host_changed')).toBe(true);
+    // The incoming host receives the pending appeals
+    expect(msgs.some((m: any) => m.type === 'appeal_received')).toBe(true);
+  });
+
+  it('restores host to the creator on rejoin after the role drifted', async () => {
+    const initialized = await createInitializedHunt({ hostEmail: 'creator@example.com' });
+    const emailState = initialized.state;
+    const emailRoom = initialized.room;
+
+    // Creator joins with their email riding the socket attachment (set at upgrade)
+    const creatorWs = createMockWebSocket();
+    (creatorWs as any).serializeAttachment({ pendingEmail: 'creator@example.com' });
+    emailState.acceptWebSocket(creatorWs);
+    await emailRoom.webSocketMessage(
+      creatorWs,
+      JSON.stringify({ type: 'join_hunt', huntId: 'HUNT-TEST', username: 'Creator' }),
+    );
+    const bobWs = await joinPlayer(emailRoom, emailState, 'Bob');
+
+    const stored = (await emailState.storage.get('room')) as any;
+    const creatorId = stored.players.find((p: any) => p.username === 'Creator').id;
+    const bobId = stored.players.find((p: any) => p.username === 'Bob').id;
+    expect(stored.hostId).toBe(creatorId);
+
+    // Simulate the role drifting to Bob while the creator was away
+    stored.hostId = bobId;
+    const token = stored.rejoinTokens[creatorId];
+    emailState._webSockets = emailState._webSockets.filter((w: any) => w !== creatorWs);
+
+    const creatorWs2 = createMockWebSocket();
+    (creatorWs2 as any).serializeAttachment({ pendingEmail: 'creator@example.com' });
+    emailState.acceptWebSocket(creatorWs2);
+    await emailRoom.webSocketMessage(
+      creatorWs2,
+      JSON.stringify({ type: 'rejoin_hunt', huntId: 'HUNT-TEST', username: 'Creator', rejoinToken: token }),
+    );
+
+    expect(stored.hostId).toBe(creatorId);
+    expect(getSentMessages(bobWs).some((m: any) => m.type === 'host_changed')).toBe(true);
+  });
+
+  it('start_hunt sweeps players gone past the grace period before counting teams', async () => {
+    const hostWs = await joinPlayer(room, state, 'Host');
+    await joinPlayer(room, state, 'Ghost');
+
+    const stored = (await state.storage.get('room')) as any;
+    const ghost = stored.players.find((p: any) => p.username === 'Ghost');
+    ghost.disconnectedAt = Date.now() - 61_000;
+    state._webSockets = state._webSockets.filter(
+      (w: any) => (w as any).deserializeAttachment() !== ghost.id,
+    );
+
+    await room.webSocketMessage(hostWs, JSON.stringify({ type: 'start_hunt' }));
+
+    expect(stored.players).toHaveLength(1);
+    expect(stored.players[0].username).toBe('Host');
+    expect(stored.progress[ghost.id]).toBeUndefined();
+    expect(stored.phase).toBe('starting');
   });
 });
