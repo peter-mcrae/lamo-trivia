@@ -20,10 +20,15 @@ interface RoomState {
   scores: Record<string, number>;
   streaks: Record<string, number>;
   answersThisRound: Record<string, number>;
+  answerTimesThisRound: Record<string, number>;
   questionStartedAt: number;
+  lastScoredQuestionIndex: number;
   nextAlarmAction: AlarmAction | null;
   createdAt: number;
   startedAt?: number;
+  // Secret per-player rejoin tokens (playerId → token). Kept out of Player
+  // objects, which are broadcast to all clients.
+  rejoinTokens: Record<string, string>;
 }
 
 // Per-connection message rate limiting
@@ -41,7 +46,13 @@ export class GameRoom {
     this.env = env;
     this.state.blockConcurrencyWhile(async () => {
       const stored = await this.state.storage.get<RoomState>('room');
-      if (stored) this.room = stored;
+      if (stored) {
+        // Backfill fields added after the room was persisted
+        stored.rejoinTokens ??= {};
+        stored.answerTimesThisRound ??= {};
+        stored.lastScoredQuestionIndex ??= -1;
+        this.room = stored;
+      }
     });
   }
 
@@ -50,6 +61,9 @@ export class GameRoom {
 
     try {
       if (request.method === 'POST' && url.pathname === '/config') {
+        if (this.room && (this.room.phase !== 'waiting' || this.room.players.length > 0)) {
+          return Response.json({ error: 'Room already in use' }, { status: 409 });
+        }
         const body = (await request.json()) as GameConfig & { gameId: string };
         this.room = {
           gameId: body.gameId,
@@ -62,9 +76,12 @@ export class GameRoom {
           scores: {},
           streaks: {},
           answersThisRound: {},
+          answerTimesThisRound: {},
           questionStartedAt: 0,
+          lastScoredQuestionIndex: -1,
           nextAlarmAction: 'expire_game',
           createdAt: Date.now(),
+          rejoinTokens: {},
         };
         await this.persist();
 
@@ -128,7 +145,7 @@ export class GameRoom {
           await this.handleJoin(ws, parsed.data.username);
           break;
         case 'rejoin_game':
-          await this.handleRejoin(ws, parsed.data.username);
+          await this.handleRejoin(ws, parsed.data.username, parsed.data.rejoinToken);
           break;
         case 'leave_game':
           await this.handleLeave(ws);
@@ -162,6 +179,11 @@ export class GameRoom {
   }
 
   async webSocketClose(ws: WebSocket): Promise<void> {
+    this.wsRates.delete(ws);
+    await this.handleLeave(ws);
+  }
+
+  async webSocketError(ws: WebSocket): Promise<void> {
     this.wsRates.delete(ws);
     await this.handleLeave(ws);
   }
@@ -228,23 +250,29 @@ export class GameRoom {
     this.room.scores[playerId] = 0;
     this.room.streaks[playerId] = 0;
 
+    // Secret rejoin token — sent only to this player's own socket
+    const rejoinToken = crypto.randomUUID();
+    this.room.rejoinTokens[playerId] = rejoinToken;
+
     if (this.room.hostId === '') {
       this.room.hostId = playerId;
     }
 
     await this.persist();
 
-    // Send full state to the joining player
-    this.sendTo(ws, { type: 'game_state', state: this.getClientGameState() });
+    // Send join confirmation (with rejoin token) and full state to the joining player
+    this.sendTo(ws, { type: 'join_confirmed', playerId, rejoinToken });
+    this.sendTo(ws, { type: 'game_state', state: this.getClientGameState(playerId) });
 
     // Broadcast to everyone else
     this.broadcastExcept(ws, { type: 'player_joined', player });
 
     // Notify group if this is a group game
     await this.notifyGroupOfUpdate();
+    await this.notifyLobbyOfUpdate();
   }
 
-  private async handleRejoin(ws: WebSocket, username: string): Promise<void> {
+  private async handleRejoin(ws: WebSocket, username: string, rejoinToken: string): Promise<void> {
     if (!this.room) {
       this.sendTo(ws, { type: 'error', message: 'Game not found', code: 'GAME_NOT_FOUND' });
       return;
@@ -259,11 +287,43 @@ export class GameRoom {
       return;
     }
 
+    // Verify the secret rejoin token issued at join time
+    const expectedToken = this.room.rejoinTokens[existingPlayer.id];
+    if (!expectedToken || rejoinToken !== expectedToken) {
+      this.sendTo(ws, { type: 'error', message: 'Invalid rejoin token', code: 'INVALID_REJOIN_TOKEN' });
+      return;
+    }
+
     // Attach this WebSocket to the existing player
     ws.serializeAttachment(existingPlayer.id);
 
     // Send full current game state
-    this.sendTo(ws, { type: 'game_state', state: this.getClientGameState() });
+    this.sendTo(ws, { type: 'join_confirmed', playerId: existingPlayer.id, rejoinToken: expectedToken });
+    this.sendTo(ws, { type: 'game_state', state: this.getClientGameState(existingPlayer.id) });
+
+    // Mid-question rejoin: resend the current question with the time remaining
+    if (
+      this.room.phase === 'playing' &&
+      this.room.currentQuestionIndex < this.room.questions.length
+    ) {
+      const question = this.room.questions[this.room.currentQuestionIndex];
+      const remainingMs = Math.max(
+        0,
+        this.room.questionStartedAt + this.room.config.timePerQuestion * 1000 - Date.now(),
+      );
+      this.sendTo(ws, {
+        type: 'question',
+        question: {
+          id: question.id,
+          text: question.text,
+          options: question.options,
+          categoryId: question.categoryId,
+        } satisfies ClientQuestion,
+        questionIndex: this.room.currentQuestionIndex,
+        totalQuestions: this.room.questions.length,
+        remainingMs,
+      });
+    }
   }
 
   private async handleLeave(ws: WebSocket): Promise<void> {
@@ -271,6 +331,13 @@ export class GameRoom {
 
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
+
+    // Skip if the player has another live WebSocket (reconnect race / multiple tabs)
+    const otherActive = this.state.getWebSockets().some((s) => {
+      if (s === ws) return false;
+      return this.getPlayerId(s) === playerId;
+    });
+    if (otherActive) return;
 
     // During active game, preserve player state for reconnection
     if (this.room.phase === 'playing' || this.room.phase === 'finished' || this.room.phase === 'starting') {
@@ -284,12 +351,16 @@ export class GameRoom {
     this.room.players = this.room.players.filter((p) => p.id !== playerId);
     delete this.room.scores[playerId];
     delete this.room.streaks[playerId];
+    delete this.room.rejoinTokens[playerId];
 
     // Reassign host if the host left
     let newHostId: string | undefined;
     if (wasHost && this.room.players.length > 0) {
       this.room.hostId = this.room.players[0].id;
       newHostId = this.room.hostId;
+    } else if (this.room.players.length === 0) {
+      // Empty room — clear hostId so the next joiner is auto-assigned host
+      this.room.hostId = '';
     }
 
     await this.persist();
@@ -297,6 +368,7 @@ export class GameRoom {
 
     // Notify group if this is a group game
     await this.notifyGroupOfUpdate();
+    await this.notifyLobbyOfUpdate();
   }
 
   private async handleStartGame(ws: WebSocket): Promise<void> {
@@ -308,6 +380,11 @@ export class GameRoom {
       return;
     }
 
+    if (this.room.phase !== 'waiting') {
+      this.sendTo(ws, { type: 'error', message: 'Game already started' });
+      return;
+    }
+
     if (this.room.players.length < this.room.config.minPlayers) {
       this.sendTo(ws, {
         type: 'error',
@@ -315,6 +392,11 @@ export class GameRoom {
       });
       return;
     }
+
+    // Claim the start before the (slow) question fetch so concurrent starts
+    // and join/leave races can't corrupt state mid-load
+    this.room.phase = 'starting';
+    await this.persist();
 
     // Fetch questions — AI-generated or from KV
     try {
@@ -351,16 +433,19 @@ export class GameRoom {
         categoryIds: this.room.config.categoryIds,
         error: message,
       });
+      this.room.phase = 'waiting';
+      await this.persist();
       this.sendTo(ws, { type: 'error', message: `Question loading failed: ${message}` });
       return;
     }
 
     if (this.room.questions.length === 0) {
+      this.room.phase = 'waiting';
+      await this.persist();
       this.sendTo(ws, { type: 'error', message: 'No questions available' });
       return;
     }
 
-    this.room.phase = 'starting';
     this.room.startedAt = Date.now();
     this.room.currentQuestionIndex = 0;
     this.room.nextAlarmAction = 'send_question';
@@ -416,6 +501,7 @@ export class GameRoom {
 
     // Record or update the answer — players can change until time expires
     this.room.answersThisRound[playerId] = answerIndex;
+    this.room.answerTimesThisRound[playerId] = Date.now();
     await this.persist();
   }
 
@@ -437,6 +523,14 @@ export class GameRoom {
 
     if (this.room.hostId === playerId) {
       this.sendTo(ws, { type: 'error', message: 'You are already the host' });
+      return;
+    }
+
+    // Only allow claiming when the current host has no live connection
+    const hostId = this.room.hostId;
+    const hostConnected = this.state.getWebSockets().some((s) => this.getPlayerId(s) === hostId);
+    if (hostConnected) {
+      this.sendTo(ws, { type: 'error', message: 'The host is still connected' });
       return;
     }
 
@@ -475,6 +569,7 @@ export class GameRoom {
 
     this.room.phase = 'playing';
     this.room.answersThisRound = {};
+    this.room.answerTimesThisRound = {};
     this.room.questionStartedAt = Date.now();
 
     const question = this.room.questions[this.room.currentQuestionIndex];
@@ -504,24 +599,31 @@ export class GameRoom {
 
     const question = this.room.questions[this.room.currentQuestionIndex];
 
-    // Score all players using the extracted pure scoring function
-    const result = calculateRoundScores({
-      players: this.room.players,
-      answersThisRound: this.room.answersThisRound,
-      correctIndex: question.correctIndex,
-      currentScores: this.room.scores,
-      streaks: this.room.streaks,
-      scoringMethod: this.room.config.scoringMethod,
-      streakBonus: this.room.config.streakBonus,
-    });
+    // Score at most once per question — Cloudflare retries alarm() on errors,
+    // and re-running the scoring would apply points twice
+    if (this.room.lastScoredQuestionIndex !== this.room.currentQuestionIndex) {
+      const result = calculateRoundScores({
+        players: this.room.players,
+        answersThisRound: this.room.answersThisRound,
+        answerTimesThisRound: this.room.answerTimesThisRound,
+        correctIndex: question.correctIndex,
+        currentScores: this.room.scores,
+        streaks: this.room.streaks,
+        scoringMethod: this.room.config.scoringMethod,
+        streakBonus: this.room.config.streakBonus,
+        questionStartedAt: this.room.questionStartedAt,
+        timePerQuestion: this.room.config.timePerQuestion,
+      });
 
-    this.room.scores = result.scores;
-    this.room.streaks = result.streaks;
-    for (const player of this.room.players) {
-      player.score = this.room.scores[player.id];
+      this.room.scores = result.scores;
+      this.room.streaks = result.streaks;
+      for (const player of this.room.players) {
+        player.score = this.room.scores[player.id];
+      }
+      this.room.lastScoredQuestionIndex = this.room.currentQuestionIndex;
+
+      await this.persist();
     }
-
-    await this.persist();
 
     // Send answer_result to each player with their personal result
     const sockets = this.state.getWebSockets();
@@ -705,6 +807,7 @@ export class GameRoom {
 
     // Notify group of the update (e.g. name change)
     await this.notifyGroupOfUpdate();
+    await this.notifyLobbyOfUpdate();
   }
 
   private async notifyGroupOfUpdate(): Promise<void> {
@@ -733,6 +836,40 @@ export class GameRoom {
     }
   }
 
+  private async notifyLobbyOfUpdate(): Promise<void> {
+    if (!this.room || this.room.config.isPrivate) return;
+    try {
+      const lobbyId = this.env.GAME_LOBBY.idFromName('global');
+      const lobby = this.env.GAME_LOBBY.get(lobbyId);
+      await lobby.fetch(
+        new Request(`http://internal/games/${this.room.gameId}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: this.room.config.name,
+            playerCount: this.room.players.length,
+            minPlayers: this.room.config.minPlayers,
+            maxPlayers: this.room.config.maxPlayers,
+            categoryIds: this.room.config.categoryIds,
+            questionCount: this.room.config.questionCount,
+            timePerQuestion: this.room.config.timePerQuestion,
+            scoringMethod: this.room.config.scoringMethod,
+            streakBonus: this.room.config.streakBonus,
+            showAnswers: this.room.config.showAnswers,
+            aiTopic: this.room.config.aiTopic,
+            phase: this.room.phase,
+            hostUsername: this.room.players.find((p) => p.id === this.room!.hostId)?.username || '',
+          }),
+        }),
+      );
+    } catch (err) {
+      // Non-critical — lobby update failure shouldn't break game flow
+      console.error('Lobby notification failed', {
+        gameId: this.room.gameId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   private getPlayerId(ws: WebSocket): string | null {
     return ws.deserializeAttachment() as string | null;
   }
@@ -744,8 +881,17 @@ export class GameRoom {
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  private getClientGameState(): GameState {
+  private getClientGameState(forPlayerId?: string): GameState {
     const r = this.room!;
+    // Mid-question, don't leak other players' live answers — include at most
+    // the requesting player's own answer
+    let answers = r.answersThisRound;
+    if (r.phase === 'playing') {
+      answers =
+        forPlayerId && forPlayerId in r.answersThisRound
+          ? { [forPlayerId]: r.answersThisRound[forPlayerId] }
+          : {};
+    }
     return {
       id: r.gameId,
       config: r.config,
@@ -753,7 +899,7 @@ export class GameRoom {
       hostId: r.hostId,
       players: r.players,
       currentQuestionIndex: r.currentQuestionIndex,
-      answers: r.answersThisRound,
+      answers,
       scores: r.scores,
       createdAt: r.createdAt,
       startedAt: r.startedAt,

@@ -155,11 +155,92 @@ describe('calculateRoundScores', () => {
 
   // --- Speed-bonus scoring method ---
 
-  it('speed-bonus method gives same 1000 base as correct-only', () => {
+  it('speed-bonus falls back to 1000 base when no timing info is available', () => {
     const result = calculateRoundScores(
       makeInput({
         answersThisRound: { p1: 2 },
         scoringMethod: 'speed-bonus',
+      }),
+    );
+    expect(result.pointsThisRound.p1).toBe(1000);
+  });
+
+  it('speed-bonus awards +50% of base for an instant answer', () => {
+    const result = calculateRoundScores(
+      makeInput({
+        answersThisRound: { p1: 2 },
+        answerTimesThisRound: { p1: 100_000 }, // answered at question start
+        scoringMethod: 'speed-bonus',
+        questionStartedAt: 100_000,
+        timePerQuestion: 10,
+      }),
+    );
+    expect(result.pointsThisRound.p1).toBe(1500);
+  });
+
+  it('speed-bonus awards +25% of base at half time remaining', () => {
+    const result = calculateRoundScores(
+      makeInput({
+        answersThisRound: { p1: 2 },
+        answerTimesThisRound: { p1: 105_000 }, // 5s into a 10s question
+        scoringMethod: 'speed-bonus',
+        questionStartedAt: 100_000,
+        timePerQuestion: 10,
+      }),
+    );
+    expect(result.pointsThisRound.p1).toBe(1250);
+  });
+
+  it('speed-bonus awards no bonus when answered at or past the time limit', () => {
+    const result = calculateRoundScores(
+      makeInput({
+        answersThisRound: { p1: 2 },
+        answerTimesThisRound: { p1: 111_000 }, // 11s into a 10s question
+        scoringMethod: 'speed-bonus',
+        questionStartedAt: 100_000,
+        timePerQuestion: 10,
+      }),
+    );
+    expect(result.pointsThisRound.p1).toBe(1000);
+  });
+
+  it('speed-bonus gives no points for a wrong answer regardless of speed', () => {
+    const result = calculateRoundScores(
+      makeInput({
+        answersThisRound: { p1: 0 },
+        answerTimesThisRound: { p1: 100_000 },
+        scoringMethod: 'speed-bonus',
+        questionStartedAt: 100_000,
+        timePerQuestion: 10,
+      }),
+    );
+    expect(result.pointsThisRound.p1).toBe(0);
+  });
+
+  it('speed-bonus stacks with the streak multiplier', () => {
+    const result = calculateRoundScores(
+      makeInput({
+        answersThisRound: { p1: 2 },
+        answerTimesThisRound: { p1: 100_000 },
+        scoringMethod: 'speed-bonus',
+        questionStartedAt: 100_000,
+        timePerQuestion: 10,
+        streaks: { p1: 1 },
+        streakBonus: true,
+      }),
+    );
+    // (1000 + 500) * 2x streak multiplier
+    expect(result.pointsThisRound.p1).toBe(3000);
+  });
+
+  it('correct-only ignores timing info and awards flat 1000', () => {
+    const result = calculateRoundScores(
+      makeInput({
+        answersThisRound: { p1: 2 },
+        answerTimesThisRound: { p1: 100_000 },
+        scoringMethod: 'correct-only',
+        questionStartedAt: 100_000,
+        timePerQuestion: 10,
       }),
     );
     expect(result.pointsThisRound.p1).toBe(1000);

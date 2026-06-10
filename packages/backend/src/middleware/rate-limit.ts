@@ -38,7 +38,9 @@ export function getClientIP(request: Request): string {
   return request.headers.get('CF-Connecting-IP') ?? 'unknown';
 }
 
-// Shared rate limiter instances
+// Shared rate limiter instances.
+// NOTE: these are in-memory and per-isolate, so they are best-effort only —
+// a Durable-Object-backed counter is the durable fix.
 export const gameCreateLimiter = new RateLimiter(10);       // 10/min per IP
 export const groupCreateLimiter = new RateLimiter(5);       // 5/min per IP
 export const usernameCheckLimiter = new RateLimiter(20);    // 20/min per IP
@@ -47,6 +49,7 @@ export const photoUploadLimiter = new RateLimiter(20);      // 20/min per IP
 export const huntHistoryLimiter = new RateLimiter(30);      // 30/min per IP
 export const authCodeLimiter = new RateLimiter(5, 3600_000); // 5/hr per email
 export const authVerifyLimiter = new RateLimiter(20);       // 20/min per IP
+export const authVerifyEmailLimiter = new RateLimiter(10);  // 10/min per email
 export const trackingLimiter = new RateLimiter(60);         // 60/min per IP
 export const adminLimiter = new RateLimiter(120);           // 120/min per admin email
 

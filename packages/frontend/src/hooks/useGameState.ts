@@ -16,6 +16,8 @@ export function useGameState() {
   const [answerResult, setAnswerResult] = useState<AnswerResult | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
   const [rankings, setRankings] = useState<Player[] | null>(null);
+  // Time remaining for the current question (ms) — only set on mid-question rejoin
+  const [questionRemainingMs, setQuestionRemainingMs] = useState<number | null>(null);
 
   const handleMessage = useCallback((message: ServerMessage) => {
     switch (message.type) {
@@ -60,6 +62,7 @@ export function useGameState() {
         setCurrentQuestion(message.question);
         setQuestionIndex(message.questionIndex);
         setTotalQuestions(message.totalQuestions);
+        setQuestionRemainingMs(message.remainingMs ?? null);
         setSelectedAnswer(null);
         setAnswerResult(null);
         setGameState((prev) => {
@@ -99,6 +102,7 @@ export function useGameState() {
     setAnswerResult(null);
     setCountdown(null);
     setRankings(null);
+    setQuestionRemainingMs(null);
   }, []);
 
   return {
@@ -112,6 +116,7 @@ export function useGameState() {
     countdown,
     setCountdown,
     rankings,
+    questionRemainingMs,
     handleMessage,
     reset,
   };

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { GAME_ID_REGEX } from './gameId';
 
 export const UsernameSchema = z
   .string()
@@ -32,7 +33,7 @@ export const GameConfigSchema = z.object({
 
 export const ClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('join_game'), gameId: z.string(), username: UsernameSchema }),
-  z.object({ type: z.literal('rejoin_game'), gameId: z.string(), username: UsernameSchema }),
+  z.object({ type: z.literal('rejoin_game'), gameId: z.string(), username: UsernameSchema, rejoinToken: z.string().min(1) }),
   z.object({ type: z.literal('leave_game') }),
   z.object({ type: z.literal('start_game') }),
   z.object({
@@ -41,7 +42,7 @@ export const ClientMessageSchema = z.discriminatedUnion('type', [
     answerIndex: z.number().int().min(0).max(3),
   }),
   z.object({ type: z.literal('claim_host') }),
-  z.object({ type: z.literal('rematch'), newGameId: z.string().min(1) }),
+  z.object({ type: z.literal('rematch'), newGameId: z.string().regex(GAME_ID_REGEX, 'Invalid game ID') }),
   z.object({ type: z.literal('update_config'), config: z.record(z.unknown()) }),
   z.object({ type: z.literal('ping') }),
 ]);

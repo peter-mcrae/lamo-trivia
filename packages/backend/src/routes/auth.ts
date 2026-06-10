@@ -10,7 +10,7 @@ import {
 import { getInvite, markInviteAccepted } from '../invites';
 import type { User, CreditTransaction } from '@lamo-trivia/shared';
 import { getClientIP } from '../middleware/rate-limit';
-import { authCodeLimiter, authVerifyLimiter, rateLimitedResponse } from '../middleware/rate-limit';
+import { authCodeLimiter, authVerifyLimiter, authVerifyEmailLimiter, rateLimitedResponse } from '../middleware/rate-limit';
 
 const auth = new Hono<{ Bindings: Env }>();
 
@@ -42,6 +42,11 @@ auth.post('/verify-code', async (c) => {
   const parsed = VerifyCodeRequestSchema.safeParse(body);
   if (!parsed.success) {
     return c.json({ error: parsed.error.flatten() }, 400);
+  }
+  // Also limit per email — IP limiting alone is weak against distributed
+  // brute force. Both limiters are per-isolate best-effort (see rate-limit.ts).
+  if (!authVerifyEmailLimiter.check(parsed.data.email.trim().toLowerCase())) {
+    return new Response(rateLimitedResponse().body, rateLimitedResponse());
   }
   const valid = await verifyMagicCode(parsed.data.email, parsed.data.code, c.env);
   if (!valid) {
