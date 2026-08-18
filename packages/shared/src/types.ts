@@ -44,6 +44,18 @@ export interface Question {
 
 export type ClientQuestion = Omit<Question, 'correctIndex'>;
 
+/**
+ * A single question replayed after the game ends, with the correct answer and
+ * every player's pick. Only ever sent once the game is in the finished phase.
+ */
+export interface QuestionReview {
+  questionIndex: number;
+  question: ClientQuestion;
+  correctIndex: number;
+  /** playerId → option index they picked. Missing entry = no answer submitted. */
+  answers: Record<string, number>;
+}
+
 export interface GameState {
   id: string;
   config: GameConfig;
@@ -55,6 +67,8 @@ export interface GameState {
   scores: Record<string, number>;
   createdAt: number;
   startedAt?: number;
+  /** Played questions with correct answers — only present in the finished phase. */
+  review?: QuestionReview[];
 }
 
 export interface GameListing {

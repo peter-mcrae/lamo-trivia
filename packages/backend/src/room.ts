@@ -1,4 +1,6 @@
-import type { Player, GameConfig, GamePhase, Question, ClientQuestion, GameState, Avatar } from '@lamo-trivia/shared';
+import type {
+  Player, GameConfig, GamePhase, Question, ClientQuestion, GameState, Avatar, QuestionReview,
+} from '@lamo-trivia/shared';
 import { ClientMessageSchema, GameConfigSchema, AVATARS, GAME_EXPIRY_MS } from '@lamo-trivia/shared';
 import { getOpenAIKey } from './env';
 import type { Env } from './env';
@@ -21,6 +23,9 @@ interface RoomState {
   streaks: Record<string, number>;
   answersThisRound: Record<string, number>;
   answerTimesThisRound: Record<string, number>;
+  /** questionIndex → (playerId → option index), kept so the finished game can
+   *  be replayed with the correct answers. */
+  answersByQuestion: Record<number, Record<string, number>>;
   questionStartedAt: number;
   lastScoredQuestionIndex: number;
   nextAlarmAction: AlarmAction | null;
@@ -50,6 +55,7 @@ export class GameRoom {
         // Backfill fields added after the room was persisted
         stored.rejoinTokens ??= {};
         stored.answerTimesThisRound ??= {};
+        stored.answersByQuestion ??= {};
         stored.lastScoredQuestionIndex ??= -1;
         this.room = stored;
       }
@@ -77,6 +83,7 @@ export class GameRoom {
           streaks: {},
           answersThisRound: {},
           answerTimesThisRound: {},
+          answersByQuestion: {},
           questionStartedAt: 0,
           lastScoredQuestionIndex: -1,
           nextAlarmAction: 'expire_game',
@@ -621,6 +628,10 @@ export class GameRoom {
         player.score = this.room.scores[player.id];
       }
       this.room.lastScoredQuestionIndex = this.room.currentQuestionIndex;
+      // Snapshot the round's answers for the post-game review
+      this.room.answersByQuestion[this.room.currentQuestionIndex] = {
+        ...this.room.answersThisRound,
+      };
 
       await this.persist();
     }
@@ -686,11 +697,19 @@ export class GameRoom {
       isGroupGame: !!this.room.config.groupId,
     }).catch(() => {});
 
-    this.broadcast({
-      type: 'game_finished',
-      finalScores: this.room.scores,
-      rankings,
-    });
+    // Per-socket, not broadcast: the review carries the answer key, and
+    // broadcast() has no participant filter — any socket that opened the
+    // upgrade is in getWebSockets(), joined or not.
+    const review = this.buildReview();
+    for (const ws of this.state.getWebSockets()) {
+      if (!this.getPlayerId(ws)) continue;
+      this.sendTo(ws, {
+        type: 'game_finished',
+        finalScores: this.room.scores,
+        rankings,
+        review,
+      });
+    }
 
     // Notify group if this is a group game
     await this.notifyGroupOfUpdate();
@@ -881,6 +900,25 @@ export class GameRoom {
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
+  /**
+   * Questions played so far with their correct answers and every player's pick.
+   * Only safe to send once the game is finished — it reveals the answer key.
+   */
+  private buildReview(): QuestionReview[] {
+    const r = this.room!;
+    return r.questions.slice(0, r.lastScoredQuestionIndex + 1).map((q, i) => ({
+      questionIndex: i,
+      question: {
+        id: q.id,
+        text: q.text,
+        options: q.options,
+        categoryId: q.categoryId,
+      },
+      correctIndex: q.correctIndex,
+      answers: r.answersByQuestion[i] ?? {},
+    }));
+  }
+
   private getClientGameState(forPlayerId?: string): GameState {
     const r = this.room!;
     // Mid-question, don't leak other players' live answers — include at most
@@ -903,6 +941,7 @@ export class GameRoom {
       scores: r.scores,
       createdAt: r.createdAt,
       startedAt: r.startedAt,
+      ...(r.phase === 'finished' ? { review: this.buildReview() } : {}),
     };
   }
 

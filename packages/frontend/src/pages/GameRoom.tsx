@@ -10,6 +10,7 @@ import { QuestionCard } from '../components/QuestionCard';
 import { Timer } from '../components/Timer';
 import { ScoreBoard } from '../components/ScoreBoard';
 import { RematchModal } from '../components/RematchModal';
+import { AnswerReview } from '../components/AnswerReview';
 import { Button } from '../components/ui/Button';
 import { GroupMembersCard } from '../components/GroupMembersCard';
 import { GameConfigForm } from '../components/GameConfigForm';
@@ -26,14 +27,17 @@ export default function GameRoom() {
   const [expiryTimeLeft, setExpiryTimeLeft] = useState<number | null>(null);
   const [showEditSettings, setShowEditSettings] = useState(false);
   const [showRematchModal, setShowRematchModal] = useState(false);
+  const [showReview, setShowReview] = useState(false);
+  // Set when a stored rejoin token turns out to be stale, so we join fresh instead
+  const [rejoinFailed, setRejoinFailed] = useState(false);
   const [groupName, setGroupName] = useState<string | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const joinedRef = useRef(false);
-  const hadGameStateRef = useRef(false);
   const groupIdRef = useRef<string | undefined>();
 
   const {
     gameState,
+    playerId,
     currentQuestion,
     questionIndex,
     totalQuestions,
@@ -43,6 +47,7 @@ export default function GameRoom() {
     countdown,
     setCountdown,
     rankings,
+    review,
     questionRemainingMs,
     handleMessage,
     reset: resetGameState,
@@ -51,6 +56,21 @@ export default function GameRoom() {
   const onMessage = useCallback(
     (message: Parameters<typeof handleMessage>[0]) => {
       if (message.type === 'error') {
+        // A stored token can outlive the player it belonged to (room recreated,
+        // player dropped in the waiting phase) — fall back to a fresh join once
+        if (
+          !rejoinFailed &&
+          (message.code === 'INVALID_REJOIN_TOKEN' || message.code === 'PLAYER_NOT_FOUND')
+        ) {
+          try {
+            sessionStorage.removeItem(`rejoin-token:${gameId}`);
+          } catch {
+            // sessionStorage unavailable
+          }
+          joinedRef.current = false;
+          setRejoinFailed(true);
+          return;
+        }
         setError(message.message);
         return;
       }
@@ -61,7 +81,6 @@ export default function GameRoom() {
         } catch {
           // sessionStorage unavailable
         }
-        return;
       }
       if (message.type === 'game_expired') {
         const dest = groupIdRef.current ? `/group/${groupIdRef.current}` : '/groups';
@@ -75,7 +94,7 @@ export default function GameRoom() {
       }
       handleMessage(message);
     },
-    [handleMessage, navigate, gameId],
+    [handleMessage, navigate, gameId, rejoinFailed],
   );
 
   const { connected, send } = useWebSocket({
@@ -90,18 +109,14 @@ export default function GameRoom() {
   // Reset all state when navigating to a new game (e.g., Play Again)
   useEffect(() => {
     joinedRef.current = false;
-    hadGameStateRef.current = false;
+    setRejoinFailed(false);
     resetGameState();
     setError(null);
     setStartingGame(false);
     setShowRematchModal(false);
+    setShowReview(false);
     setExpiryTimeLeft(null);
   }, [gameId, resetGameState]);
-
-  // Track whether we've had game state (for reconnection detection)
-  useEffect(() => {
-    if (gameState) hadGameStateRef.current = true;
-  }, [gameState]);
 
   // Join or rejoin game once connected and have a username
   useEffect(() => {
@@ -113,15 +128,14 @@ export default function GameRoom() {
       } catch {
         // sessionStorage unavailable
       }
-      const message =
-        hadGameStateRef.current && rejoinToken
-          ? { type: 'rejoin_game' as const, gameId: gameId!, username: username!, rejoinToken }
-          : { type: 'join_game' as const, gameId: gameId!, username: username! };
+      const message = rejoinToken
+        ? { type: 'rejoin_game' as const, gameId: gameId!, username: username!, rejoinToken }
+        : { type: 'join_game' as const, gameId: gameId!, username: username! };
       if (send(message)) {
         joinedRef.current = true;
       }
     }
-  }, [connected, hasUsername, gameId, username, send]);
+  }, [connected, hasUsername, gameId, username, send, rejoinFailed]);
 
   // Countdown timer for questions
   useEffect(() => {
@@ -534,16 +548,31 @@ export default function GameRoom() {
             </div>
           )}
 
-          <div className="flex justify-center gap-3">
+          <div className="flex flex-wrap justify-center gap-3">
             {isHost && (
               <Button onClick={() => setShowRematchModal(true)}>
                 Play Again
               </Button>
             )}
+            {review && review.length > 0 && (
+              <button
+                onClick={() => setShowReview((v) => !v)}
+                aria-expanded={showReview}
+                className="px-4 py-2.5 border border-lamo-border text-lamo-dark text-sm font-semibold rounded-pill hover:bg-lamo-bg transition-colors"
+              >
+                {showReview ? 'Hide Answers' : 'Review Answers'}
+              </button>
+            )}
             <Button variant="secondary" onClick={() => navigate(backPath)}>
               {backLabel}
             </Button>
           </div>
+
+          {showReview && review && (
+            <div className="mt-8">
+              <AnswerReview review={review} players={gameState.players} playerId={playerId} />
+            </div>
+          )}
 
           {showRematchModal && (
             <RematchModal
