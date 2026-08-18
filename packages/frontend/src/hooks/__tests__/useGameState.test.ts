@@ -380,3 +380,124 @@ describe('useGameState', () => {
     expect(result.current.rankings).toBeNull();
   });
 });
+
+describe('useGameState answer review', () => {
+  const review = [
+    {
+      questionIndex: 0,
+      question: { id: 'q1', text: 'Q1?', options: ['a', 'b', 'c', 'd'], categoryId: 'general' },
+      correctIndex: 1,
+      answers: { p1: 1 },
+    },
+  ];
+
+  it('records the player id from join_confirmed', () => {
+    const { result } = renderHook(() => useGameState());
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'join_confirmed',
+        playerId: 'p1',
+        rejoinToken: 'tok',
+      } as any);
+    });
+
+    expect(result.current.playerId).toBe('p1');
+  });
+
+  it('stores the review from game_finished', () => {
+    const { result } = renderHook(() => useGameState());
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'game_finished',
+        rankings: initialGameState.players,
+        finalScores: { p1: 100 },
+        review,
+      } as any);
+    });
+
+    expect(result.current.review).toEqual(review);
+  });
+
+  it('leaves the review null when the server omits it', () => {
+    const { result } = renderHook(() => useGameState());
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'game_finished',
+        rankings: initialGameState.players,
+        finalScores: { p1: 100 },
+      } as any);
+    });
+
+    expect(result.current.review).toBeNull();
+  });
+
+  it('rebuilds rankings and review from a finished game_state (reload)', () => {
+    const { result } = renderHook(() => useGameState());
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'game_state',
+        state: {
+          ...initialGameState,
+          phase: 'finished',
+          players: [
+            ...initialGameState.players,
+            {
+              id: 'p2',
+              username: 'Player2',
+              avatar: { emoji: '\u{1F408}', name: 'Cat' },
+              connectedAt: Date.now(),
+              score: 0,
+            },
+          ],
+          scores: { p1: 100, p2: 300 },
+          review,
+        },
+      } as any);
+    });
+
+    expect(result.current.rankings?.map((p) => p.id)).toEqual(['p2', 'p1']);
+    expect(result.current.review).toEqual(review);
+  });
+
+  it('does not build rankings from an unfinished game_state', () => {
+    const { result } = renderHook(() => useGameState());
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'game_state',
+        state: { ...initialGameState, phase: 'playing' },
+      } as any);
+    });
+
+    expect(result.current.rankings).toBeNull();
+  });
+
+  it('clears review and playerId on reset', () => {
+    const { result } = renderHook(() => useGameState());
+
+    act(() => {
+      result.current.handleMessage({
+        type: 'join_confirmed',
+        playerId: 'p1',
+        rejoinToken: 'tok',
+      } as any);
+      result.current.handleMessage({
+        type: 'game_finished',
+        rankings: initialGameState.players,
+        finalScores: { p1: 100 },
+        review,
+      } as any);
+    });
+
+    act(() => {
+      result.current.reset();
+    });
+
+    expect(result.current.review).toBeNull();
+    expect(result.current.playerId).toBeNull();
+  });
+});

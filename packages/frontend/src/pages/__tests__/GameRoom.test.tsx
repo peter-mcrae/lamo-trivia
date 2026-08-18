@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, act } from '@testing-library/react';
+import { render, screen, act, fireEvent } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import type { ServerMessage } from '@lamo-trivia/shared';
 
@@ -104,6 +104,7 @@ describe('GameRoom', () => {
     wsOnMessage = undefined;
     vi.clearAllMocks();
     localStorage.setItem('lamo-trivia-username', 'TestHost');
+    sessionStorage.clear();
   });
 
   it('sends join_game when connected with a username', () => {
@@ -194,5 +195,133 @@ describe('GameRoom', () => {
     renderGameRoom();
 
     expect(screen.getByText('Connecting to game...')).toBeInTheDocument();
+  });
+});
+
+// --- Post-game answer review ---
+
+const reviewFixture = [
+  {
+    questionIndex: 0,
+    question: {
+      id: 'q1',
+      text: 'Capital of France?',
+      options: ['Rome', 'Paris', 'Bonn', 'Oslo'],
+      categoryId: 'geo',
+    },
+    correctIndex: 1,
+    answers: { 'host-1': 3 },
+  },
+];
+
+function finishGameWithReview(review?: unknown) {
+  simulateServerMessage({ type: 'join_confirmed', playerId: 'host-1', rejoinToken: 'tok' } as any);
+  simulateServerMessage({ type: 'game_state', state: baseGameState } as any);
+  simulateServerMessage({
+    type: 'game_finished',
+    rankings: baseGameState.players,
+    finalScores: { 'host-1': 500 },
+    ...(review ? { review } : {}),
+  } as any);
+}
+
+describe('GameRoom answer review', () => {
+  beforeEach(() => {
+    wsSendSpy = vi.fn();
+    wsConnected = true;
+    wsOnMessage = undefined;
+    vi.clearAllMocks();
+    localStorage.setItem('lamo-trivia-username', 'TestHost');
+    sessionStorage.clear();
+  });
+
+  it('offers a Review Answers button once the game is over', () => {
+    renderGameRoom();
+    finishGameWithReview(reviewFixture);
+
+    expect(screen.getByRole('button', { name: /review answers/i })).toBeInTheDocument();
+    // Collapsed by default
+    expect(screen.queryByText('Capital of France?')).not.toBeInTheDocument();
+  });
+
+  it('reveals the questions and correct answers when toggled', () => {
+    renderGameRoom();
+    finishGameWithReview(reviewFixture);
+
+    fireEvent.click(screen.getByRole('button', { name: /review answers/i }));
+
+    expect(screen.getByText('Capital of France?')).toBeInTheDocument();
+    expect(screen.getByText('Paris')).toBeInTheDocument();
+    expect(screen.getByLabelText('Correct answer')).toBeInTheDocument();
+    // The host's own (wrong) pick is called out
+    expect(screen.getByText('your pick')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /hide answers/i }));
+    expect(screen.queryByText('Capital of France?')).not.toBeInTheDocument();
+  });
+
+  it('hides the review button when the server sent no review', () => {
+    renderGameRoom();
+    finishGameWithReview();
+
+    expect(screen.getByText('Game Over!')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /review answers/i })).not.toBeInTheDocument();
+  });
+
+  it('rebuilds the results screen when rejoining a finished game', () => {
+    sessionStorage.setItem('rejoin-token:GAME-1', 'tok');
+    renderGameRoom();
+
+    // A reload only gets game_state back — no game_finished broadcast
+    simulateServerMessage({ type: 'join_confirmed', playerId: 'host-1', rejoinToken: 'tok' } as any);
+    simulateServerMessage({
+      type: 'game_state',
+      state: {
+        ...baseGameState,
+        phase: 'finished',
+        scores: { 'host-1': 500 },
+        review: reviewFixture,
+      },
+    } as any);
+
+    expect(screen.getByText('Game Over!')).toBeInTheDocument();
+    expect(screen.getByText('500 pts')).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /review answers/i }));
+    expect(screen.getByText('Capital of France?')).toBeInTheDocument();
+  });
+
+  it('rejoins with a stored token so a reload keeps the results', () => {
+    sessionStorage.setItem('rejoin-token:GAME-1', 'tok');
+    renderGameRoom();
+
+    expect(wsSendSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'rejoin_game', gameId: 'GAME-1', rejoinToken: 'tok' }),
+    );
+  });
+
+  it('falls back to a fresh join when the stored token is stale', () => {
+    sessionStorage.setItem('rejoin-token:GAME-1', 'stale');
+    renderGameRoom();
+
+    simulateServerMessage({
+      type: 'error',
+      message: 'No player found with that username',
+      code: 'PLAYER_NOT_FOUND',
+    } as any);
+
+    expect(wsSendSpy).toHaveBeenCalledWith(
+      expect.objectContaining({ type: 'join_game', gameId: 'GAME-1' }),
+    );
+    expect(sessionStorage.getItem('rejoin-token:GAME-1')).toBeNull();
+    expect(screen.queryByText('No player found with that username')).not.toBeInTheDocument();
+  });
+
+  it('still surfaces errors that are not a stale-token problem', () => {
+    renderGameRoom();
+
+    simulateServerMessage({ type: 'error', message: 'Game is full', code: 'GAME_FULL' } as any);
+
+    expect(screen.getByText('Game is full')).toBeInTheDocument();
   });
 });
