@@ -1,13 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import type { Player, QuestionReview } from '@lamo-trivia/shared';
 import { AnswerReview } from '../AnswerReview';
 
-const players = [
+const players: Player[] = [
   { id: 'p1', username: 'Alice', avatar: { emoji: '🐕', name: 'Dog' }, connectedAt: 0, score: 0 },
   { id: 'p2', username: 'Bob', avatar: { emoji: '🐈', name: 'Cat' }, connectedAt: 0, score: 0 },
 ];
 
-const review = [
+const review: QuestionReview[] = [
   {
     questionIndex: 0,
     question: { id: 'q1', text: 'Capital of France?', options: ['Rome', 'Paris', 'Bonn', 'Oslo'], categoryId: 'geo' },
