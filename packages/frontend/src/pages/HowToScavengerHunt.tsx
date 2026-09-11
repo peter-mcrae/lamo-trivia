@@ -5,14 +5,14 @@ export default function HowToScavengerHunt() {
   return (
     <>
       <SEO
-        title="How to Play Scavenger Hunts - LAMO Games Guide"
+        title="How to Play Scavenger Hunts - LAMO Trivia Guide"
         description="Learn how to create and play AI-powered photo scavenger hunts. Step-by-step guide covering setup, item design, scoring, and best practices for amazing hunts."
         keywords="scavenger hunt, photo scavenger hunt, AI scavenger hunt, how to play scavenger hunt, scavenger hunt tips"
         canonical="https://lamotrivia.app/how-to-hunt"
-        ogTitle="How to Play Scavenger Hunts - LAMO Games Guide"
+        ogTitle="How to Play Scavenger Hunts - LAMO Trivia Guide"
         ogDescription="Everything you need to know to create and play amazing AI-powered photo scavenger hunts."
       />
-      <div className="max-w-4xl mx-auto px-6 py-16">
+      <div className="reading-page max-w-4xl mx-auto px-6 py-16">
         <h1 className="text-4xl font-bold text-lamo-dark mb-6">How to Play Scavenger Hunts</h1>
 
         <div className="prose prose-lg max-w-none">

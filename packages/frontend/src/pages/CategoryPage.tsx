@@ -93,7 +93,7 @@ export default function CategoryPage() {
 
   if (!category || !categoryInfo) {
     return (
-      <div className="max-w-4xl mx-auto px-6 py-16 text-center">
+      <div className="reading-page max-w-4xl mx-auto px-6 py-16 text-center">
         <h1 className="text-4xl font-bold text-lamo-dark mb-4">Category Not Found</h1>
         <p className="text-lamo-gray mb-6">The category you're looking for doesn't exist.</p>
         <Link to="/" className="text-lamo-blue hover:underline">Return to Home</Link>
@@ -114,7 +114,7 @@ export default function CategoryPage() {
         ogTitle={pageTitle}
         ogDescription={categoryInfo.description}
       />
-      <div className="max-w-4xl mx-auto px-6 py-16">
+      <div className="reading-page max-w-4xl mx-auto px-6 py-16">
         <div className="text-center mb-12">
           <span className="text-6xl mb-4 block">{category.icon}</span>
           <h1 className="text-4xl font-bold text-lamo-dark mb-4">{category.name} Trivia</h1>

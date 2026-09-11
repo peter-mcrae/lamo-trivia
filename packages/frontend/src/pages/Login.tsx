@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuthContext } from '@/contexts/AuthContext';
 import { SEO } from '@/components/SEO';
+import { BrandMark } from '@/components/Brand';
 
 export default function Login() {
   const { sendCode, verifyCode } = useAuthContext();
@@ -49,14 +50,16 @@ export default function Login() {
 
   return (
     <><SEO
-        title="Sign In - LAMO Games"
-        description="Sign in to LAMO Games with a passwordless magic link. No passwords needed."
+        title="Sign In - LAMO Trivia"
+        description="Sign in to LAMO Trivia with a code sent to your email. No passwords needed."
         canonical="https://lamotrivia.app/login"
       />
-    <div className="max-w-md mx-auto px-6 py-16">
-      <h1 className="text-2xl font-bold text-lamo-dark mb-2">Sign In</h1>
+    <div className="account-panel max-w-md mx-auto px-6 py-16">
+      <div className="account-emblem"><BrandMark /></div>
+      <p className="eyebrow mb-3">YOUR PEOPLE. YOUR PLACE.</p>
+      <h1 className="text-2xl font-bold text-lamo-dark mb-2">Hey, you’re back.</h1>
       <p className="text-lamo-gray-muted mb-8">
-        Sign in to unlock scavenger hunts and track your stats.
+        Sign in to keep your groups together and get set for your next scavenger hunt.
       </p>
 
       {step === 'email' ? (
@@ -68,6 +71,7 @@ export default function Login() {
             <input
               id="email"
               type="email"
+              autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
@@ -97,6 +101,7 @@ export default function Login() {
               id="code"
               type="text"
               inputMode="numeric"
+              autoComplete="one-time-code"
               value={code}
               onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="000000"

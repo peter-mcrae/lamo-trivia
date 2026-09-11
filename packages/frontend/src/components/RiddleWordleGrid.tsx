@@ -20,7 +20,7 @@ export function RiddleWordleGrid({
   const emptyRows = maxGuesses - guesses.length - 1;
 
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="riddle-grid flex flex-col items-center gap-1.5">
       {/* Submitted guesses */}
       {guesses.map((guess, rowIndex) => (
         <div key={rowIndex} className="flex gap-1.5">
@@ -30,6 +30,7 @@ export function RiddleWordleGrid({
               <div
                 key={colIndex}
                 className={`w-12 h-12 sm:w-14 sm:h-14 flex items-center justify-center text-xl font-bold rounded-lg border-2 uppercase transition-all duration-300 ${statusStyles[status]}`}
+                aria-label={`${letter}: ${status === 'correct' ? 'correct position' : status === 'present' ? 'in the word, different position' : 'not in the word'}`}
                 style={{ animationDelay: `${colIndex * 100}ms` }}
               >
                 {letter}
@@ -77,7 +78,7 @@ export function RiddleWordleGrid({
 }
 
 const statusStyles: Record<string, string> = {
-  correct: 'bg-green-500 border-green-500 text-white',
-  present: 'bg-yellow-500 border-yellow-500 text-white',
-  absent: 'bg-gray-400 border-gray-400 text-white',
+  correct: 'bg-green-700 border-green-700 text-white',
+  present: 'bg-yellow-300 border-yellow-600 text-lamo-dark',
+  absent: 'bg-gray-600 border-gray-600 text-white',
 };

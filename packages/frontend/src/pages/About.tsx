@@ -12,7 +12,7 @@ export default function About() {
         ogTitle="About LAMO Trivia - Free Online Trivia Games"
         ogDescription="Learn about LAMO Trivia, the free online trivia platform that brings families and friends together."
       />
-      <div className="max-w-4xl mx-auto px-6 py-16">
+      <div className="reading-page max-w-4xl mx-auto px-6 py-16">
         <h1 className="text-4xl font-bold text-lamo-dark mb-6">About LAMO Trivia</h1>
         
         <div className="prose prose-lg max-w-none">

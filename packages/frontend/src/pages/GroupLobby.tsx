@@ -177,7 +177,7 @@ export default function GroupLobby() {
     }
 
     return (
-      <div className="max-w-lg mx-auto py-10 px-6 text-center">
+      <div className="group-lobby max-w-lg mx-auto py-10 px-6 text-center">
         <div className="bg-lamo-bg border border-lamo-border rounded-2xl p-8">
           <h3 className="text-lg font-bold text-lamo-dark mb-2">Welcome back?</h3>
           <p className="text-sm text-lamo-gray-muted mb-6">
@@ -200,7 +200,7 @@ export default function GroupLobby() {
   // Loading / error state
   if (!groupState) {
     return (
-      <div className="max-w-3xl mx-auto py-10 px-6 text-center">
+      <div className="group-lobby max-w-3xl mx-auto py-10 px-6 text-center">
         {error ? (
           <div>
             <p className="text-red-500 font-medium mb-4">{error}</p>
@@ -224,7 +224,7 @@ export default function GroupLobby() {
   const activeGames = groupState.games.filter((g) => g.phase === 'playing');
 
   return (
-    <div className="max-w-3xl mx-auto py-10 px-6">
+    <div className="group-lobby max-w-3xl mx-auto py-10 px-6">
       {/* Header */}
       <div className="mb-4">
         <h2 className="text-2xl font-bold text-lamo-dark">{groupState.name}</h2>

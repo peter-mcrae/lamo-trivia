@@ -14,7 +14,7 @@ const ROWS = [
 
 export function RiddleWordleKeyboard({ letterStatuses, onKey, disabled }: RiddleWordleKeyboardProps) {
   return (
-    <div className="flex flex-col items-center gap-1.5">
+    <div className="riddle-keyboard flex flex-col items-center gap-1.5">
       {ROWS.map((row, rowIndex) => (
         <div key={rowIndex} className="flex gap-1">
           {row.map((key) => {
@@ -26,6 +26,7 @@ export function RiddleWordleKeyboard({ letterStatuses, onKey, disabled }: Riddle
                 key={key}
                 onClick={() => onKey(key)}
                 disabled={disabled}
+                aria-label={key === 'BACK' ? 'Backspace' : key === 'ENTER' ? 'Submit guess' : key}
                 className={`${
                   isSpecial ? 'px-3 sm:px-4' : 'w-8 sm:w-10'
                 } h-12 sm:h-14 flex items-center justify-center text-sm sm:text-base font-semibold rounded-lg transition-colors ${
@@ -57,12 +58,12 @@ export function RiddleWordleKeyboard({ letterStatuses, onKey, disabled }: Riddle
 function getKeyStyle(status?: LetterStatus): string {
   switch (status) {
     case 'correct':
-      return 'bg-green-500 text-white border border-green-600';
+      return 'bg-green-700 text-white border border-green-700';
     case 'present':
-      return 'bg-yellow-500 text-white border border-yellow-600';
+      return 'bg-yellow-300 text-lamo-dark border border-yellow-600';
     case 'absent':
-      return 'bg-gray-400 text-white border border-gray-500';
+      return 'bg-gray-600 text-white border border-gray-600';
     default:
-      return 'bg-gray-200 text-lamo-dark border border-gray-300 hover:bg-gray-300';
+      return 'bg-white text-lamo-dark border border-lamo-border hover:bg-lamo-bg';
   }
 }

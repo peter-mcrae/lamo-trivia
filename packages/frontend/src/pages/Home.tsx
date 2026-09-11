@@ -1,134 +1,272 @@
-import { Link } from 'react-router-dom';
-import { SEO } from '@/components/SEO';
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { SEO } from "@/components/SEO";
+import { Arrow } from "@/components/Brand";
 
 export default function Home() {
+  const [code, setCode] = useState("");
+  const navigate = useNavigate();
   return (
     <>
       <SEO
-        title="LAMO Games - Free Online Trivia, Riddle Guess & Scavenger Hunts"
-        description="Play free online games with family and friends. Multiplayer trivia, Riddle Guess puzzles, and AI-powered scavenger hunts. No sign-up required."
-        keywords="trivia games, online trivia, free trivia, family trivia, riddle guess, scavenger hunt, photo scavenger hunt, multiplayer games, game night"
+        title="LAMO Trivia — Trivia, riddles & game nights with friends"
+        description="Choose your next game: free multiplayer trivia, solo word riddles, or photo scavenger hunts. Clear rules, easy invitations, and no app to download."
         canonical="https://lamotrivia.app"
-        ogTitle="LAMO Games - Free Online Games for Families & Friends"
-        ogDescription="Trivia, Riddle Guess, and Scavenger Hunts. No sign-up required. Instant multiplayer fun!"
       />
-      <div>
-      {/* Hero */}
-      <section className="text-center pt-20 pb-10 px-6">
-        <h1 className="text-6xl font-bold tracking-tight mb-4 animate-fade-in-up">
-          <span className="text-lamo-lime">LAMO</span>{' '}
-          <span className="text-lamo-dark">Games</span>
-        </h1>
-        <p className="text-xl text-lamo-dark font-medium max-w-md mx-auto mb-2 animate-fade-in-up">
-          Challenge your friends. No app needed.
-        </p>
-        <p className="text-base text-lamo-gray-muted max-w-md mx-auto animate-fade-in-up">
-          Free. Instant. Zero downloads.
-        </p>
-      </section>
-
-      {/* Game Modes */}
-      <section className="max-w-3xl mx-auto px-6 pb-12">
-        <h2 className="text-2xl font-bold text-lamo-dark text-center mb-6">
-          Choose Your Game
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <Link
-            to="/create"
-            className="group flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-lamo-blue/20 hover:border-lamo-blue hover:scale-105 hover:shadow-lg transition-all"
-          >
-            <span className="text-5xl group-hover:scale-110 transition-transform">🧠</span>
-            <span className="text-lg font-bold text-lamo-dark">Trivia</span>
-            <span className="text-sm text-lamo-gray-muted text-center">Multiplayer quiz with friends and family</span>
-          </Link>
-          <Link
-            to="/riddle-wordle"
-            className="group flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-green-50 to-yellow-50 border-2 border-green-200 hover:border-green-400 hover:scale-105 hover:shadow-lg transition-all"
-          >
-            <span className="text-5xl group-hover:scale-110 transition-transform">🧩</span>
-            <span className="text-lg font-bold text-lamo-dark">Riddle Guess</span>
-            <span className="text-sm text-lamo-gray-muted text-center">Solve riddles one letter at a time</span>
-          </Link>
-          <Link
-            to="/hunt/create"
-            className="group relative flex flex-col items-center gap-3 p-6 rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 border-2 border-orange-200 hover:border-orange-400 hover:scale-105 hover:shadow-lg transition-all"
-          >
-            <span className="absolute top-2 right-2 text-[10px] font-semibold bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">
-              Uses Credits
-            </span>
-            <span className="text-5xl group-hover:scale-110 transition-transform">🔍</span>
-            <span className="text-lg font-bold text-lamo-dark">Scavenger Hunt</span>
-            <span className="text-sm text-lamo-gray-muted text-center">Find items, snap photos, race the clock</span>
-          </Link>
-        </div>
-        <div className="flex gap-4 justify-center mt-6 animate-fade-in-up">
-          <Link
-            to="/group/new"
-            className="text-sm text-lamo-blue font-medium hover:underline"
-          >
-            Create a Private Group
-          </Link>
-          <span className="text-lamo-border">|</span>
-          <Link
-            to="/group/join"
-            className="text-sm text-lamo-blue font-medium hover:underline"
-          >
-            Join a Group
-          </Link>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="max-w-3xl mx-auto px-6 pb-20">
-        <h2 className="text-2xl font-bold text-lamo-dark text-center mb-8">
-          How It Works
-        </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-4xl">🎮</span>
-            <h3 className="font-semibold text-lamo-dark">Create a Game</h3>
-            <p className="text-sm text-lamo-gray-muted">Pick categories, set the rules, and get a game code.</p>
+      <div className="play-home">
+        <section
+          className="game-selection site-width"
+          aria-labelledby="home-heading"
+        >
+          <div className="selection-heading">
+            <div>
+              <p className="eyebrow">YOUR NEXT GAME NIGHT STARTS HERE</p>
+              <h1 id="home-heading">
+                Pick a game.
+                <br />
+                <span>Bring your people.</span>
+              </h1>
+              <p>
+                Challenge your friends to trivia, solve a riddle on your own,
+                <br className="desktop-break" /> or head outside for a photo
+                scavenger hunt.
+              </p>
+            </div>
+            <form
+              className="join-panel"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (code.trim())
+                  navigate(`/game/${encodeURIComponent(code.trim())}`);
+              }}
+            >
+              <label htmlFor="home-game-code">Joining a trivia game?</label>
+              <p>Enter the code your host shared with you.</p>
+              <div className="join-control">
+                <input
+                  id="home-game-code"
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  placeholder="Game code"
+                  maxLength={30}
+                  autoCapitalize="none"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  required
+                />
+                <button type="submit" disabled={!code.trim()}>
+                  Join <Arrow />
+                </button>
+              </div>
+              <Link to="/group/join">Have a private group code instead?</Link>
+            </form>
           </div>
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-4xl">📲</span>
-            <h3 className="font-semibold text-lamo-dark">Share the Code</h3>
-            <p className="text-sm text-lamo-gray-muted">Send it to family and friends — they join instantly.</p>
-          </div>
-          <div className="flex flex-col items-center gap-2">
-            <span className="text-4xl">🏆</span>
-            <h3 className="font-semibold text-lamo-dark">Play & Compete</h3>
-            <p className="text-sm text-lamo-gray-muted">Answer questions, race the clock, and climb the leaderboard.</p>
-          </div>
-        </div>
-      </section>
 
-      {/* SEO Content Section */}
-      <section className="max-w-4xl mx-auto px-6 pb-20">
-        <h2 className="text-2xl font-bold text-lamo-dark text-center mb-8">
-          Free Online Games for Families & Friends
-        </h2>
-        <div className="prose prose-lg max-w-none text-lamo-gray">
-          <p className="mb-4">
-            LAMO Games offers the best free online game night experience for families and friends.
-            Play <Link to="/create" className="text-lamo-blue hover:underline">multiplayer trivia</Link> across categories like{' '}
-            <Link to="/trivia/harry-potter" className="text-lamo-blue hover:underline">Harry Potter</Link>,{' '}
-            <Link to="/trivia/science" className="text-lamo-blue hover:underline">science</Link>,{' '}
-            <Link to="/trivia/history" className="text-lamo-blue hover:underline">history</Link>, and{' '}
-            <Link to="/trivia/sports" className="text-lamo-blue hover:underline">sports</Link>.
-            Challenge yourself with <Link to="/riddle-wordle" className="text-lamo-blue hover:underline">Riddle Guess</Link>,
-            or create a <Link to="/hunt/create" className="text-lamo-blue hover:underline">Scavenger Hunt</Link> in a private group with AI-powered photo verification.
-          </p>
-          <p className="mb-4">
-            Just <Link to="/create" className="text-lamo-blue hover:underline">create a game</Link>,
-            share the code, and start playing instantly. Trivia is free — scavenger hunts use credits for AI photo verification.
-          </p>
-          <p>
-            New here? Check out our <Link to="/how-to-play" className="text-lamo-blue hover:underline">complete guide</Link>
-            {' '}or learn <Link to="/about" className="text-lamo-blue hover:underline">more about LAMO</Link>.
-          </p>
-        </div>
-      </section>
-    </div>
+          <div className="game-options">
+            <article
+              className="game-option trivia-option"
+              aria-labelledby="trivia-title"
+            >
+              <div className="option-content">
+                <p className="option-meta">
+                  01 / PLAY TOGETHER <span>FREE</span>
+                </p>
+                <h2 id="trivia-title">Trivia</h2>
+                <p>
+                  Pick a topic and invite your friends. Answer questions against
+                  the clock and see who comes out on top.
+                </p>
+              </div>
+              <div
+                className="game-example trivia-example"
+                aria-label="Example trivia question and answers"
+              >
+                <div className="example-label">
+                  EXAMPLE QUESTION <span>20 sec</span>
+                </div>
+                <p>
+                  Which planet has the most
+                  <br />
+                  prominent rings?
+                </p>
+                <div className="example-answers">
+                  <span>Jupiter</span>
+                  <span className="example-correct">
+                    Saturn <span aria-hidden="true">✓</span>
+                  </span>
+                  <span>Mars</span>
+                  <span>Neptune</span>
+                </div>
+              </div>
+              <div className="option-bottom">
+                <p>
+                  1–12 players <span>·</span> No account needed
+                </p>
+                <Link to="/create" className="option-button">
+                  Create a trivia game <Arrow />
+                </Link>
+              </div>
+            </article>
+
+            <article
+              className="game-option riddle-option"
+              aria-labelledby="riddle-title"
+            >
+              <div className="option-content">
+                <p className="option-meta">
+                  02 / PLAY SOLO <span>FREE</span>
+                </p>
+                <h2 id="riddle-title">Riddle Guess</h2>
+                <p>
+                  Read a riddle, then guess the answer in five tries. Letter
+                  colors tell you when you’re getting closer.
+                </p>
+              </div>
+              <div
+                className="game-example riddle-example"
+                aria-label="Example riddle, answered with the word piano"
+              >
+                <div className="example-label">EXAMPLE RIDDLE</div>
+                <p>
+                  I have keys but no locks.
+                  <br />
+                  What am I?
+                </p>
+                <div className="example-word" aria-label="Piano">
+                  {"PIANO".split("").map((letter, i) => (
+                    <span key={i} aria-hidden="true">
+                      {letter}
+                    </span>
+                  ))}
+                </div>
+                <span className="example-caption">
+                  Green = right letter, right spot.
+                </span>
+              </div>
+              <div className="option-bottom">
+                <p>
+                  1 player <span>·</span> No account needed
+                </p>
+                <Link to="/riddle-wordle" className="option-button">
+                  Play a riddle <Arrow />
+                </Link>
+              </div>
+            </article>
+
+            <article
+              className="game-option hunt-option"
+              aria-labelledby="hunt-title"
+            >
+              <div className="option-content">
+                <p className="option-meta">03 / GET OUT & PLAY</p>
+                <h2 id="hunt-title">Scavenger Hunt</h2>
+                <p>
+                  Create a list of things to find. Players take photos, and AI
+                  checks each find as they race for points.
+                </p>
+              </div>
+              <div
+                className="game-example hunt-example"
+                aria-label="Example scavenger hunt list"
+              >
+                <div className="example-label">
+                  EXAMPLE HUNT <span>3 things to find</span>
+                </div>
+                <ol className="example-checklist">
+                  <li>
+                    <span aria-hidden="true">01</span> Something blue
+                  </li>
+                  <li>
+                    <span aria-hidden="true">02</span> A leaf bigger than your
+                    hand
+                  </li>
+                  <li>
+                    <span aria-hidden="true">03</span> A perfectly round object
+                  </li>
+                </ol>
+                <span className="example-caption">
+                  Find an item. Take a photo. Earn points.
+                </span>
+              </div>
+              <div className="option-bottom">
+                <p>
+                  Private group <span>·</span> Host uses credits
+                </p>
+                <Link to="/hunt/create" className="option-button">
+                  Set up a hunt <Arrow />
+                </Link>
+              </div>
+            </article>
+          </div>
+          <div className="first-time-note">
+            <span>New to LAMO? Everything plays in your browser.</span>
+            <Link to="/how-to-play">
+              Read the game guides <Arrow diagonal />
+            </Link>
+          </div>
+        </section>
+
+        <section className="game-night-guide" aria-labelledby="how-heading">
+          <div className="site-width">
+            <div className="guide-heading">
+              <p className="eyebrow">FROM “WHO’S IN?” TO GAME ON.</p>
+              <h2 id="how-heading">
+                Your first trivia night,
+                <br />
+                in three simple steps.
+              </h2>
+            </div>
+            <div className="guide-steps">
+              <div>
+                <span>01</span>
+                <h3>Make it your game.</h3>
+                <p>
+                  Choose a topic or a ready-made category. Set the number of
+                  questions and the time limit.
+                </p>
+              </div>
+              <div>
+                <span>02</span>
+                <h3>Send the invitation.</h3>
+                <p>
+                  Share your game code. Your friends enter it here and choose a
+                  name—no account needed.
+                </p>
+              </div>
+              <div>
+                <span>03</span>
+                <h3>Play for the top spot.</h3>
+                <p>
+                  The host starts the round. Everyone answers on their own
+                  device and follows the live scores.
+                </p>
+              </div>
+            </div>
+            <nav className="topic-links" aria-label="Trivia categories">
+              <span>Explore trivia topics</span>
+              <Link to="/trivia/harry-potter">Harry Potter</Link>
+              <Link to="/trivia/science">Science</Link>
+              <Link to="/trivia/history">History</Link>
+              <Link to="/trivia/sports">Sports</Link>
+            </nav>
+            <div className="private-group-row">
+              <div>
+                <h3>Same people, next time?</h3>
+                <p>
+                  A private group keeps your trivia games and scavenger hunts
+                  together.
+                </p>
+              </div>
+              <div>
+                <Link to="/group/new" className="group-create">
+                  Create a group <Arrow />
+                </Link>
+                <Link to="/group/join">Join a group</Link>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
     </>
   );
 }

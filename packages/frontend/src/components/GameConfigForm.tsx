@@ -32,6 +32,7 @@ export function GameConfigForm({
 }: GameConfigFormProps) {
   const [categories, setCategories] = useState<TriviaCategory[]>([]);
   const [internalError, setInternalError] = useState('');
+  const [categoriesError, setCategoriesError] = useState('');
 
   const defaultName = initialConfig?.name ?? `Trivia - ${new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
   const [name, setName] = useState(defaultName);
@@ -68,7 +69,7 @@ export function GameConfigForm({
   const [isPrivate, setIsPrivate] = useState(initialConfig?.isPrivate ?? false);
 
   useEffect(() => {
-    api.getCategories().then((res) => setCategories(res.categories));
+    api.getCategories().then((res) => setCategories(res.categories)).catch(() => setCategoriesError('Categories are unavailable right now. You can try a custom AI topic or refresh the page.'));
   }, []);
 
   // Auto-update name when AI topic changes (unless user manually edited)
@@ -132,7 +133,7 @@ export function GameConfigForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="game-config-form space-y-6">
       {/* Game Name */}
       <div>
         <label htmlFor="game-name" className="block text-sm font-medium text-lamo-dark mb-1.5">Game Name</label>
@@ -153,6 +154,7 @@ export function GameConfigForm({
         <div className="grid grid-cols-2 gap-2">
           <button
             type="button"
+            aria-pressed={!useAI}
             onClick={() => setUseAI(false)}
             className={`px-3 py-2.5 rounded-xl border text-left text-sm transition-colors ${
               !useAI
@@ -165,6 +167,7 @@ export function GameConfigForm({
           </button>
           <button
             type="button"
+            aria-pressed={useAI}
             onClick={() => setUseAI(true)}
             className={`px-3 py-2.5 rounded-xl border text-left text-sm transition-colors ${
               useAI
@@ -179,6 +182,7 @@ export function GameConfigForm({
       </div>
 
       {/* Categories (when not AI) */}
+      {!useAI && categoriesError && <p className="text-sm text-red-600" role="alert">{categoriesError}</p>}
       {!useAI && (
         <div>
           <label className="block text-sm font-medium text-lamo-dark mb-1.5">
@@ -196,6 +200,7 @@ export function GameConfigForm({
                   key={cat.id}
                   type="button"
                   disabled={disabled}
+                  aria-pressed={selected}
                   onClick={() => toggleCategory(cat.id)}
                   className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-left text-sm transition-colors ${
                     selected
@@ -243,6 +248,7 @@ export function GameConfigForm({
         </label>
         <input
           type="range"
+          aria-label="Number of questions"
           min={5}
           max={30}
           step={5}
@@ -263,6 +269,7 @@ export function GameConfigForm({
         </label>
         <input
           type="range"
+          aria-label="Seconds per question"
           min={1}
           max={60}
           step={1}
@@ -276,6 +283,9 @@ export function GameConfigForm({
         </div>
       </div>
 
+      <details className="advanced-settings">
+        <summary><span>Make it your own<small>Players, scoring &amp; game rules</small></span><span aria-hidden="true">+</span></summary>
+        <div className="space-y-6">
       {/* Players */}
       <div className="grid grid-cols-2 gap-4">
         <div>
@@ -314,6 +324,7 @@ export function GameConfigForm({
             <button
               key={method.id}
               type="button"
+              aria-pressed={scoringMethod === method.id}
               onClick={() => setScoringMethod(method.id as ScoringMethod)}
               className={`px-3 py-2.5 rounded-xl border text-left text-sm transition-colors ${
                 scoringMethod === method.id
@@ -378,6 +389,7 @@ export function GameConfigForm({
           </label>
           <input
             type="range"
+            aria-label="Seconds between questions"
             min={1}
             max={15}
             step={1}
@@ -392,9 +404,12 @@ export function GameConfigForm({
         </div>
       )}
 
+        </div>
+      </details>
+
       {/* Error */}
       {error && (
-        <p className="text-red-500 text-sm">{error}</p>
+        <p className="text-red-500 text-sm" role="alert">{error}</p>
       )}
 
       {/* Buttons */}

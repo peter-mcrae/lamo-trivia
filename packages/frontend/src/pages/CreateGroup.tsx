@@ -35,13 +35,13 @@ export default function CreateGroup() {
 
   if (!user) {
     return (
-      <div className="max-w-lg mx-auto py-10 px-6 text-center">
+      <div className="community-panel max-w-lg mx-auto py-10 px-6 text-center">
         <h2 className="text-2xl font-bold text-lamo-dark mb-4">Sign In Required</h2>
         <p className="text-lamo-gray mb-6">
           Sign in to create a private group. This lets you recover your groups on any device.
         </p>
         <Link
-          to="/login"
+          to="/login?returnTo=/group/new"
           className="inline-block px-6 py-2.5 bg-lamo-primary text-white font-medium rounded-lg hover:bg-lamo-primary/90 transition-colors"
         >
           Sign In
@@ -52,11 +52,11 @@ export default function CreateGroup() {
 
   return (
     <><SEO
-        title="Create a Group - LAMO Games"
+        title="Create a Group - LAMO Trivia"
         description="Create a private group for trivia, riddle guess, and scavenger hunts with friends and family."
         canonical="https://lamotrivia.app/group/new"
       />
-    <div className="max-w-lg mx-auto py-10 px-6">
+    <div className="community-panel max-w-lg mx-auto py-10 px-6">
       <h2 className="text-2xl font-bold text-lamo-dark mb-6">Create Private Group</h2>
       <p className="text-sm text-lamo-gray mb-6">
         Create a private space for your family or friends. You'll get a secret code to share with them.

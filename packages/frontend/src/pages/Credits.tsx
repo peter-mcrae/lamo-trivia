@@ -91,7 +91,7 @@ export default function Credits() {
   if (loading || !user) return null;
 
   return (
-    <div className="max-w-lg mx-auto px-6 py-16">
+    <div className="credits-page max-w-lg mx-auto px-6 py-16">
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="text-2xl font-bold text-lamo-dark">Credits</h1>

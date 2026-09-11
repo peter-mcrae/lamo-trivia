@@ -310,7 +310,7 @@ export default function HuntRoom() {
   // Loading state
   if (!huntState) {
     return (
-      <div className="max-w-3xl mx-auto py-10 px-6 text-center">
+      <div className="hunt-room max-w-3xl mx-auto py-10 px-6 text-center">
         {error ? (
           <div>
             <p className="text-red-500 font-medium mb-4">{error}</p>
@@ -328,7 +328,7 @@ export default function HuntRoom() {
   const canStart = isHost && playerCount >= huntState.config.minPlayers;
 
   return (
-    <div className="max-w-3xl mx-auto py-10 px-6">
+    <div className="hunt-room max-w-3xl mx-auto py-10 px-6">
       {/* Error banner */}
       {error && (
         <div className="mb-4 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm flex items-center justify-between gap-3">

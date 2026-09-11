@@ -5,17 +5,17 @@ export default function HowToPlay() {
   return (
     <>
       <SEO
-        title="How to Play - LAMO Games Complete Guide"
+        title="How to Play - LAMO Trivia Complete Guide"
         description="Learn how to play all LAMO games: Trivia, Riddle Guess, and Scavenger Hunts. Covers creating games, joining groups, scoring, and passwordless login."
         keywords="how to play trivia, riddle guess, scavenger hunt, game guide, online trivia tutorial, multiplayer trivia instructions, LAMO games"
         canonical="https://lamotrivia.app/how-to-play"
-        ogTitle="How to Play - LAMO Games Complete Guide"
+        ogTitle="How to Play - LAMO Trivia Complete Guide"
         ogDescription="Everything you need to know about Trivia, Riddle Guess, and Scavenger Hunts."
       />
-      <div className="max-w-4xl mx-auto px-6 py-16">
+      <div className="reading-page max-w-4xl mx-auto px-6 py-16">
         <h1 className="text-4xl font-bold text-lamo-dark mb-3">How to Play</h1>
         <p className="text-lg text-lamo-gray mb-10">
-          Everything you need to know to start playing LAMO Games with friends and family.
+          Everything you need to know to start playing LAMO Trivia with friends and family.
         </p>
 
         {/* Quick Links */}
@@ -42,7 +42,7 @@ export default function HowToPlay() {
           <section id="getting-started" className="mb-14 scroll-mt-20">
             <h2 className="text-2xl font-bold text-lamo-dark mb-4">Getting Started</h2>
             <p className="text-lamo-gray mb-4">
-              LAMO Games is free to play in your browser — no downloads, no app installs. Just pick a game type,
+              LAMO Trivia is free to play in your browser — no downloads, no app installs. Just pick a game type,
               share the code or link, and start playing.
             </p>
             <ol className="list-decimal list-inside text-lamo-gray space-y-3">

@@ -1,16 +1,14 @@
 import { Link } from 'react-router-dom';
+import { Arrow, BrandMark } from '@/components/Brand';
 
 export default function NotFound() {
   return (
-    <div className="text-center py-20 px-6">
-      <h2 className="text-4xl font-bold text-lamo-dark mb-4">404</h2>
-      <p className="text-lamo-gray-muted mb-8">Page not found.</p>
-      <Link
-        to="/"
-        className="inline-flex items-center px-6 py-2.5 bg-lamo-blue text-white font-semibold rounded-pill hover:bg-lamo-blue-dark transition-colors"
-      >
-        Back to Home
-      </Link>
+    <div className="not-found site-width">
+      <div className="not-found-art" aria-hidden="true"><span>4</span><BrandMark /><span>4</span></div>
+      <p className="eyebrow">WELL, THAT’S A PUZZLER.</p>
+      <h1>This page went missing.</h1>
+      <p>Let’s get you back to the good stuff.</p>
+      <Link to="/" className="nav-play">Back to the games <Arrow /></Link>
     </div>
   );
 }

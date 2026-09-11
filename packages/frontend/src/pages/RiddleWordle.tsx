@@ -5,6 +5,7 @@ import { RiddleWordleGrid } from '../components/RiddleWordleGrid';
 import { RiddleWordleKeyboard } from '../components/RiddleWordleKeyboard';
 import { SEO } from '../components/SEO';
 import { Button } from '../components/ui/Button';
+import { Spark } from '@/components/Brand';
 
 export type LetterStatus = 'correct' | 'present' | 'absent';
 
@@ -162,6 +163,11 @@ export default function RiddleWordle() {
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (e.target instanceof HTMLElement) {
+        if (e.target.matches('input, textarea, select') || e.target.isContentEditable || e.target.closest('header, footer')) return;
+        if (e.key === 'Enter' && e.target.closest('button, a')) return;
+      }
+      if (e.key === 'Enter' || e.key === 'Backspace') e.preventDefault();
       if (e.key === 'Enter') {
         handleKey('ENTER');
       } else if (e.key === 'Backspace') {
@@ -195,8 +201,9 @@ export default function RiddleWordle() {
         keywords="riddle guess, word game, riddle game, family word game, guess the riddle"
         canonical="https://lamotrivia.app/riddle-wordle"
       />
-      <div className="max-w-xl mx-auto py-8 px-4">
+      <div className="riddle-page max-w-xl mx-auto py-8 px-4">
         {/* Header */}
+        <div className="riddle-page-symbol"><Spark /></div>
         <div className="text-center mb-6">
           <Link
             to="/"
@@ -213,7 +220,7 @@ export default function RiddleWordle() {
         </div>
 
         {/* Riddle */}
-        <div className="bg-lamo-bg border border-lamo-border rounded-2xl p-5 mb-6 text-center">
+        <div className="riddle-clue rounded-2xl p-5 mb-6 text-center">
           <p className="text-lg font-medium text-lamo-dark leading-relaxed">
             {riddle.text}
           </p>
@@ -235,6 +242,7 @@ export default function RiddleWordle() {
         {/* Message banner */}
         {message && (
           <div
+            role="status"
             className={`text-center text-sm font-medium mb-4 px-4 py-2 rounded-xl ${
               gameStatus === 'won'
                 ? 'bg-green-50 text-green-700 border border-green-200'

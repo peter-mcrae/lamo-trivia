@@ -283,7 +283,7 @@ export default function GameRoom() {
   // Loading state
   if (!gameState) {
     return (
-      <div className="max-w-3xl mx-auto py-10 px-6 text-center">
+      <div className="game-room max-w-3xl mx-auto py-10 px-6 text-center">
         {error ? (
           <div>
             <p className="text-red-500 font-medium mb-4">{error}</p>
@@ -300,7 +300,7 @@ export default function GameRoom() {
   const canStart = isHost && gameState.players.length >= gameState.config.minPlayers;
 
   return (
-    <div className="max-w-3xl mx-auto py-10 px-6">
+    <div className="game-room max-w-3xl mx-auto py-10 px-6">
       {/* Group context */}
       {gameState.config.groupId && (
         <div className="mb-4">
@@ -336,12 +336,12 @@ export default function GameRoom() {
       {/* Waiting Phase */}
       {gameState.phase === 'waiting' && (
         <div>
-          <div className="flex items-center justify-between mb-4">
+          <div className="game-room-heading flex items-center justify-between mb-4">
             <div>
               <h2 className="text-2xl font-bold text-lamo-dark">{gameState.config.name}</h2>
               <div className="flex items-center gap-2 mt-1">
                 <p className="text-lamo-gray-muted text-sm">
-                  Game Code: <span className="font-mono font-bold text-lamo-dark">{gameState.id}</span>
+                  Game Code: <span className="room-code font-mono font-bold text-lamo-dark">{gameState.id}</span>
                 </p>
                 <button
                   onClick={handleShare}
@@ -388,7 +388,7 @@ export default function GameRoom() {
             </div>
           ) : (
             <>
-            <div className="flex gap-3">
+            <div className="flex flex-wrap gap-3">
               {isHost && (
                 <Button onClick={handleStartGame} disabled={!canStart}>
                   {canStart ? 'Start Game' : `Need ${gameState.config.minPlayers - gameState.players.length} more`}
@@ -422,7 +422,7 @@ export default function GameRoom() {
             {showEditSettings && (
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => setShowEditSettings(false)}>
                 <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full mx-4 max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex items-center justify-between mb-4">
+                  <div className="game-room-heading flex items-center justify-between mb-4">
                     <h2 className="text-xl font-bold text-lamo-dark">Edit Settings</h2>
                     <button
                       onClick={() => setShowEditSettings(false)}
@@ -454,7 +454,7 @@ export default function GameRoom() {
       {gameState.phase === 'starting' && countdown !== null && (
         <div className="flex flex-col items-center justify-center py-20">
           <p className="text-lamo-gray-muted mb-4">Game starting in</p>
-          <div className="text-7xl font-bold text-lamo-blue animate-pulse">{countdown}</div>
+          <div className="countdown-number text-7xl font-bold text-lamo-blue animate-pulse">{countdown}</div>
           <p className="text-sm text-lamo-gray-muted mt-6">Get ready!</p>
         </div>
       )}

@@ -46,7 +46,7 @@ export default function Groups() {
 
   const seo = (
     <SEO
-      title="My Groups - LAMO Games"
+      title="My Groups - LAMO Trivia"
       description="Create and manage your LAMO game groups. Play trivia, riddle guess, and scavenger hunts with friends and family."
       canonical="https://lamotrivia.app/groups"
     />
@@ -54,7 +54,7 @@ export default function Groups() {
 
   if (!user) {
     return (
-      <>{seo}<div className="max-w-lg mx-auto py-10 px-6">
+      <>{seo}<div className="groups-page max-w-lg mx-auto py-10 px-6">
         <div className="text-center py-16">
           <h2 className="text-2xl font-bold text-lamo-dark mb-3">Groups</h2>
           <p className="text-lamo-gray-muted mb-6">
@@ -81,7 +81,7 @@ export default function Groups() {
   }
 
   return (
-    <>{seo}<div className="max-w-lg mx-auto py-10 px-6">
+    <>{seo}<div className="groups-page max-w-lg mx-auto py-10 px-6">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-lamo-dark">My Groups</h2>
         <Link

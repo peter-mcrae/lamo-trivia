@@ -23,7 +23,8 @@ export default function CreateHunt() {
   };
 
   return (
-    <div className="max-w-lg mx-auto py-10 px-6">
+    <div className="hunt-setup max-w-lg mx-auto py-10 px-6">
+      <p className="eyebrow mb-3">PLAY TOGETHER / PHOTO CHALLENGES</p>
       <h2 className="text-2xl font-bold text-lamo-dark mb-2">Scavenger Hunts</h2>
       <p className="text-lamo-gray mb-8">
         Create AI-powered photo scavenger hunts for your family and friends.
@@ -85,6 +86,7 @@ export default function CreateHunt() {
             type="text"
             value={groupCode}
             onChange={(e) => setGroupCode(e.target.value)}
+            aria-label="Group code"
             placeholder="Enter group code to join"
             maxLength={30}
             className="flex-1 px-4 py-3 border border-lamo-border rounded-pill text-sm focus:outline-none focus:ring-2 focus:ring-lamo-blue/40"
@@ -104,6 +106,7 @@ export default function CreateHunt() {
             type="text"
             value={gameCode}
             onChange={(e) => setGameCode(e.target.value)}
+            aria-label="Hunt game code"
             placeholder="Enter game code to join"
             maxLength={30}
             className="flex-1 px-4 py-3 border border-lamo-border rounded-pill text-sm focus:outline-none focus:ring-2 focus:ring-lamo-blue/40"

@@ -6,6 +6,7 @@ export default {
     extend: {
       fontFamily: {
         sans: [
+          'Inter',
           '-apple-system',
           'BlinkMacSystemFont',
           'SF Pro Display',
@@ -16,18 +17,18 @@ export default {
       },
       colors: {
         lamo: {
-          primary: '#0071e3',
-          blue: '#0071e3',
-          'blue-dark': '#0056b3',
-          lime: '#a8e000',
-          'lime-light': '#c5f030',
-          dark: '#1d1d1f',
-          gray: '#424245',
-          'gray-muted': '#86868b',
-          'gray-light': '#6e6e73',
-          border: '#d2d2d7',
-          bg: '#f5f5f7',
-          'bg-hero': '#fbfbfd',
+          primary: '#234ee8',
+          blue: '#234ee8',
+          'blue-dark': '#163bc2',
+          lime: '#dbe8ff',
+          'lime-light': '#edf3ff',
+          dark: '#102342',
+          gray: '#344b67',
+          'gray-muted': '#52657e',
+          'gray-light': '#52657e',
+          border: '#d8e2ee',
+          bg: '#edf3fb',
+          'bg-hero': '#f5f8fc',
           white: '#ffffff',
         },
       },
@@ -40,8 +41,8 @@ export default {
           to: { opacity: '1', transform: 'translateY(0)' },
         },
         'pulse-lime': {
-          '0%, 100%': { boxShadow: '0 0 0 0 rgba(168, 224, 0, 0.4)' },
-          '50%': { boxShadow: '0 0 0 12px rgba(168, 224, 0, 0)' },
+          '0%, 100%': { boxShadow: '0 0 0 0 rgba(35, 78, 232, 0.4)' },
+          '50%': { boxShadow: '0 0 0 12px rgba(35, 78, 232, 0)' },
         },
         shake: {
           '0%, 100%': { transform: 'translateX(0)' },
