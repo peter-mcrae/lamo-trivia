@@ -10,11 +10,29 @@ import {
 } from './mocks';
 import { GAME_EXPIRY_MS, GROUP_LIMITS, GROUP_GAME_MAX_AGE_MS } from '@lamo-trivia/shared';
 
-async function initGroup(group: PrivateGroup, id = 'brave-mountain-golden-river', name = 'McRae Family') {
+/** The Worker only proxies game registration for a signed-in caller */
+const CALLER_HEADERS = { 'X-Caller-Email': 'owner@example.com' };
+
+/**
+ * The DO's live in-memory group — the object its handlers actually read and
+ * mutate. Arranging a scenario has to go through this: `storage.get` returns
+ * a snapshot, like the real DO storage API, so poking at that changes nothing
+ * a handler will ever see.
+ */
+function liveGroup(group: PrivateGroup): any {
+  return (group as unknown as { group: any }).group;
+}
+
+async function initGroup(
+  group: PrivateGroup,
+  id = 'brave-mountain-golden-river',
+  name = 'McRae Family',
+  ownerEmail?: string,
+) {
   return group.fetch(
     new Request('http://internal/init', {
       method: 'POST',
-      body: JSON.stringify({ id, name }),
+      body: JSON.stringify({ id, name, ...(ownerEmail ? { ownerEmail } : {}) }),
     }),
   );
 }
@@ -31,6 +49,16 @@ function makeGroupGame(overrides: Record<string, unknown> = {}) {
     categoryIds: ['general'],
     ...overrides,
   };
+}
+
+/** Drop a member's socket the way a real disconnect would */
+async function disconnect(
+  group: PrivateGroup,
+  state: MockDurableObjectState,
+  ws: MockWebSocket,
+): Promise<void> {
+  state._webSockets = state._webSockets.filter((s) => s !== ws);
+  await group.webSocketClose(ws);
 }
 
 /** Join a member and return the memberId from join_confirmed */
@@ -96,6 +124,21 @@ describe('PrivateGroup — HTTP endpoints', () => {
     expect(res.status).toBe(404);
   });
 
+  it('GET /state withholds ownerEmail unless the caller asks for it', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', 'owner@example.com');
+    const res = await group.fetch(new Request('http://internal/state'));
+    const data = (await res.json()) as any;
+    expect(data.name).toBe('McRae Family');
+    expect(data.ownerEmail).toBeUndefined();
+  });
+
+  it('GET /state?includeOwner=1 returns ownerEmail for ownership checks', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', 'owner@example.com');
+    const res = await group.fetch(new Request('http://internal/state?includeOwner=1'));
+    const data = (await res.json()) as any;
+    expect(data.ownerEmail).toBe('owner@example.com');
+  });
+
   // --- POST /games ---
 
   it('POST /games registers a game and returns ok', async () => {
@@ -104,6 +147,7 @@ describe('PrivateGroup — HTTP endpoints', () => {
     const res = await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(game),
       }),
     );
@@ -112,10 +156,28 @@ describe('PrivateGroup — HTTP endpoints', () => {
     expect(data.ok).toBe(true);
   });
 
+  it('POST /games rejects a caller the Worker could not authenticate', async () => {
+    await initGroup(group);
+    const res = await group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        body: JSON.stringify(makeGroupGame()),
+      }),
+    );
+    expect(res.status).toBe(401);
+
+    // ...and nothing was registered
+    const stateRes = await group.fetch(new Request('http://internal/state'));
+    expect(stateRes.status).toBe(200);
+    const stored = (await (state.storage as any).get('group')) as any;
+    expect(stored.games.size).toBe(0);
+  });
+
   it('POST /games returns 404 when group does not exist', async () => {
     const res = await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(makeGroupGame()),
       }),
     );
@@ -130,6 +192,7 @@ describe('PrivateGroup — HTTP endpoints', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(game),
       }),
     );
@@ -161,6 +224,7 @@ describe('PrivateGroup — HTTP endpoints', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(makeGroupGame()),
       }),
     );
@@ -211,7 +275,9 @@ describe('PrivateGroup — Member identity', () => {
     expect(typeof messages[0].memberId).toBe('string');
     expect(messages[1].type).toBe('group_state');
     expect(messages[1].state.members[0].username).toBe('alice');
-    expect(messages[1].state.members[0].memberId).toBe(messages[0].memberId);
+    // join_confirmed is the only place a memberId is handed out. The member
+    // list goes to the whole group, so it carries no memberId at all.
+    expect(messages[1].state.members[0].memberId).toBeUndefined();
   });
 
   it('join_group with valid memberId returns same memberId', async () => {
@@ -272,10 +338,10 @@ describe('PrivateGroup — Member identity', () => {
 
     await group.webSocketMessage(ws, JSON.stringify({ type: 'join_group', username: 'alice' }));
 
-    const attached = ws.deserializeAttachment() as string;
+    const attached = ws.deserializeAttachment() as { memberId: string };
     // Should be a UUID, not "alice"
-    expect(attached).not.toBe('alice');
-    expect(attached).toMatch(/^[0-9a-f-]{36}$/);
+    expect(attached.memberId).not.toBe('alice');
+    expect(attached.memberId).toMatch(/^[0-9a-f-]{36}$/);
   });
 
   it('join_group with memberId allows username change', async () => {
@@ -290,10 +356,13 @@ describe('PrivateGroup — Member identity', () => {
     );
 
     const messages = getSentMessages(ws2);
+    const confirmed = messages.find((m: any) => m.type === 'join_confirmed');
+    expect(confirmed.memberId).toBe(memberId);
+
+    // Member should have the updated username, and still be the only one
     const groupState = messages.find((m: any) => m.type === 'group_state');
-    // Member should have the updated username
-    const member = groupState.state.members.find((m: any) => m.memberId === memberId);
-    expect(member.username).toBe('alice_v2');
+    expect(groupState.state.members).toHaveLength(1);
+    expect(groupState.state.members[0].username).toBe('alice_v2');
   });
 
   it('backward compat: existing member without memberId gets one assigned on join', async () => {
@@ -318,10 +387,15 @@ describe('PrivateGroup — Member identity', () => {
     // Should be a valid UUID
     expect(confirmed.memberId).toMatch(/^[0-9a-f-]{36}$/);
 
-    // The group_state should show the member with their new memberId
-    const groupState = messages.find((m: any) => m.type === 'group_state');
-    const member = groupState.state.members.find((m: any) => m.username === 'legacy_user');
+    // It lands on the stored record — but never in the broadcast member list
+    const member = (await (state.storage as any).get('group')).members.find(
+      (m: any) => m.username === 'legacy_user',
+    );
     expect(member.memberId).toBe(confirmed.memberId);
+
+    const groupState = messages.find((m: any) => m.type === 'group_state');
+    const broadcast = groupState.state.members.find((m: any) => m.username === 'legacy_user');
+    expect(broadcast.memberId).toBeUndefined();
   });
 
   it('MEMBER_EXISTS check is case-insensitive', async () => {
@@ -353,8 +427,9 @@ describe('PrivateGroup — Recovery flow', () => {
   });
 
   it('recover_member with valid username sends join_confirmed and group_state', async () => {
-    // alice joins first
-    await joinAndGetMemberId(group, state, 'alice');
+    // alice joins, then loses her device
+    const { ws: aliceWs } = await joinAndGetMemberId(group, state, 'alice');
+    await disconnect(group, state, aliceWs);
 
     // New WS tries to recover alice
     const ws2 = createMockWebSocket();
@@ -369,8 +444,9 @@ describe('PrivateGroup — Recovery flow', () => {
   });
 
   it('recover_member broadcasts member_online to others', async () => {
-    await joinAndGetMemberId(group, state, 'alice');
+    const { ws: aliceWs } = await joinAndGetMemberId(group, state, 'alice');
     const { ws: bobWs } = await joinAndGetMemberId(group, state, 'bob');
+    await disconnect(group, state, aliceWs);
     bobWs._sent.length = 0;
 
     // Recover alice from new device
@@ -395,7 +471,8 @@ describe('PrivateGroup — Recovery flow', () => {
   });
 
   it('recover_member is case-insensitive', async () => {
-    await joinAndGetMemberId(group, state, 'Alice');
+    const { ws: aliceWs } = await joinAndGetMemberId(group, state, 'Alice');
+    await disconnect(group, state, aliceWs);
 
     const ws2 = createMockWebSocket();
     state.acceptWebSocket(ws2);
@@ -406,8 +483,8 @@ describe('PrivateGroup — Recovery flow', () => {
   });
 
   it('recover_member with multiple username matches returns error', async () => {
-    // Inject two members with the same username (case-insensitive) via storage reference
-    const stored = await (state.storage as any).get('group');
+    // Inject two members with the same username (case-insensitive)
+    const stored = liveGroup(group);
     stored.members.push(
       { memberId: crypto.randomUUID(), username: 'alice', joinedAt: Date.now(), online: false },
       { memberId: crypto.randomUUID(), username: 'Alice', joinedAt: Date.now(), online: false },
@@ -422,9 +499,56 @@ describe('PrivateGroup — Recovery flow', () => {
     expect(lastMsg.message).toContain('Multiple members found');
   });
 
+  it('recover_member refuses to take over a member who is still connected', async () => {
+    const { ws: aliceWs, memberId } = await joinAndGetMemberId(group, state, 'alice');
+
+    // An attacker who only knows the username tries to claim her identity
+    const attackerWs = createMockWebSocket();
+    state.acceptWebSocket(attackerWs);
+    await group.webSocketMessage(attackerWs, JSON.stringify({ type: 'recover_member', username: 'alice' }));
+
+    const lastMsg = getLastMessage(attackerWs);
+    expect(lastMsg.type).toBe('error');
+    expect(lastMsg.code).toBe('MEMBER_ONLINE');
+    // alice keeps her identity and the attacker's socket gets nothing
+    expect(attackerWs._attachment).toBeNull();
+    expect((aliceWs._attachment as { memberId: string }).memberId).toBe(memberId);
+  });
+
+  it('recover_member succeeds once the member has disconnected', async () => {
+    const { ws: aliceWs, memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await disconnect(group, state, aliceWs);
+
+    const ws2 = createMockWebSocket();
+    state.acceptWebSocket(ws2);
+    await group.webSocketMessage(ws2, JSON.stringify({ type: 'recover_member', username: 'alice' }));
+
+    const messages = getSentMessages(ws2);
+    expect(messages[0].type).toBe('join_confirmed');
+    expect(messages[0].memberId).toBe(memberId);
+  });
+
+  it('recover_member ignores a stale online flag when no socket is attached', async () => {
+    // A DO restart can leave `online: true` persisted with every socket gone
+    const stored = liveGroup(group);
+    stored.members.push({
+      memberId: crypto.randomUUID(),
+      username: 'ghost',
+      joinedAt: Date.now(),
+      online: true,
+    });
+
+    const ws = createMockWebSocket();
+    state.acceptWebSocket(ws);
+    await group.webSocketMessage(ws, JSON.stringify({ type: 'recover_member', username: 'ghost' }));
+
+    const messages = getSentMessages(ws);
+    expect(messages[0].type).toBe('join_confirmed');
+  });
+
   it('recover_member assigns memberId to legacy member without one', async () => {
-    // Inject a legacy member without memberId via storage reference
-    const stored = await (state.storage as any).get('group');
+    // Inject a legacy member without memberId
+    const stored = liveGroup(group);
     stored.members.push({ username: 'legacy', joinedAt: Date.now(), online: false });
 
     const ws = createMockWebSocket();
@@ -460,7 +584,9 @@ describe('PrivateGroup — WebSocket messages', () => {
     expect(ws1Messages).toHaveLength(1);
     expect(ws1Messages[0].type).toBe('member_joined');
     expect(ws1Messages[0].member.username).toBe('bob');
-    expect(ws1Messages[0].member.memberId).toBeDefined();
+    // bob's memberId is bob's alone — it goes to bob in join_confirmed, and
+    // nowhere near the sockets it is announced to.
+    expect(ws1Messages[0].member.memberId).toBeUndefined();
   });
 
   it('returning member (with memberId) triggers member_online instead of member_joined', async () => {
@@ -658,6 +784,7 @@ describe('PrivateGroup — Game broadcasts', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(game),
       }),
     );
@@ -674,6 +801,7 @@ describe('PrivateGroup — Game broadcasts', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(game),
       }),
     );
@@ -698,6 +826,7 @@ describe('PrivateGroup — Game broadcasts', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(game),
       }),
     );
@@ -724,6 +853,7 @@ describe('PrivateGroup — Expired game filtering', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(makeGroupGame({ gameId: 'FRESH-001', name: 'Fresh Game' })),
       }),
     );
@@ -732,6 +862,7 @@ describe('PrivateGroup — Expired game filtering', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(
           makeGroupGame({
             gameId: 'OLD-0001',
@@ -747,6 +878,7 @@ describe('PrivateGroup — Expired game filtering', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(
           makeGroupGame({
             gameId: 'PLAY-001',
@@ -794,6 +926,7 @@ describe('PrivateGroup — Game sweep alarm', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(
           makeGroupGame({
             gameId: 'OLD-0001',
@@ -816,6 +949,7 @@ describe('PrivateGroup — Game sweep alarm', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(
           makeGroupGame({
             gameId: 'DONE-001',
@@ -838,6 +972,7 @@ describe('PrivateGroup — Game sweep alarm', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(
           makeGroupGame({
             gameId: 'PLAY-001',
@@ -859,6 +994,7 @@ describe('PrivateGroup — Game sweep alarm', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(
           makeGroupGame({
             gameId: 'ORPH-001',
@@ -881,6 +1017,7 @@ describe('PrivateGroup — Game sweep alarm', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(makeGroupGame({ gameId: 'FRSH-001' })),
       }),
     );
@@ -895,6 +1032,7 @@ describe('PrivateGroup — Game sweep alarm', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(
           makeGroupGame({
             gameId: 'OLD-0001',
@@ -917,6 +1055,7 @@ describe('PrivateGroup — Game sweep alarm', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(makeGroupGame()),
       }),
     );
@@ -928,6 +1067,7 @@ describe('PrivateGroup — Game sweep alarm', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(makeGroupGame({ gameId: 'GAME-001' })),
       }),
     );
@@ -936,6 +1076,7 @@ describe('PrivateGroup — Game sweep alarm', () => {
     await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(makeGroupGame({ gameId: 'GAME-002' })),
       }),
     );
@@ -959,6 +1100,7 @@ describe('PrivateGroup — maxActiveGames enforcement', () => {
       await group.fetch(
         new Request('http://internal/games', {
           method: 'POST',
+          headers: CALLER_HEADERS,
           body: JSON.stringify(makeGroupGame({ gameId: `GAME-${String(i).padStart(4, '0')}` })),
         }),
       );
@@ -967,6 +1109,7 @@ describe('PrivateGroup — maxActiveGames enforcement', () => {
     const res = await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(makeGroupGame({ gameId: 'OVER-FLOW' })),
       }),
     );
@@ -981,6 +1124,7 @@ describe('PrivateGroup — maxActiveGames enforcement', () => {
       await group.fetch(
         new Request('http://internal/games', {
           method: 'POST',
+          headers: CALLER_HEADERS,
           body: JSON.stringify(
             makeGroupGame({ gameId: `DONE-${String(i).padStart(4, '0')}`, phase: 'finished' }),
           ),
@@ -991,10 +1135,436 @@ describe('PrivateGroup — maxActiveGames enforcement', () => {
     const res = await group.fetch(
       new Request('http://internal/games', {
         method: 'POST',
+        headers: CALLER_HEADERS,
         body: JSON.stringify(makeGroupGame({ gameId: 'NEW-0001' })),
       }),
     );
 
     expect(res.status).toBe(200);
+  });
+});
+
+describe('PrivateGroup — Account-linked membership', () => {
+  const OWNER = 'owner@example.com';
+  const ALICE = 'alice@example.com';
+  const STRANGER = 'stranger@example.com';
+
+  let state: MockDurableObjectState;
+  let group: PrivateGroup;
+
+  beforeEach(() => {
+    state = createMockDurableObjectState();
+    group = new PrivateGroup(state);
+  });
+
+  /** The Worker sets X-Caller-Email from a validated session before proxying. */
+  function callerHeaders(email: string) {
+    return { 'X-Caller-Email': email };
+  }
+
+  function linkMember(email: string, memberId?: string) {
+    return group.fetch(
+      new Request('http://internal/members/link', {
+        method: 'POST',
+        headers: callerHeaders(email),
+        body: JSON.stringify(memberId ? { memberId } : {}),
+      }),
+    );
+  }
+
+  function createGame(email: string | null, gameId = 'ABCD-1234') {
+    return group.fetch(
+      new Request('http://internal/games', {
+        method: 'POST',
+        ...(email ? { headers: callerHeaders(email) } : {}),
+        body: JSON.stringify(makeGroupGame({ gameId })),
+      }),
+    );
+  }
+
+  function membership(email: string) {
+    return group.fetch(
+      new Request('http://internal/membership', { headers: callerHeaders(email) }),
+    );
+  }
+
+  /** A socket the Worker vouched for, the way the upgrade handler attaches it. */
+  function acceptSocket(verifiedEmail?: string): MockWebSocket {
+    const ws = createMockWebSocket();
+    state.acceptWebSocket(ws);
+    if (verifiedEmail) ws.serializeAttachment({ email: verifiedEmail });
+    return ws;
+  }
+
+  async function storedGroup(): Promise<any> {
+    return (state.storage as any).get('group');
+  }
+
+  // --- POST /members/link ---
+
+  it('links a member record to the account that holds its memberId', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId } = await joinAndGetMemberId(group, state, 'alice');
+
+    const res = await linkMember(ALICE, memberId);
+
+    expect(res.status).toBe(200);
+    const data = (await res.json()) as any;
+    expect(data).toMatchObject({ memberId, username: 'alice', linked: true });
+  });
+
+  it('returns the record an account already owns when no memberId is sent', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+
+    // Same account, new device: no memberId in local storage to offer.
+    const res = await linkMember(ALICE);
+
+    expect(res.status).toBe(200);
+    expect((await res.json()) as any).toMatchObject({ memberId, username: 'alice' });
+  });
+
+  it('refuses to link a member that already belongs to another account', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+
+    const res = await linkMember(STRANGER, memberId);
+
+    expect(res.status).toBe(409);
+    expect(((await res.json()) as any).code).toBe('MEMBER_LINKED_TO_OTHER_ACCOUNT');
+  });
+
+  it('returns 404 when there is no member record to link', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+
+    const res = await linkMember(STRANGER, crypto.randomUUID());
+
+    expect(res.status).toBe(404);
+    expect(((await res.json()) as any).code).toBe('NO_MEMBER_TO_LINK');
+  });
+
+  it('rejects a link the Worker could not authenticate', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId } = await joinAndGetMemberId(group, state, 'alice');
+
+    const res = await group.fetch(
+      new Request('http://internal/members/link', {
+        method: 'POST',
+        body: JSON.stringify({ memberId }),
+      }),
+    );
+
+    expect(res.status).toBe(401);
+    expect((await storedGroup()).members[0].email).toBeUndefined();
+  });
+
+  // --- GET /membership ---
+
+  it('reports owner, linked member and stranger correctly', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+
+    expect((await (await membership(OWNER)).json()) as any).toMatchObject({
+      isOwner: true,
+      isMember: true,
+    });
+    expect((await (await membership(ALICE)).json()) as any).toMatchObject({
+      isOwner: false,
+      isMember: true,
+    });
+    expect((await (await membership(STRANGER)).json()) as any).toMatchObject({
+      isOwner: false,
+      isMember: false,
+    });
+  });
+
+  it('rejects a membership probe with no caller identity', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+
+    const res = await group.fetch(new Request('http://internal/membership'));
+
+    expect(res.status).toBe(401);
+  });
+
+  // --- POST /games ---
+
+  it('lets a linked member create a game', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+
+    const res = await createGame(ALICE);
+
+    expect(res.status).toBe(200);
+    expect((await storedGroup()).games.size).toBe(1);
+  });
+
+  it('lets the owner create a game without ever joining the socket', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+
+    expect((await createGame(OWNER)).status).toBe(200);
+  });
+
+  it('refuses a signed-in caller who is not in the group', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+
+    const res = await createGame(STRANGER);
+
+    expect(res.status).toBe(403);
+    expect(((await res.json()) as any).code).toBe('NOT_A_MEMBER');
+    expect((await storedGroup()).games.size).toBe(0);
+  });
+
+  it('refuses an unauthenticated caller', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+
+    const res = await createGame(null);
+
+    expect(res.status).toBe(401);
+    expect((await storedGroup()).games.size).toBe(0);
+  });
+
+  // --- Members who predate account linking ---
+
+  it('grandfathers a group with no owner and no linked member', async () => {
+    // Nothing on record to check a caller against — refusing everyone would
+    // freeze the group for the very people who have been using it.
+    await initGroup(group);
+    await joinAndGetMemberId(group, state, 'alice');
+
+    expect((await createGame(ALICE)).status).toBe(200);
+  });
+
+  it('lets a pre-existing member link with nothing but the memberId they already hold', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+
+    // A member record written before account linking existed: no email on it.
+    const { memberId } = await joinAndGetMemberId(group, state, 'alice');
+    expect((await storedGroup()).members[0].email).toBeUndefined();
+    expect((await createGame(ALICE, 'NOPE-0001')).status).toBe(403);
+
+    // Their client links on the next visit, with no extra proof required.
+    expect((await linkMember(ALICE, memberId)).status).toBe(200);
+    expect((await createGame(ALICE)).status).toBe(200);
+  });
+
+  // --- Privacy ---
+
+  it('never puts a linked email in the member list it broadcasts', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+
+    const ws = acceptSocket();
+    await group.webSocketMessage(ws, JSON.stringify({ type: 'join_group', username: 'bob' }));
+    const groupState = getSentMessages(ws).find((m: any) => m.type === 'group_state');
+
+    const alice = groupState.state.members.find((m: any) => m.username === 'alice');
+    expect(alice.linkedAccount).toBe(true);
+    expect(alice.email).toBeUndefined();
+    expect(JSON.stringify(groupState)).not.toContain(ALICE);
+  });
+
+  it('never puts another member\'s memberId in the member list it broadcasts', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId: aliceId } = await joinAndGetMemberId(group, state, 'alice');
+
+    const ws = acceptSocket();
+    await group.webSocketMessage(ws, JSON.stringify({ type: 'join_group', username: 'bob' }));
+    const messages = getSentMessages(ws);
+
+    // bob gets his own memberId, and only his own
+    const confirmed = messages.find((m: any) => m.type === 'join_confirmed');
+    expect(confirmed.memberId).toBeDefined();
+    expect(confirmed.memberId).not.toBe(aliceId);
+
+    const groupState = messages.find((m: any) => m.type === 'group_state');
+    expect(groupState.state.members.map((m: any) => m.username).sort()).toEqual(['alice', 'bob']);
+    for (const m of groupState.state.members) {
+      expect(m.memberId).toBeUndefined();
+    }
+    expect(JSON.stringify(groupState)).not.toContain(aliceId);
+  });
+
+  it('gives a stranger who watched the group nothing to link an unlinked member with', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId: aliceId } = await joinAndGetMemberId(group, state, 'alice');
+
+    // An attacker joins the group and reads everything it is told: group_state
+    // plus every member_joined it sees afterwards.
+    const attackerWs = acceptSocket();
+    await group.webSocketMessage(
+      attackerWs,
+      JSON.stringify({ type: 'join_group', username: 'mallory' }),
+    );
+    await joinAndGetMemberId(group, state, 'carol');
+
+    const seen = getSentMessages(attackerWs).filter((m: any) => m.type !== 'join_confirmed');
+    const harvested: string[] = [];
+    for (const msg of seen) {
+      const members = msg.type === 'group_state' ? msg.state.members : [msg.member ?? {}];
+      for (const m of members) if (m.memberId) harvested.push(m.memberId);
+    }
+
+    // linkedAccount marks alice as an unclaimed record, but her memberId — the
+    // bearer token /members/link needs — never crossed the wire.
+    const alice = (seen.find((m: any) => m.type === 'group_state') as any)
+      .state.members.find((m: any) => m.username === 'alice');
+    expect(alice.linkedAccount).toBe(false);
+    expect(harvested).toEqual([]);
+    expect(JSON.stringify(seen)).not.toContain(aliceId);
+  });
+
+  // --- Identity on the socket ---
+
+  it('links the member on join when the Worker verified the socket', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+
+    const ws = acceptSocket(ALICE);
+    await group.webSocketMessage(ws, JSON.stringify({ type: 'join_group', username: 'alice' }));
+
+    expect((await storedGroup()).members[0].email).toBe(ALICE);
+    expect((await createGame(ALICE)).status).toBe(200);
+  });
+
+  it('refuses an anonymous socket claiming an account-linked member', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { ws: aliceWs, memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+    await disconnect(group, state, aliceWs);
+
+    // No ?token= at all — the hijack recover_member already refuses. Arriving
+    // with no identity must not be a way around a record that has an owner.
+    const attackerWs = acceptSocket();
+    await group.webSocketMessage(
+      attackerWs,
+      JSON.stringify({ type: 'join_group', username: 'mallory', memberId }),
+    );
+
+    const lastMsg = getLastMessage(attackerWs);
+    expect(lastMsg.type).toBe('error');
+    expect(lastMsg.code).toBe('MEMBER_LINKED');
+    // Nothing was taken over: no identity attached, name and account intact.
+    expect(attackerWs._attachment).toBeNull();
+    const stored = await storedGroup();
+    expect(stored.members[0].email).toBe(ALICE);
+    expect(stored.members[0].username).toBe('alice');
+  });
+
+  it('still lets an anonymous socket claim a member with no account on it', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { ws: aliceWs, memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await disconnect(group, state, aliceWs);
+
+    // The device that holds the memberId and never signed in keeps working.
+    const sameDeviceWs = acceptSocket();
+    await group.webSocketMessage(
+      sameDeviceWs,
+      JSON.stringify({ type: 'join_group', username: 'alice', memberId }),
+    );
+
+    const confirmed = getSentMessages(sameDeviceWs).find((m: any) => m.type === 'join_confirmed');
+    expect(confirmed.memberId).toBe(memberId);
+  });
+
+  it('lets the linked account itself rejoin by memberId once its socket is verified', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { ws: aliceWs, memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+    await disconnect(group, state, aliceWs);
+
+    const newDeviceWs = acceptSocket(ALICE);
+    await group.webSocketMessage(
+      newDeviceWs,
+      JSON.stringify({ type: 'join_group', username: 'alice', memberId }),
+    );
+
+    const confirmed = getSentMessages(newDeviceWs).find((m: any) => m.type === 'join_confirmed');
+    expect(confirmed.memberId).toBe(memberId);
+  });
+
+  it('refuses a verified socket claiming a member linked to another account', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+
+    const ws = acceptSocket(STRANGER);
+    await group.webSocketMessage(
+      ws,
+      JSON.stringify({ type: 'join_group', username: 'alice', memberId }),
+    );
+
+    const lastMsg = getLastMessage(ws);
+    expect(lastMsg.type).toBe('error');
+    expect(lastMsg.code).toBe('MEMBER_LINKED');
+    expect((await storedGroup()).members[0].email).toBe(ALICE);
+  });
+
+  // --- recover_member ---
+
+  it('refuses username recovery of an account-linked member', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { ws: aliceWs, memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+    await disconnect(group, state, aliceWs);
+
+    const attackerWs = acceptSocket();
+    await group.webSocketMessage(
+      attackerWs,
+      JSON.stringify({ type: 'recover_member', username: 'alice' }),
+    );
+
+    const lastMsg = getLastMessage(attackerWs);
+    expect(lastMsg.type).toBe('error');
+    expect(lastMsg.code).toBe('MEMBER_LINKED');
+    expect(attackerWs._attachment).toBeNull();
+  });
+
+  it('lets the linked account itself recover, once its socket is verified', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { ws: aliceWs, memberId } = await joinAndGetMemberId(group, state, 'alice');
+    await linkMember(ALICE, memberId);
+    await disconnect(group, state, aliceWs);
+
+    const newDeviceWs = acceptSocket(ALICE);
+    await group.webSocketMessage(
+      newDeviceWs,
+      JSON.stringify({ type: 'recover_member', username: 'alice' }),
+    );
+
+    const confirmed = getSentMessages(newDeviceWs).find((m: any) => m.type === 'join_confirmed');
+    expect(confirmed.memberId).toBe(memberId);
+  });
+
+  it('still lets an unlinked member recover, and still refuses a live one', async () => {
+    await initGroup(group, 'brave-mountain-golden-river', 'McRae Family', OWNER);
+    const { ws: aliceWs, memberId } = await joinAndGetMemberId(group, state, 'alice');
+
+    // Liveness protection is unchanged for members with no account on record.
+    const tooSoonWs = acceptSocket();
+    await group.webSocketMessage(
+      tooSoonWs,
+      JSON.stringify({ type: 'recover_member', username: 'alice' }),
+    );
+    expect(getLastMessage(tooSoonWs).code).toBe('MEMBER_ONLINE');
+
+    await disconnect(group, state, aliceWs);
+
+    const laterWs = acceptSocket();
+    await group.webSocketMessage(
+      laterWs,
+      JSON.stringify({ type: 'recover_member', username: 'alice' }),
+    );
+    const confirmed = getSentMessages(laterWs).find((m: any) => m.type === 'join_confirmed');
+    expect(confirmed.memberId).toBe(memberId);
   });
 });

@@ -2,7 +2,10 @@ import { Hono } from 'hono';
 import type { Env } from '../env';
 import type { AdminIdentity } from '../admin-auth';
 import type { User, CreditTransaction } from '@lamo-trivia/shared';
-import { getUser, updateUser, getCreditTransactions, addCreditTransaction } from '../auth';
+import {
+  getUser, getCreditTransactions, adjustUserCredits, KvLockBusyError,
+  InsufficientCreditsError,
+} from '../auth';
 import {
   createCoupon, listCoupons, getCoupon, deleteCoupon,
   sendCouponEmail, isValidCouponCode,
@@ -22,6 +25,10 @@ function isValidSearch(search: string): boolean {
 
 function isValidSessionToken(token: string): boolean {
   return /^[0-9a-f]{64}$/.test(token);
+}
+
+function isValidRequestId(requestId: unknown): requestId is string {
+  return typeof requestId === 'string' && /^[A-Za-z0-9._:-]{1,100}$/.test(requestId);
 }
 
 const VALID_EVENT_TYPES = new Set([
@@ -100,7 +107,11 @@ admin.post('/users/:email/credits', async (c) => {
   }
 
   const adminIdentity = c.get('adminIdentity');
-  const body = (await c.req.json()) as { amount?: number; reason?: string };
+  const body = (await c.req.json()) as {
+    amount?: number;
+    reason?: string;
+    requestId?: string;
+  };
 
   if (typeof body.amount !== 'number' || !Number.isInteger(body.amount) || body.amount === 0) {
     return c.json({ error: 'amount must be a non-zero integer' }, 400);
@@ -117,32 +128,89 @@ admin.post('/users/:email/credits', async (c) => {
   if (body.reason.length > 500) {
     return c.json({ error: 'reason must be 500 characters or fewer' }, 400);
   }
+  // Required, not optional. Exactly-once needs a name for the request, and the
+  // caller is the only one who can supply a stable one: a key synthesised here
+  // from Date.now() collapsed two distinct adjustments of the same amount into
+  // one whenever they shared a millisecond — the second was answered 200 with
+  // an unchanged balance and no ledger row, so the admin saw two successes and
+  // the user was short. Workers clamps Date.now() to the last I/O, which makes
+  // a whole request "the same millisecond" in production.
+  if (!isValidRequestId(body.requestId)) {
+    return c.json(
+      { error: 'requestId is required and must be 1-100 characters of [A-Za-z0-9._:-]' },
+      400,
+    );
+  }
 
   const user = await getUser(email, c.env);
   if (!user) {
     return c.json({ error: 'User not found' }, 404);
   }
 
-  const newBalance = user.credits + body.amount;
-  if (newBalance < 0) {
+  // Advisory only: this is a snapshot read outside the lock, so it is here to
+  // answer an obviously-bad request early, not to protect the balance. The
+  // authoritative check runs inside adjustUserCredits' per-user lock and comes
+  // back as InsufficientCreditsError below.
+  const projected = user.credits + body.amount;
+  if (projected < 0) {
     return c.json(
-      { error: `Adjustment would result in negative balance (${newBalance})` },
+      { error: `Adjustment would result in negative balance (${projected})` },
       400,
     );
   }
 
-  user.credits = newBalance;
-  await updateUser(user, c.env);
-
+  const timestamp = Date.now();
   const transaction: CreditTransaction = {
     type: body.amount > 0 ? 'admin_credit' : 'admin_debit',
     amount: body.amount,
-    timestamp: Date.now(),
+    timestamp,
     details: `Admin (${adminIdentity.email}): ${body.reason.trim()}`,
   };
-  await addCreditTransaction(user.userId, transaction, c.env);
 
-  return c.json({ user, newBalance });
+  // Scoped to this one adjustment, not to the user: an admin who deliberately
+  // grants the same amount twice must be credited twice, so the user id alone
+  // would be far too coarse. Two adjustments are the same one exactly when the
+  // caller says so by reusing a requestId — a retry of a dropped response gets
+  // exactly-once, and anything else lands. The key stays scoped to the user,
+  // so one caller's requestId can never suppress another's adjustment.
+  const idempotencyKey = `admin-credit:${user.userId}:req:${body.requestId}`;
+
+  try {
+    // `user.credits` above is a snapshot used for the negative-balance check;
+    // adjustUserCredits re-reads the balance under the per-user lock, so the
+    // returned record — not the snapshot — is the real post-adjustment state.
+    const result = await adjustUserCredits(c.env, email, body.amount, {
+      idempotencyKey,
+      transaction,
+    });
+    // `applied` is the difference between "this adjustment ran" and "this
+    // requestId had already run" — both are 200, and a caller that can't tell
+    // them apart can't tell a successful retry from a silently dropped one.
+    return c.json({
+      user: result.user,
+      newBalance: result.user.credits,
+      applied: result.applied,
+    });
+  } catch (err) {
+    if (err instanceof KvLockBusyError) {
+      return c.json({ error: err.message }, 409);
+    }
+    if (err instanceof InsufficientCreditsError) {
+      // The balance moved between the pre-check and the lock. The debit was
+      // refused outright rather than clipped, so nothing was written.
+      return c.json(
+        {
+          error: `Adjustment would result in negative balance (${err.balance + err.delta})`,
+          balance: err.balance,
+        },
+        409,
+      );
+    }
+    if (err instanceof Error && err.message === 'User not found') {
+      return c.json({ error: 'User not found' }, 404);
+    }
+    throw err;
+  }
 });
 
 // GET /api/admin/analytics/overview

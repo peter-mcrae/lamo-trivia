@@ -106,7 +106,7 @@ describe('Admin Routes', () => {
 
       const request = adminRequest('/api/admin/users/test%40example.com/credits', {
         method: 'POST',
-        body: JSON.stringify({ amount: 25, reason: 'Bonus credits' }),
+        body: JSON.stringify({ amount: 25, reason: 'Bonus credits', requestId: 'req-bonus' }),
       });
       const response = await fetchApp(request, env);
       const data = (await response.json()) as any;
@@ -131,7 +131,7 @@ describe('Admin Routes', () => {
 
       const request = adminRequest('/api/admin/users/test%40example.com/credits', {
         method: 'POST',
-        body: JSON.stringify({ amount: -20, reason: 'Deduction' }),
+        body: JSON.stringify({ amount: -20, reason: 'Deduction', requestId: 'req-deduct' }),
       });
       const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
@@ -143,7 +143,7 @@ describe('Admin Routes', () => {
 
       const request = adminRequest('/api/admin/users/test%40example.com/credits', {
         method: 'POST',
-        body: JSON.stringify({ amount: 0, reason: 'Test' }),
+        body: JSON.stringify({ amount: 0, reason: 'Test', requestId: 'req-zero' }),
       });
       const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
@@ -155,7 +155,7 @@ describe('Admin Routes', () => {
 
       const request = adminRequest('/api/admin/users/test%40example.com/credits', {
         method: 'POST',
-        body: JSON.stringify({ amount: 5 }),
+        body: JSON.stringify({ amount: 5, requestId: 'req-noreason' }),
       });
       const response = await fetchApp(request, env);
       expect(response.status).toBe(400);
@@ -164,10 +164,177 @@ describe('Admin Routes', () => {
     it('returns 404 for non-existent user', async () => {
       const request = adminRequest('/api/admin/users/nobody%40example.com/credits', {
         method: 'POST',
-        body: JSON.stringify({ amount: 5, reason: 'Test' }),
+        body: JSON.stringify({ amount: 5, reason: 'Test', requestId: 'req-nobody' }),
       });
       const response = await fetchApp(request, env);
       expect(response.status).toBe(404);
+    });
+
+    async function seedUser(credits: number) {
+      await env.TRIVIA_KV.put(
+        'user:test@example.com',
+        JSON.stringify({ userId: 'u1', email: 'test@example.com', credits, createdAt: Date.now() }),
+      );
+    }
+
+    function adjust(body: Record<string, unknown>) {
+      return fetchApp(
+        adminRequest('/api/admin/users/test%40example.com/credits', {
+          method: 'POST',
+          body: JSON.stringify(body),
+        }),
+        env,
+      );
+    }
+
+    async function balance(): Promise<number> {
+      return JSON.parse((await env.TRIVIA_KV.get('user:test@example.com'))!).credits;
+    }
+
+    it('applies two identical deliberate adjustments twice', async () => {
+      await seedUser(50);
+
+      // The idempotency key must not be scoped to the user alone — an admin
+      // granting the same amount twice on purpose has to land twice. Which two
+      // calls are "the same" is the caller's to declare, so these carry
+      // distinct requestIds. The key used to be derived from Date.now(), which
+      // made this test a coin flip: two fully-awaited requests routinely share
+      // a millisecond, and the second was then swallowed.
+      const first = (await (await adjust({ amount: 25, reason: 'Bonus', requestId: 'req-a' })).json()) as any;
+      const second = (await (await adjust({ amount: 25, reason: 'Bonus', requestId: 'req-b' })).json()) as any;
+
+      expect(first.newBalance).toBe(75);
+      expect(second.newBalance).toBe(100);
+      expect(await balance()).toBe(100);
+
+      const txs = JSON.parse((await env.TRIVIA_KV.get('transactions:u1'))!);
+      expect(txs).toHaveLength(2);
+    });
+
+    it('refuses an adjustment that does not name its request', async () => {
+      await seedUser(50);
+
+      // Without a caller-supplied id there is no way to tell a retry from a
+      // second deliberate adjustment. Refusing is the only answer that can't
+      // silently drop one of them.
+      const response = await adjust({ amount: 25, reason: 'Bonus' });
+
+      expect(response.status).toBe(400);
+      expect(((await response.json()) as any).error).toMatch(/requestId is required/);
+      expect(await balance()).toBe(50);
+      expect(await env.TRIVIA_KV.get('transactions:u1')).toBeNull();
+    });
+
+    it('reports whether the adjustment applied or was a replayed request', async () => {
+      await seedUser(50);
+
+      const first = (await (await adjust({ amount: 25, reason: 'Bonus', requestId: 'req-x' })).json()) as any;
+      const replay = (await (await adjust({ amount: 25, reason: 'Bonus', requestId: 'req-x' })).json()) as any;
+
+      // Both are 200 with the same balance; only `applied` tells them apart.
+      expect(first.applied).toBe(true);
+      expect(replay.applied).toBe(false);
+      expect(replay.newBalance).toBe(75);
+    });
+
+    it('collapses a retry that reuses the same requestId', async () => {
+      await seedUser(50);
+
+      const first = (await (await adjust({ amount: 25, reason: 'Bonus', requestId: 'req-1' })).json()) as any;
+      const retry = (await (await adjust({ amount: 25, reason: 'Bonus', requestId: 'req-1' })).json()) as any;
+
+      expect(first.newBalance).toBe(75);
+      expect(retry.newBalance).toBe(75);
+      expect(await balance()).toBe(75);
+
+      const txs = JSON.parse((await env.TRIVIA_KV.get('transactions:u1'))!);
+      expect(txs).toHaveLength(1);
+    });
+
+    it('rejects a malformed requestId', async () => {
+      await seedUser(50);
+      const response = await adjust({ amount: 25, reason: 'Bonus', requestId: 'bad id!' });
+      expect(response.status).toBe(400);
+      expect(await balance()).toBe(50);
+    });
+
+    it('does not clobber a grant that lands after the balance was read', async () => {
+      await seedUser(50);
+
+      // The route reads the user once to check for a negative result. That
+      // snapshot used to be what got written back, so anything credited in
+      // between was silently reverted.
+      const originalGet = (env.TRIVIA_KV.get as any).bind(env.TRIVIA_KV);
+      const originalPut = (env.TRIVIA_KV.put as any).bind(env.TRIVIA_KV);
+      let injected = false;
+      (env.TRIVIA_KV as any).get = async (key: string, opts?: any) => {
+        const value = await originalGet(key, opts);
+        if (key === 'user:test@example.com' && !injected) {
+          injected = true;
+          const stale = JSON.parse(value);
+          await originalPut(
+            'user:test@example.com',
+            JSON.stringify({ ...stale, credits: stale.credits + 100 }),
+          );
+        }
+        return value;
+      };
+
+      const data = (await (await adjust({ amount: 25, reason: 'Bonus', requestId: 'req-race' })).json()) as any;
+
+      expect(injected).toBe(true);
+      expect(await balance()).toBe(175);
+      expect(data.newBalance).toBe(175);
+    });
+
+    it('refuses a debit the balance can no longer cover instead of clipping it', async () => {
+      await seedUser(30);
+
+      // Same injection, the other way: the balance drops out from under the
+      // pre-check, so the debit reaches the lock too large for the balance it
+      // finds there. It used to be floored at zero and reported as a success —
+      // 20 credits requested, 5 actually taken, and a ledger row claiming 20.
+      const originalGet = (env.TRIVIA_KV.get as any).bind(env.TRIVIA_KV);
+      const originalPut = (env.TRIVIA_KV.put as any).bind(env.TRIVIA_KV);
+      let injected = false;
+      (env.TRIVIA_KV as any).get = async (key: string, opts?: any) => {
+        const value = await originalGet(key, opts);
+        if (key === 'user:test@example.com' && !injected) {
+          injected = true;
+          const stale = JSON.parse(value);
+          await originalPut(
+            'user:test@example.com',
+            JSON.stringify({ ...stale, credits: 5 }),
+          );
+        }
+        return value;
+      };
+
+      const response = await adjust({ amount: -20, reason: 'Chargeback', requestId: 'req-cb' });
+      const data = (await response.json()) as any;
+
+      expect(injected).toBe(true);
+      expect(response.status).toBe(409);
+      expect(data.error).toMatch(/negative balance/);
+
+      // Nothing moved: no partial debit, and no ledger row for one either.
+      expect(await balance()).toBe(5);
+      expect(await env.TRIVIA_KV.get('transactions:u1')).toBeNull();
+
+      // ...and the refusal left no marker behind, so the same request works
+      // once the balance can carry it.
+      await originalPut(
+        'user:test@example.com',
+        JSON.stringify({ userId: 'u1', email: 'test@example.com', credits: 60, createdAt: Date.now() }),
+      );
+      const retry = (await (await adjust({ amount: -20, reason: 'Chargeback', requestId: 'req-cb' })).json()) as any;
+      expect(retry.applied).toBe(true);
+      expect(retry.newBalance).toBe(40);
+
+      const txs = JSON.parse((await env.TRIVIA_KV.get('transactions:u1'))!);
+      expect(txs).toHaveLength(1);
+      // The ledger records what actually moved.
+      expect(txs[0].amount).toBe(-20);
     });
   });
 
@@ -316,7 +483,7 @@ describe('Admin Routes', () => {
 
       const request = adminRequest('/api/admin/users/test%40example.com/credits', {
         method: 'POST',
-        body: JSON.stringify({ amount: 2_000_000, reason: 'Too much' }),
+        body: JSON.stringify({ amount: 2_000_000, reason: 'Too much', requestId: 'req-toobig' }),
       });
       const response = await fetchApp(request, env);
       expect(response.status).toBe(400);

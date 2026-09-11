@@ -117,14 +117,19 @@ describe('Router - Group endpoints', () => {
   };
 
   /** Create a group mock env with a valid auth session seeded into KV */
-  async function createGroupMockEnvWithAuth(): Promise<Env> {
-    const env = createGroupMockEnv();
+  async function createGroupMockEnvWithAuth(ownerEmail = TEST_USER.email): Promise<Env> {
+    const env = createGroupMockEnv(ownerEmail);
+    await seedSession(env);
+    return env;
+  }
+
+  async function seedSession(env: Env): Promise<Env> {
     await env.TRIVIA_KV.put(`session:${TEST_TOKEN}`, JSON.stringify(TEST_SESSION));
     await env.TRIVIA_KV.put(`user:${TEST_USER.email}`, JSON.stringify(TEST_USER));
     return env;
   }
 
-  function createGroupMockEnv(): Env {
+  function createGroupMockEnv(ownerEmail = TEST_USER.email): Env {
     return createMockEnv({
       PRIVATE_GROUP: {
         idFromName: (name: string) => ({ toString: () => `group-${name}` }),
@@ -137,12 +142,14 @@ describe('Router - Group endpoints', () => {
               return Response.json({ ok: true, groupId: 'test-group-id' });
             }
 
-            // GET /state
+            // GET /state — ownerEmail only when explicitly requested
             if (req.method === 'GET' && url.pathname === '/state') {
+              const includeOwner = url.searchParams.get('includeOwner') === '1';
               return Response.json({
                 id: 'brave-mountain-golden-river',
                 name: 'McRae Family',
                 createdAt: Date.now(),
+                ...(includeOwner ? { ownerEmail } : {}),
                 memberCount: 2,
               });
             }
@@ -273,9 +280,10 @@ describe('Router - Group endpoints', () => {
   // --- POST /api/groups/:groupId/games ---
 
   it('POST /api/groups/:groupId/games creates a game with isPrivate forced to true', async () => {
-    const env = createGroupMockEnv();
+    const env = await createGroupMockEnvWithAuth();
     const request = new Request('http://localhost/api/groups/brave-mountain-golden-river/games', {
       method: 'POST',
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({
         name: 'Group Game',
         categoryIds: ['general'],
@@ -292,9 +300,10 @@ describe('Router - Group endpoints', () => {
   });
 
   it('POST /api/groups/:groupId/games returns 400 for invalid game config', async () => {
-    const env = createGroupMockEnv();
+    const env = await createGroupMockEnvWithAuth();
     const request = new Request('http://localhost/api/groups/brave-mountain-golden-river/games', {
       method: 'POST',
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({
         name: '',
         categoryIds: [],
@@ -308,17 +317,18 @@ describe('Router - Group endpoints', () => {
   });
 
   it('POST /api/groups/:groupId/games returns 404 when group does not exist', async () => {
-    const env = createMockEnv({
+    const env = await seedSession(createMockEnv({
       PRIVATE_GROUP: {
         idFromName: () => ({ toString: () => 'group-id' }),
         get: () => ({
           fetch: async () => Response.json({ error: 'Group not found' }, { status: 404 }),
         }),
       } as unknown as DurableObjectNamespace,
-    });
+    }));
 
     const request = new Request('http://localhost/api/groups/nonexistent-id/games', {
       method: 'POST',
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
       body: JSON.stringify({
         name: 'Test Game',
         categoryIds: ['general'],
@@ -329,5 +339,39 @@ describe('Router - Group endpoints', () => {
     const response = await fetchApp(request, env);
 
     expect(response.status).toBe(404);
+  });
+
+  it('POST /api/groups/:groupId/games returns 401 without a session', async () => {
+    const env = createGroupMockEnv();
+    const request = new Request('http://localhost/api/groups/brave-mountain-golden-river/games', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Group Game',
+        categoryIds: ['general'],
+        questionCount: 10,
+      }),
+    });
+
+    const response = await fetchApp(request, env);
+
+    expect(response.status).toBe(401);
+  });
+
+  it('POST /api/groups/:groupId/games returns 403 for someone outside the group', async () => {
+    // Signed in, but the group belongs to somebody else
+    const env = await createGroupMockEnvWithAuth('owner@example.com');
+    const request = new Request('http://localhost/api/groups/brave-mountain-golden-river/games', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${TEST_TOKEN}` },
+      body: JSON.stringify({
+        name: 'Spam Game',
+        categoryIds: ['general'],
+        questionCount: 10,
+      }),
+    });
+
+    const response = await fetchApp(request, env);
+
+    expect(response.status).toBe(403);
   });
 });

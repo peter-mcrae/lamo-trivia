@@ -65,6 +65,14 @@ export default function AdminUsers() {
     }, 300);
   };
 
+  // Held across retries of the same adjustment and cleared once it lands, so
+  // clicking again after a failure cannot double-credit the user.
+  const creditRequestIdRef = useRef<string | null>(null);
+
+  // Editing the amount or reason makes this a different adjustment, so it must
+  // not inherit the previous attempt's id and be dismissed as a duplicate.
+  useEffect(() => { creditRequestIdRef.current = null; }, [creditAmount, creditReason]);
+
   const handleGiveCredits = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!creditEmail) return;
@@ -74,8 +82,14 @@ export default function AdminUsers() {
     setCreditLoading(true);
     setCreditMsg('');
     try {
-      const res = await adminApi.adjustCredits(creditEmail, amount, creditReason.trim());
-      setCreditMsg(`Done! New balance: ${res.newBalance}`);
+      creditRequestIdRef.current ??= crypto.randomUUID();
+      const res = await adminApi.adjustCredits(
+        creditEmail, amount, creditReason.trim(), creditRequestIdRef.current,
+      );
+      creditRequestIdRef.current = null;
+      setCreditMsg(res.applied
+        ? `Done! New balance: ${res.newBalance}`
+        : `Already applied — no change. Balance: ${res.newBalance}`);
       setCreditAmount('');
       setCreditReason('');
       // Update the user in the list

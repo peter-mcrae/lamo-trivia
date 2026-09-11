@@ -35,7 +35,7 @@ export default {
         }
         const roomId = env.GAME_ROOM.idFromName(gameId);
         const room = env.GAME_ROOM.get(roomId);
-        return room.fetch(request);
+        return room.fetch(proxyToDurableObject(request, sanitizedHeaders(request)));
       }
 
       // WebSocket upgrade: /ws/hunt/:huntId
@@ -44,25 +44,10 @@ export default {
         if (!huntId) {
           return new Response('Missing hunt ID', { status: 400 });
         }
-        // Resolve user email from token query param so the DO can identify the creator
-        const token = url.searchParams.get('token');
-        let userEmail: string | undefined;
-        if (token) {
-          const raw = await env.TRIVIA_KV.get(`session:${token}`);
-          if (raw) {
-            const session = JSON.parse(raw) as { email: string; expiresAt: number };
-            if (Date.now() <= session.expiresAt) {
-              userEmail = session.email;
-            }
-          }
-        }
-        const headers = new Headers(request.headers);
-        if (userEmail) {
-          headers.set('X-User-Email', userEmail);
-        }
+        const headers = await socketIdentityHeaders(request, url, env);
         const roomId = env.SCAVENGER_HUNT_ROOM.idFromName(huntId);
         const room = env.SCAVENGER_HUNT_ROOM.get(roomId);
-        return room.fetch(new Request(request.url, { method: request.method, headers, body: request.body }));
+        return room.fetch(proxyToDurableObject(request, headers));
       }
 
       // WebSocket upgrade: /ws/group/:groupId
@@ -71,14 +56,20 @@ export default {
         if (!groupId) {
           return new Response('Missing group ID', { status: 400 });
         }
+        const headers = await socketIdentityHeaders(request, url, env);
         const doId = env.PRIVATE_GROUP.idFromName(groupId);
         const group = env.PRIVATE_GROUP.get(doId);
-        return group.fetch(request);
+        return group.fetch(proxyToDurableObject(request, headers));
       }
 
       // HTTP API routes — delegate to Hono app
       const origin = request.headers.get('Origin') || '';
-      const response = await app.fetch(request, env);
+      // Only rebuild when a forged identity header is actually present, so
+      // normal requests (including multipart uploads) pass through untouched
+      const apiRequest = hasForgedIdentityHeader(request)
+        ? new Request(request, { headers: sanitizedHeaders(request) })
+        : request;
+      const response = await app.fetch(apiRequest, env);
       const headers = new Headers(response.headers);
       for (const [k, v] of Object.entries(corsHeaders(env, origin))) {
         headers.set(k, v);
@@ -94,6 +85,56 @@ export default {
     }
   },
 };
+
+/**
+ * Headers that assert who the caller is. Downstream Durable Objects trust
+ * them, so they must never survive from the client's own request — the Worker
+ * is the only thing allowed to set them, and only from a validated session.
+ */
+// Identity headers the Durable Objects trust. A client may never supply any of
+// them — they are set only by this Worker, from a validated session.
+const CLIENT_FORBIDDEN_HEADERS = ['X-User-Email', 'X-Caller-Email'];
+
+function hasForgedIdentityHeader(request: Request): boolean {
+  return CLIENT_FORBIDDEN_HEADERS.some((name) => request.headers.has(name));
+}
+
+/** Copy a request's headers with client-supplied identity headers removed */
+function sanitizedHeaders(request: Request): Headers {
+  const headers = new Headers(request.headers);
+  for (const name of CLIENT_FORBIDDEN_HEADERS) {
+    headers.delete(name);
+  }
+  return headers;
+}
+
+/**
+ * Headers for a WebSocket upgrade, carrying a session identity the DO can trust.
+ *
+ * Browsers cannot set custom headers on a WebSocket, so the token rides in the
+ * query string. Client-supplied identity headers are stripped first: the DOs
+ * treat X-User-Email as proof of who you are, so it may only ever originate
+ * from a session this Worker validated.
+ */
+async function socketIdentityHeaders(request: Request, url: URL, env: Env): Promise<Headers> {
+  const headers = sanitizedHeaders(request);
+  const token = url.searchParams.get('token');
+  if (!token) return headers;
+
+  const raw = await env.TRIVIA_KV.get(`session:${token}`);
+  if (!raw) return headers;
+
+  const session = JSON.parse(raw) as { email: string; expiresAt: number };
+  if (Date.now() <= session.expiresAt) {
+    headers.set('X-User-Email', session.email);
+  }
+  return headers;
+}
+
+/** Rebuild a request for a Durable Object with the given (sanitized) headers */
+function proxyToDurableObject(request: Request, headers: Headers): Request {
+  return new Request(request.url, { method: request.method, headers, body: request.body });
+}
 
 function isAllowedOrigin(origin: string, env: Env): boolean {
   if (origin === env.FRONTEND_URL) return true;

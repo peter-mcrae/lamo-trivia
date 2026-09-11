@@ -40,6 +40,13 @@ interface RoomState {
 const WS_RATE_WINDOW_MS = 10_000; // 10-second window
 const WS_RATE_MAX_MESSAGES = 30;  // max 30 messages per window
 
+// How long a dropped connection may stay gone, during the waiting-phase
+// lobby, before the sweep reclaims the player — frees their username/slot
+// and hands off host if they held it. A locked phone or a brief WiFi blip
+// shouldn't cost anyone their seat, so this is generous. Matches
+// hunt-room.ts's DISCONNECT_GRACE_MS.
+const DISCONNECT_GRACE_MS = 60_000;
+
 export class GameRoom {
   private state: DurableObjectState;
   private env: Env;
@@ -132,6 +139,14 @@ export class GameRoom {
       }
     }
 
+    // Lazily reclaim players who dropped and didn't return in time — the
+    // room's only alarm slot is the one-shot waiting-phase expiry set at
+    // creation, so this piggybacks on the message path instead (see
+    // sweepDisconnectedPlayers), same as hunt-room.ts.
+    if (this.room) {
+      await this.sweepDisconnectedPlayers(now);
+    }
+
     // Guard against oversized messages (8KB to allow config updates)
     const raw = typeof message === 'string' ? message : '';
     if (raw.length > 8192) {
@@ -155,7 +170,7 @@ export class GameRoom {
           await this.handleRejoin(ws, parsed.data.username, parsed.data.rejoinToken);
           break;
         case 'leave_game':
-          await this.handleLeave(ws);
+          await this.handleLeave(ws, true);
           break;
         case 'start_game':
           await this.handleStartGame(ws);
@@ -304,20 +319,37 @@ export class GameRoom {
     // Attach this WebSocket to the existing player
     ws.serializeAttachment(existingPlayer.id);
 
+    // Reconnected — clear the marker an accidental socket close left behind
+    // (see handleLeave) so the player no longer reads as dropped
+    if (existingPlayer.disconnectedAt !== undefined) {
+      existingPlayer.disconnectedAt = undefined;
+      await this.persist();
+    }
+
     // Send full current game state
     this.sendTo(ws, { type: 'join_confirmed', playerId: existingPlayer.id, rejoinToken: expectedToken });
     this.sendTo(ws, { type: 'game_state', state: this.getClientGameState(existingPlayer.id) });
 
-    // Mid-question rejoin: resend the current question with the time remaining
     if (
       this.room.phase === 'playing' &&
       this.room.currentQuestionIndex < this.room.questions.length
     ) {
       const question = this.room.questions[this.room.currentQuestionIndex];
-      const remainingMs = Math.max(
+      // Already scored means everyone else is sitting in the between-questions
+      // pause (endCurrentQuestion has run but advanceOrFinish hasn't yet) —
+      // the question is closed even though phase is still 'playing'.
+      const closed = this.room.lastScoredQuestionIndex === this.room.currentQuestionIndex;
+      const liveRemainingMs = Math.max(
         0,
         this.room.questionStartedAt + this.room.config.timePerQuestion * 1000 - Date.now(),
       );
+      const remainingMs = closed ? 0 : liveRemainingMs;
+
+      // Resend the question either way — the client needs its text/options
+      // to render anything. For a closed question this only populates the
+      // card; the answer_result sent right after overlays the result, so a
+      // rejoining player lands on the exact same read-only view everyone
+      // else already has instead of a frozen, answerable "live" question.
       this.sendTo(ws, {
         type: 'question',
         question: {
@@ -330,10 +362,21 @@ export class GameRoom {
         totalQuestions: this.room.questions.length,
         remainingMs,
       });
+
+      if (closed) {
+        const answered = existingPlayer.id in this.room.answersThisRound;
+        const correct = answered && this.room.answersThisRound[existingPlayer.id] === question.correctIndex;
+        this.sendTo(ws, {
+          type: 'answer_result',
+          correct,
+          correctIndex: question.correctIndex,
+          scores: this.room.scores,
+        });
+      }
     }
   }
 
-  private async handleLeave(ws: WebSocket): Promise<void> {
+  private async handleLeave(ws: WebSocket, explicit = false): Promise<void> {
     if (!this.room) return;
 
     const playerId = this.getPlayerId(ws);
@@ -352,7 +395,34 @@ export class GameRoom {
       return;
     }
 
+    // A socket closing isn't necessarily a departure — a locked phone or a
+    // WiFi blip in the lobby shouldn't cost the player their identity (or
+    // the host their role). Only an explicit leave_game removes the player
+    // immediately; an accidental close just marks them disconnected and
+    // leaves their slot, scores and rejoin token alone so a real reconnect
+    // (handleRejoin) still finds them. See Player.disconnectedAt.
+    if (!explicit) {
+      const player = this.room.players.find((p) => p.id === playerId);
+      if (player && player.disconnectedAt === undefined) {
+        player.disconnectedAt = Date.now();
+        await this.persist();
+      }
+      return;
+    }
+
     // During waiting phase, fully remove the player
+    await this.removePlayer(playerId);
+  }
+
+  /**
+   * Fully remove a player: free their username/slot, drop their scores,
+   * streak and rejoin token, and hand host off if they held it. Shared by
+   * an explicit leave_game and a sweep-reclaimed ghost (see
+   * sweepDisconnectedPlayers) — same removal either way.
+   */
+  private async removePlayer(playerId: string): Promise<void> {
+    if (!this.room) return;
+
     const wasHost = this.room.hostId === playerId;
 
     this.room.players = this.room.players.filter((p) => p.id !== playerId);
@@ -376,6 +446,44 @@ export class GameRoom {
     // Notify group if this is a group game
     await this.notifyGroupOfUpdate();
     await this.notifyLobbyOfUpdate();
+  }
+
+  /**
+   * Reclaim players whose socket has been gone past the grace period: free
+   * their username/slot (removePlayer hands off host too, if they held it)
+   * so a closed tab doesn't camp a spot forever. Modeled on hunt-room.ts's
+   * sweep of the same name — called lazily from the message path instead
+   * of a dedicated alarm, so it costs nothing while the room sits idle.
+   *
+   * Only the waiting phase acts. During playing/finished/starting,
+   * disconnectedAt is left alone so the player can still rejoin — handleLeave
+   * never sets the marker mid-game in the first place, but a player marked
+   * while waiting can still be carrying a stale marker after the game
+   * starts, so this stays phase-gated rather than relying on that.
+   */
+  private async sweepDisconnectedPlayers(now: number): Promise<void> {
+    if (!this.room || this.room.phase !== 'waiting') return;
+
+    let cleared = false;
+    for (const player of [...this.room.players]) {
+      if (player.disconnectedAt === undefined) continue;
+
+      if (this.state.getWebSockets().some((s) => this.getPlayerId(s) === player.id)) {
+        // Live socket after all (reconnected without going through
+        // handleRejoin) — clear the stale marker
+        player.disconnectedAt = undefined;
+        cleared = true;
+        continue;
+      }
+
+      if (now - player.disconnectedAt < DISCONNECT_GRACE_MS) continue;
+
+      await this.removePlayer(player.id);
+    }
+
+    if (cleared) {
+      await this.persist();
+    }
   }
 
   private async handleStartGame(ws: WebSocket): Promise<void> {
@@ -500,13 +608,19 @@ export class GameRoom {
     // Ignore if not the current question
     if (questionIndex !== this.room.currentQuestionIndex) return;
 
+    // Ignore late answers for a question that's already been scored — phase
+    // stays 'playing' through the whole between-questions pause (endCurrentQuestion
+    // doesn't change it), so lastScoredQuestionIndex is the only reliable signal
+    // that this round is actually closed
+    if (questionIndex === this.room.lastScoredQuestionIndex) return;
+
     // Defensive bounds check (schema validates, but belt-and-suspenders)
     if (!Number.isInteger(answerIndex) || answerIndex < 0 || answerIndex > 3) {
       this.sendTo(ws, { type: 'error', message: 'Invalid answer index' });
       return;
     }
 
-    // Record or update the answer — players can change until time expires
+    // Record or update the answer — players can change until the question closes
     this.room.answersThisRound[playerId] = answerIndex;
     this.room.answerTimesThisRound[playerId] = Date.now();
     await this.persist();

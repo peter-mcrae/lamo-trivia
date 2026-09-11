@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import type { GroupClientMessage, GroupServerMessage } from '@lamo-trivia/shared';
+import { AUTH_TOKEN_KEY } from '@/lib/api';
 
 interface UseGroupWebSocketOptions {
   groupId: string;
@@ -12,13 +13,17 @@ const MAX_RECONNECT_DELAY = 10_000;
 
 function buildWsUrl(groupId: string): string {
   const apiUrl = import.meta.env.VITE_API_URL;
+  // A browser can't set headers on a WebSocket, so the session token rides in
+  // the query string; the Worker exchanges it for a verified identity header.
+  const token = localStorage.getItem(AUTH_TOKEN_KEY);
+  const query = token ? `?token=${encodeURIComponent(token)}` : '';
   if (apiUrl) {
     const url = new URL(apiUrl);
     const protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
-    return `${protocol}//${url.host}/ws/group/${groupId}`;
+    return `${protocol}//${url.host}/ws/group/${groupId}${query}`;
   }
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  return `${protocol}//${window.location.host}/ws/group/${groupId}`;
+  return `${protocol}//${window.location.host}/ws/group/${groupId}${query}`;
 }
 
 export function useGroupWebSocket({ groupId, onMessage, onOpen, onClose }: UseGroupWebSocketOptions) {

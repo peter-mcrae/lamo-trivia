@@ -40,7 +40,12 @@ export function getClientIP(request: Request): string {
 
 // Shared rate limiter instances.
 // NOTE: these are in-memory and per-isolate, so they are best-effort only —
-// a Durable-Object-backed counter is the durable fix.
+// a Durable-Object-backed counter is the durable fix, and it is the only thing
+// that would give authCodeLimiter / authVerifyLimiter / authVerifyEmailLimiter
+// a global ceiling. Until then the real brute-force protection for magic codes
+// is the per-code attempt cap enforced in verifyMagicCode (auth.ts), which is
+// serialised on a KV lock and spends the attempt before comparing, so parallel
+// guesses cannot outrun the counter.
 export const gameCreateLimiter = new RateLimiter(10);       // 10/min per IP
 export const groupCreateLimiter = new RateLimiter(5);       // 5/min per IP
 export const usernameCheckLimiter = new RateLimiter(20);    // 20/min per IP

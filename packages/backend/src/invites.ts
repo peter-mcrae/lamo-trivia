@@ -1,5 +1,6 @@
 import type { Env } from './env';
 import { getResendKey } from './env';
+import { withKvLock, KvLockBusyError } from './auth';
 
 export interface Invite {
   token: string;
@@ -11,6 +12,9 @@ export interface Invite {
 }
 
 const INVITE_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
+
+/** Cloudflare KV rejects an expirationTtl below 60 seconds. */
+const MIN_KV_TTL = 60;
 
 /** Generate a cryptographically secure invite token */
 function generateInviteToken(): string {
@@ -61,6 +65,77 @@ export async function markInviteAccepted(env: Env, invite: Invite): Promise<void
   await env.TRIVIA_KV.put(inviteKey(invite.token), JSON.stringify(invite), {
     expirationTtl: 24 * 60 * 60, // keep for 1 more day
   });
+}
+
+/** KV key for the lock guarding one invite's acceptance */
+function inviteLockKey(token: string): string {
+  return `invite-lock:${token}`;
+}
+
+export type InviteAcceptResult =
+  | { ok: true; invite: Invite }
+  | { ok: false; reason: 'not_found' | 'already_used' | 'busy' };
+
+/**
+ * Accept an invite exactly once.
+ *
+ * Acceptance used to read the invite, look up the user, mutate their credits,
+ * append a transaction, and only then call `markInviteAccepted` — a
+ * check-to-write window several KV round trips wide, in which every concurrent
+ * request saw `acceptedAt` unset and granted the credits again.
+ *
+ * Now the invite is claimed under a lock and marked accepted *before* `grant`
+ * runs, so the window is a single get+put. A clean failure inside `grant`
+ * rolls the mark back — for whatever is left of the original 7 days, never a
+ * fresh 7 — so the invite stays usable until its advertised expiry; a hard
+ * crash leaves it burned, which is the safe direction for credits.
+ */
+export async function acceptInvite(
+  env: Env,
+  token: string,
+  grant: (invite: Invite) => Promise<void>,
+): Promise<InviteAcceptResult> {
+  // Cheap pre-check so an obviously dead token never takes the lock.
+  const preview = await getInvite(env, token);
+  if (!preview) return { ok: false, reason: 'not_found' };
+  if (preview.acceptedAt) return { ok: false, reason: 'already_used' };
+
+  try {
+    return await withKvLock(env, inviteLockKey(token), async (): Promise<InviteAcceptResult> => {
+      // Re-read inside the lock — `preview` predates it.
+      const invite = await getInvite(env, token);
+      if (!invite) return { ok: false, reason: 'not_found' };
+      if (invite.acceptedAt) return { ok: false, reason: 'already_used' };
+
+      await markInviteAccepted(env, invite);
+
+      try {
+        await grant(invite);
+      } catch (err) {
+        // Put the invite back with the life it had left, not a fresh 7 days:
+        // re-writing INVITE_TTL each time moved the expiry forward, so a grant
+        // that kept failing kept the invite alive indefinitely past the window
+        // it was advertised with.
+        invite.acceptedAt = undefined;
+        const remaining = INVITE_TTL - Math.floor((Date.now() - invite.createdAt) / 1000);
+        if (remaining >= MIN_KV_TTL) {
+          await env.TRIVIA_KV.put(inviteKey(invite.token), JSON.stringify(invite), {
+            expirationTtl: remaining,
+          });
+        } else {
+          // Less life left than KV's TTL floor, so any restore would extend
+          // it. The invite is past its window either way — drop it.
+          await env.TRIVIA_KV.delete(inviteKey(invite.token));
+        }
+        throw err;
+      }
+
+      return { ok: true, invite };
+    });
+  } catch (err) {
+    if (err instanceof KvLockBusyError) return { ok: false, reason: 'busy' };
+    throw err;
+  }
 }
 
 /** Send an invite email */

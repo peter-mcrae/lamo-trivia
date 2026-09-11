@@ -15,6 +15,12 @@ import { HostDashboard } from '../components/HostDashboard';
 import { Button } from '../components/ui/Button';
 import { HuntConfigForm } from '../components/HuntConfigForm';
 
+// How long to wait for the server's hunt_starting before giving the host
+// their controls back
+const START_HUNT_TIMEOUT_MS = 10_000;
+/** How often to re-ask for a resync while the host dashboard has no roster. */
+const DASHBOARD_RESYNC_INTERVAL_MS = 3000;
+
 export default function HuntRoom() {
   const { huntId } = useParams<{ huntId: string }>();
   const navigate = useNavigate();
@@ -163,6 +169,19 @@ export default function HuntRoom() {
     if (error) setStartingHunt(false);
   }, [error]);
 
+  // A start_hunt that never reached the server produces no hunt_starting, and
+  // nothing else clears the spinner while the phase is still 'waiting' (every
+  // hunt_state clears the error) — time out so the host isn't stranded with
+  // Start, Edit Settings and Leave all unmounted until they reload
+  useEffect(() => {
+    if (!startingHunt) return;
+    const id = setTimeout(() => {
+      setStartingHunt(false);
+      setError('Could not start the hunt. Please try again.');
+    }, START_HUNT_TIMEOUT_MS);
+    return () => clearTimeout(id);
+  }, [startingHunt]);
+
   // Auto-dismiss the error banner during play — mid-game it otherwise
   // persists until the next full state sync
   useEffect(() => {
@@ -179,7 +198,7 @@ export default function HuntRoom() {
       wasHostRef.current = null;
       return;
     }
-    const hosting = huntState.myProgress.playerId === huntState.hostId;
+    const hosting = huntState.myProgress?.playerId === huntState.hostId;
     if (wasHostRef.current !== null && !wasHostRef.current && hosting && huntState.phase === 'playing') {
       setHostWantsToPlay(true);
     }
@@ -193,6 +212,17 @@ export default function HuntRoom() {
     const id = setInterval(() => send({ type: 'ping' }), 5000);
     return () => clearInterval(id);
   }, [huntState?.phase, countdown, send]);
+
+  // Only the state built for whoever was host at the time carries allTeams, so
+  // a freshly promoted host opens the dashboard to "Loading team progress..."
+  // — and nothing else here asks for the resync it is waiting on. Ping until
+  // the roster turns up.
+  useEffect(() => {
+    if (!showDashboardModal || allTeams) return;
+    send({ type: 'ping' });
+    const id = setInterval(() => send({ type: 'ping' }), DASHBOARD_RESYNC_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [showDashboardModal, allTeams, send]);
 
   // Surface the server's 5-minute/1-minute warnings briefly
   const [showTimeWarning, setShowTimeWarning] = useState(false);
@@ -212,9 +242,14 @@ export default function HuntRoom() {
   }, []);
 
   const handleStartHunt = () => {
-    setStartingHunt(true);
+    // Only show the spinner once the message actually went out — the sibling
+    // handlers all check this, and a dropped send hides every control
+    if (!send({ type: 'start_hunt' })) {
+      setError('Connection lost — please try again.');
+      return;
+    }
     setError(null);
-    send({ type: 'start_hunt' });
+    setStartingHunt(true);
   };
 
   const handleShare = async () => {
@@ -302,6 +337,14 @@ export default function HuntRoom() {
     setUsername(name);
   };
 
+  const handleLeave = () => {
+    // Tell the server so the player is dropped now instead of lingering for
+    // the full 60s grace period — a ghost team keeps billing the host and
+    // blocks checkAllTeamsComplete from ever finishing the hunt early
+    send({ type: 'leave_hunt' });
+    navigate('/groups');
+  };
+
   // Show username modal if needed
   if (!hasUsername) {
     return <UsernameModal onSubmit={handleUsernameSubmit} />;
@@ -323,7 +366,7 @@ export default function HuntRoom() {
     );
   }
 
-  const isHost = huntState.myProgress.playerId === huntState.hostId;
+  const isHost = huntState.myProgress?.playerId === huntState.hostId;
   const playerCount = huntState.players.length;
   const canStart = isHost && playerCount >= huntState.config.minPlayers;
 
@@ -434,7 +477,7 @@ export default function HuntRoom() {
                   Edit Settings
                 </button>
               )}
-              <Button variant="secondary" onClick={() => navigate('/groups')}>
+              <Button variant="secondary" onClick={handleLeave}>
                 Leave
               </Button>
             </div>
@@ -551,7 +594,7 @@ export default function HuntRoom() {
           ) : (
             <>
               {/* Dashboard modal overlay (for host in playing mode) */}
-              {isHost && showDashboardModal && allTeams && (
+              {isHost && showDashboardModal && (
                 <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-start justify-center pt-10 px-4">
                   <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-y-auto">
                     <div className="sticky top-0 bg-white border-b border-lamo-border px-4 py-3 flex items-center justify-between rounded-t-2xl">
@@ -566,16 +609,26 @@ export default function HuntRoom() {
                       </button>
                     </div>
                     <div className="p-4">
-                      <HostDashboard
-                        huntId={huntId!}
-                        teams={allTeams}
-                        items={items}
-                        endsAt={huntState.endsAt ?? Date.now()}
-                        appeals={appeals}
-                        onApprove={handleApproveAppeal}
-                        onReject={handleRejectAppeal}
-                        onSendMessage={handleSendMessage}
-                      />
+                      {allTeams ? (
+                        <HostDashboard
+                          huntId={huntId!}
+                          teams={allTeams}
+                          items={items}
+                          endsAt={huntState.endsAt ?? Date.now()}
+                          appeals={appeals}
+                          onApprove={handleApproveAppeal}
+                          onReject={handleRejectAppeal}
+                          onSendMessage={handleSendMessage}
+                        />
+                      ) : (
+                        // The server only attaches allTeams for whoever was
+                        // host when the state was built, so a freshly promoted
+                        // host has none until the next resync
+                        <div className="flex flex-col items-center py-10 gap-3">
+                          <div className="w-6 h-6 border-2 border-lamo-blue/30 border-t-lamo-blue rounded-full animate-spin" />
+                          <p className="text-sm text-lamo-gray-muted">Loading team progress...</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -682,13 +735,31 @@ export default function HuntRoom() {
         </div>
       )}
 
+      {/* Finished Phase -- results never arrived (hunt_finished missed by a
+          closing socket; the ping resync carries the phase but no results) */}
+      {huntState.phase === 'finished' && !results && (
+        <div className="text-center py-12">
+          <div className="text-5xl mb-4">🏁</div>
+          <h3 className="text-2xl font-bold text-lamo-dark mb-2">Hunt complete!</h3>
+          {myProgress && (
+            <p className="text-3xl font-bold text-lamo-blue mb-4">{myProgress.totalScore} pts</p>
+          )}
+          <p className="text-sm text-lamo-gray-muted mb-6">
+            The final scoreboard didn't reach this device, but your score is saved.
+          </p>
+          <Button variant="secondary" onClick={handleLeave}>
+            Back to Groups
+          </Button>
+        </div>
+      )}
+
       {/* Finished Phase */}
       {huntState.phase === 'finished' && results && (
         <div>
           <HuntResults results={results} players={huntState.players} />
 
           <div className="flex justify-center gap-3 mt-8">
-            <Button variant="secondary" onClick={() => navigate('/groups')}>
+            <Button variant="secondary" onClick={handleLeave}>
               Back to Groups
             </Button>
           </div>

@@ -14,6 +14,15 @@ import { DeleteGroupModal } from '@/components/DeleteGroupModal';
 import { Button } from '@/components/ui/Button';
 import { api } from '@/lib/api';
 
+/**
+ * How long the pre-join account link gets before we join anyway. `fetchJSON`
+ * has no timeout of its own, so without this a flaky connection parks the
+ * player on the loading screen with no error and no retry — reloading is the
+ * only way out. Joining without the link is safe: the server heals the
+ * membership on demand (see `withMembershipRetry` in lib/api).
+ */
+const LINK_CHECK_TIMEOUT_MS = 3000;
+
 export default function GroupLobby() {
   const { groupId } = useParams<{ groupId: string }>();
   const navigate = useNavigate();
@@ -30,7 +39,7 @@ export default function GroupLobby() {
   }, [cloneHuntConfig]);
   const { username, setUsername, hasUsername } = useUsername();
   const { addGroup, removeGroup, getMemberId, setMemberId } = useGroups();
-  const { user } = useAuthContext();
+  const { user, loading: authLoading } = useAuthContext();
   const [copied, setCopied] = useState(false);
   const [showNewGameModal, setShowNewGameModal] = useState(false);
   const [showNewHuntModal, setShowNewHuntModal] = useState(!!cloneHuntConfig);
@@ -45,8 +54,12 @@ export default function GroupLobby() {
     inviterUsername: string;
   } | null>(null);
   const [huntHistory, setHuntHistory] = useState<HuntHistorySummary[]>([]);
+  const [linkChecked, setLinkChecked] = useState(false);
   const joinedRef = useRef(false);
+  const linkRef = useRef(false);
+  const linkedMemberIdRef = useRef<string | null>(null);
   const inviteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const linkTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { groupState, error, handleMessage } = useGroupState();
 
@@ -54,6 +67,13 @@ export default function GroupLobby() {
     (message: GroupServerMessage) => {
       if (message.type === 'join_confirmed') {
         setMemberId(groupId!, message.memberId);
+        // Stamp the account onto the member record so the server can verify
+        // this membership later — creating a game in the group needs it. Skip
+        // it when the pre-join link already claimed this same record.
+        if (user && linkedMemberIdRef.current !== message.memberId) {
+          linkedMemberIdRef.current = message.memberId;
+          api.linkGroupMember(groupId!, message.memberId).catch(() => { /* non-critical */ });
+        }
         return;
       }
       if (message.type === 'error' && message.code === 'MEMBER_EXISTS') {
@@ -72,7 +92,7 @@ export default function GroupLobby() {
       }
       handleMessage(message);
     },
-    [handleMessage, groupId, setMemberId],
+    [handleMessage, groupId, setMemberId, user],
   );
 
   const { connected, send } = useGroupWebSocket({
@@ -80,18 +100,54 @@ export default function GroupLobby() {
     onMessage,
   });
 
+  // Before joining, ask whether this account already owns a member record
+  // here. That recovers a membership on a new device without guessing at
+  // usernames, and makes sure we join as the right member when it does.
+  useEffect(() => {
+    // Wait for the session to resolve — joining as a brand new member while
+    // auth is still loading would strand the record this account already owns.
+    if (!groupId || linkRef.current || authLoading) return;
+    if (!user) {
+      setLinkChecked(true);
+      return;
+    }
+    linkRef.current = true;
+    // Held in a ref rather than cleaned up by this effect: a re-render that
+    // re-runs it hits the linkRef guard and returns early, and an effect-scoped
+    // cleanup would cancel the timeout on the way past and hang the join again.
+    linkTimerRef.current = setTimeout(() => setLinkChecked(true), LINK_CHECK_TIMEOUT_MS);
+    api.linkGroupMember(groupId, getMemberId(groupId) ?? undefined)
+      .then(({ memberId }) => {
+        if (!memberId) return;
+        // Held in a ref as well: the group may not be in local storage yet, in
+        // which case setMemberId has nothing to write to.
+        linkedMemberIdRef.current = memberId;
+        setMemberId(groupId, memberId);
+      })
+      .catch(() => { /* not a member yet — join first, then link */ })
+      .finally(() => {
+        if (linkTimerRef.current) clearTimeout(linkTimerRef.current);
+        setLinkChecked(true);
+      });
+  }, [groupId, user, authLoading, getMemberId, setMemberId]);
+
+  useEffect(() => () => {
+    if (linkTimerRef.current) clearTimeout(linkTimerRef.current);
+    if (inviteTimerRef.current) clearTimeout(inviteTimerRef.current);
+  }, []);
+
   // Join group once connected and have username
   useEffect(() => {
-    if (connected && hasUsername && !joinedRef.current) {
+    if (connected && hasUsername && linkChecked && !joinedRef.current) {
       joinedRef.current = true;
-      const memberId = getMemberId(groupId!);
+      const memberId = linkedMemberIdRef.current ?? getMemberId(groupId!);
       send({
         type: 'join_group',
         username: username!,
         ...(memberId ? { memberId } : {}),
       });
     }
-  }, [connected, hasUsername, username, send, groupId, getMemberId]);
+  }, [connected, hasUsername, linkChecked, username, send, groupId, getMemberId]);
 
   // Save group to localStorage once we get state
   useEffect(() => {
@@ -161,6 +217,8 @@ export default function GroupLobby() {
     setShowRenameModal(false);
     setShowRecovery(false);
     setUsername(newName);
+    // Joining as somebody else must not reuse a member record we recovered.
+    linkedMemberIdRef.current = null;
     joinedRef.current = false;
     // The join effect will re-trigger with the new username
   };

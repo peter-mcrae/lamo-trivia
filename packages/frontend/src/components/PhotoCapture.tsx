@@ -1,17 +1,70 @@
 import { useRef, useState } from 'react';
-import heic2any from 'heic2any';
 import { Button } from '@/components/ui/Button';
+import { canDecodeImages, photoDecodeMessage } from '@/hooks/usePhotoUpload';
+
+const PREVIEW_MAX_DIMENSION = 1024;
 
 interface PhotoCaptureProps {
   onCapture: (file: File) => void;
   onClose: () => void;
 }
 
+/**
+ * Render the picked photo to a `data:` URL for the preview.
+ *
+ * `createImageBitmap` takes the Blob directly, so there is no `blob:` URL and
+ * no Worker — the production CSP (`default-src 'none'`, no `blob:`, no
+ * `worker-src`) blocks both. Downscaling first also keeps the data URL small
+ * instead of base64-ing a full-size phone photo.
+ *
+ * This is deliberately the *same* decoder the upload uses (see
+ * `resizeViaCanvas` in usePhotoUpload). There is no FileReader fallback: a
+ * `readAsDataURL` of an undecodable photo all but always succeeds, so it used
+ * to hand back bytes the `<img>` then rendered as a broken-image icon next to
+ * a confident, enabled Submit. Tapping it closed the dialog, failed on the
+ * very same decode, and showed the error with nowhere left to pick another
+ * photo. A preview must only appear when the upload can also succeed.
+ */
+async function toPreviewDataUrl(file: File): Promise<string> {
+  if (!canDecodeImages()) {
+    throw new Error('createImageBitmap is unavailable');
+  }
+  const bitmap = await createImageBitmap(file);
+
+  try {
+    let { width, height } = bitmap;
+
+    if (width > PREVIEW_MAX_DIMENSION || height > PREVIEW_MAX_DIMENSION) {
+      if (width > height) {
+        height = Math.round((height * PREVIEW_MAX_DIMENSION) / width);
+        width = PREVIEW_MAX_DIMENSION;
+      } else {
+        width = Math.round((width * PREVIEW_MAX_DIMENSION) / height);
+        height = PREVIEW_MAX_DIMENSION;
+      }
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) {
+      throw new Error('Could not get canvas context');
+    }
+
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    return canvas.toDataURL('image/jpeg', 0.9);
+  } finally {
+    bitmap.close();
+  }
+}
+
 export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  // HEIC conversion can take seconds — if the user re-picks before it
+  const [previewError, setPreviewError] = useState<string | null>(null);
+  // Decoding a large photo takes a moment — if the user re-picks before it
   // finishes, the slower (older) result must not overwrite the newer preview
   const previewRequestRef = useRef(0);
 
@@ -21,38 +74,32 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
 
     const requestId = ++previewRequestRef.current;
     setSelectedFile(file);
+    setPreviewError(null);
 
-    // Convert HEIC/HEIF to JPEG so the browser can display a preview
-    const isHeic = file.type === 'image/heic' || file.type === 'image/heif'
-      || /\.heic$/i.test(file.name) || /\.heif$/i.test(file.name);
-
-    let previewBlob: Blob = file;
-    if (isHeic) {
-      try {
-        const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.9 });
-        previewBlob = Array.isArray(converted) ? converted[0] : converted;
-      } catch {
-        // Conversion failed — fall through and try displaying the original
-      }
+    let dataUrl: string;
+    try {
+      dataUrl = await toPreviewDataUrl(file);
+    } catch {
+      if (previewRequestRef.current !== requestId) return;
+      // Keep the dialog open and say what went wrong, so they can pick a
+      // different photo — the alternative is a broken preview and a Submit
+      // that cannot work
+      setPreviewError(photoDecodeMessage(file));
+      setSelectedFile(null);
+      // Reset the input so the same file can be re-selected
+      if (inputRef.current) inputRef.current.value = '';
+      return;
     }
 
     if (previewRequestRef.current !== requestId) return;
-
-    // Use FileReader to create a data URL — more reliable than blob URLs
-    // on mobile browsers, especially for camera captures on iOS Safari
-    const reader = new FileReader();
-    reader.onload = () => {
-      if (previewRequestRef.current === requestId && typeof reader.result === 'string') {
-        setPreview(reader.result);
-      }
-    };
-    reader.readAsDataURL(previewBlob);
+    setPreview(dataUrl);
   };
 
   const handleRetake = () => {
     previewRequestRef.current++;
     setPreview(null);
     setSelectedFile(null);
+    setPreviewError(null);
     // Reset the input so the same file can be re-selected
     if (inputRef.current) inputRef.current.value = '';
   };
@@ -86,6 +133,9 @@ export function PhotoCapture({ onCapture, onClose }: PhotoCaptureProps) {
                 <path fillRule="evenodd" d="M9.344 3.071a49.52 49.52 0 0 1 5.312 0c.967.052 1.83.585 2.332 1.39l.821 1.317c.2.32.58.529.992.529h.282a2.25 2.25 0 0 1 2.25 2.25v7.5a2.25 2.25 0 0 1-2.25 2.25H3.417a2.25 2.25 0 0 1-2.25-2.25v-7.5a2.25 2.25 0 0 1 2.25-2.25h.282c.413 0 .792-.21.992-.529l.821-1.317a2.25 2.25 0 0 1 2.332-1.39ZM12 12.75a2.25 2.25 0 1 0 0-4.5 2.25 2.25 0 0 0 0 4.5Z" clipRule="evenodd" />
               </svg>
               <span className="text-sm text-lamo-gray-muted">Tap to take a photo</span>
+              {previewError && (
+                <span className="mt-2 px-4 text-center text-xs text-red-600">{previewError}</span>
+              )}
               <input
                 ref={inputRef}
                 type="file"

@@ -1,11 +1,16 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
+import confetti from 'canvas-confetti';
 import { QuestionCard } from '../QuestionCard';
 
-// Mock canvas-confetti to avoid DOM canvas errors in jsdom
-vi.mock('canvas-confetti', () => ({
-  default: vi.fn(),
-}));
+// Mock canvas-confetti to avoid DOM canvas errors in jsdom. QuestionCard calls
+// confetti.create(...) to get an instance with useWorker disabled (see
+// QuestionCard.tsx), so the mocked default export needs a `create` method too.
+vi.mock('canvas-confetti', () => {
+  const fire = vi.fn();
+  const confetti = Object.assign(vi.fn(), { create: vi.fn(() => fire) });
+  return { default: confetti };
+});
 
 const sampleQuestion = {
   id: 'q1',
@@ -95,5 +100,35 @@ describe('QuestionCard', () => {
     for (const button of buttons) {
       expect(button).toBeDisabled();
     }
+  });
+});
+
+describe('QuestionCard — confetti under the production CSP', () => {
+  it('fires through a create()d instance with useWorker off, never the bare export', () => {
+    render(
+      <QuestionCard
+        {...defaultProps}
+        selectedAnswer={2}
+        correctIndex={2}
+        showResult={true}
+      />,
+    );
+
+    // `useWorker` is only honoured by confetti.create(canvas, globalOpts), at
+    // instance-creation time. The bare default export is a hardcoded
+    // useWorker:true singleton whose off-thread Worker the production CSP
+    // (packages/frontend/public/_headers — no worker-src, no blob:) blocks, so
+    // going through it means confetti silently never renders. @types/canvas-confetti
+    // does not even declare `useWorker` on the per-call `Options`, so passing it
+    // to an individual confetti() call is a no-op that would not compile either.
+    const create = vi.mocked(confetti.create);
+    expect(create).toHaveBeenCalled();
+    expect(create.mock.calls[0][1]).toMatchObject({ useWorker: false });
+
+    // ...and the instance create() handed back is what actually fires
+    expect(create.mock.results[0].value).toHaveBeenCalledWith(
+      expect.objectContaining({ particleCount: 70 }),
+    );
+    expect(vi.mocked(confetti)).not.toHaveBeenCalled();
   });
 });

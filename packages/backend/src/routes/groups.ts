@@ -1,17 +1,78 @@
 import { Hono } from 'hono';
+import type { Context } from 'hono';
 import type { Env } from '../env';
 import {
-  GameConfigSchema, HuntConfigSchema, GroupNameSchema,
+  GameConfigSchema, HuntConfigSchema, GroupNameSchema, GroupMemberLinkSchema,
   generateGroupId, HUNT_LIMITS,
 } from '@lamo-trivia/shared';
-import type { GroupGame, HuntHistorySummary } from '@lamo-trivia/shared';
+import type { GroupGame } from '@lamo-trivia/shared';
 import { getSessionUser } from '../auth';
+import { recordHuntHost, listHuntHistorySummaries } from './hunts';
 import { logEvent } from '../analytics';
 import {
-  ipRateLimit, groupCreateLimiter, groupGameLimiter,
+  ipRateLimit, groupCreateLimiter, groupGameLimiter, huntHistoryLimiter, getClientIP,
 } from '../middleware/rate-limit';
 
 const groups = new Hono<{ Bindings: Env }>();
+
+interface GroupStateResponse {
+  id: string;
+  name: string;
+  createdAt: number;
+  ownerEmail?: string;
+  memberCount: number;
+}
+
+/**
+ * Read a group's state from its DO. ownerEmail is only returned when asked
+ * for, so a handler has to opt in before it can leak one.
+ */
+async function fetchGroupState(
+  c: Context<{ Bindings: Env }>,
+  groupId: string,
+  includeOwner = false,
+): Promise<GroupStateResponse | null> {
+  const doId = c.env.PRIVATE_GROUP.idFromName(groupId);
+  const group = c.env.PRIVATE_GROUP.get(doId);
+  const res = await group.fetch(
+    new Request(`http://internal/state${includeOwner ? '?includeOwner=1' : ''}`),
+  );
+  if (!res.ok) return null;
+  return (await res.json()) as GroupStateResponse;
+}
+
+/**
+ * Does `email` belong to this group — as its owner, or as a member whose
+ * record has been linked to that account?
+ *
+ * The group DO owns the member list, so it is the only thing that can answer
+ * the second half. Anything short of an explicit `isMember: true` is a no: a
+ * DO that errored, or one not yet redeployed with /membership, must not be
+ * read as "sure, come in".
+ */
+async function callerBelongsToGroup(
+  c: Context<{ Bindings: Env }>,
+  groupId: string,
+  state: GroupStateResponse,
+  email: string,
+): Promise<boolean> {
+  if (state.ownerEmail && state.ownerEmail.toLowerCase() === email.toLowerCase()) {
+    return true;
+  }
+
+  const doId = c.env.PRIVATE_GROUP.idFromName(groupId);
+  const group = c.env.PRIVATE_GROUP.get(doId);
+  try {
+    const res = await group.fetch(
+      new Request('http://internal/membership', { headers: { 'X-Caller-Email': email } }),
+    );
+    if (!res.ok) return false;
+    const data = (await res.json()) as { isMember?: boolean };
+    return data.isMember === true;
+  } catch {
+    return false;
+  }
+}
 
 // POST /api/groups — create a new private group (requires auth)
 groups.post('/', ipRateLimit(groupCreateLimiter), async (c) => {
@@ -81,11 +142,16 @@ groups.get('/my', async (c) => {
 // GET /api/groups/:groupId — validate group exists
 groups.get('/:groupId', async (c) => {
   const groupId = c.req.param('groupId');
-  const doId = c.env.PRIVATE_GROUP.idFromName(groupId);
-  const group = c.env.PRIVATE_GROUP.get(doId);
-  const res = await group.fetch(new Request('http://internal/state'));
-  if (!res.ok) return c.json({ error: 'Group not found' }, 404);
-  return c.json(await res.json());
+  const state = await fetchGroupState(c, groupId, true);
+  if (!state) return c.json({ error: 'Group not found' }, 404);
+
+  // ownerEmail is a real person's address. The owner's own client needs it to
+  // unlock owner-only controls; nobody else gets to see it.
+  const user = await getSessionUser(c.req.raw, c.env);
+  const { ownerEmail, ...publicState } = state;
+  const isOwner = !!user && !!ownerEmail && ownerEmail === user.email;
+
+  return c.json(isOwner ? { ...publicState, ownerEmail } : publicState);
 });
 
 // DELETE /api/groups/:groupId — delete a group (owner only)
@@ -98,9 +164,8 @@ groups.delete('/:groupId', async (c) => {
   const group = c.env.PRIVATE_GROUP.get(doId);
 
   // Check group exists and verify ownership
-  const stateRes = await group.fetch(new Request('http://internal/state'));
-  if (!stateRes.ok) return c.json({ error: 'Group not found' }, 404);
-  const state = (await stateRes.json()) as { ownerEmail?: string };
+  const state = await fetchGroupState(c, groupId, true);
+  if (!state) return c.json({ error: 'Group not found' }, 404);
   if (state.ownerEmail !== user.email) {
     return c.json({ error: 'Only the group owner can delete it' }, 403);
   }
@@ -117,15 +182,60 @@ groups.delete('/:groupId', async (c) => {
   return c.json({ ok: true });
 });
 
-// POST /api/groups/:groupId/games — create a game within a group
-groups.post('/:groupId/games', ipRateLimit(groupGameLimiter), async (c) => {
-  const groupId = c.req.param('groupId')!;
+/**
+ * POST /api/groups/:groupId/members/link — tie a member record to the caller's
+ * account so their membership can actually be verified later.
+ *
+ * The client proves the record is theirs with the `memberId` the group DO
+ * issued it on join. Sending no memberId asks the opposite question — "which
+ * member record does my account already own?" — which is how someone who lost
+ * their local memberId gets back in without username-based recovery.
+ */
+groups.post('/:groupId/members/link', async (c) => {
+  const user = await getSessionUser(c.req.raw, c.env);
+  if (!user) return c.json({ error: 'Sign in to link your group membership' }, 401);
 
-  // Validate group exists
+  const groupId = c.req.param('groupId')!;
+  const body = await c.req.json().catch(() => ({}));
+  const parsed = GroupMemberLinkSchema.safeParse(body);
+  if (!parsed.success) {
+    return c.json({ error: parsed.error.flatten() }, 400);
+  }
+
   const doId = c.env.PRIVATE_GROUP.idFromName(groupId);
   const group = c.env.PRIVATE_GROUP.get(doId);
-  const checkRes = await group.fetch(new Request('http://internal/state'));
-  if (!checkRes.ok) return c.json({ error: 'Group not found' }, 404);
+  const res = await group.fetch(
+    new Request('http://internal/members/link', {
+      method: 'POST',
+      headers: { 'X-Caller-Email': user.email },
+      body: JSON.stringify(parsed.data),
+    }),
+  );
+
+  const data = (await res.json()) as Record<string, unknown>;
+  return c.json(data, res.status as 200);
+});
+
+// POST /api/groups/:groupId/games — create a game within a group
+groups.post('/:groupId/games', ipRateLimit(groupGameLimiter), async (c) => {
+  const user = await getSessionUser(c.req.raw, c.env);
+  if (!user) return c.json({ error: 'Sign in to create a game in this group' }, 401);
+
+  const groupId = c.req.param('groupId')!;
+  const doId = c.env.PRIVATE_GROUP.idFromName(groupId);
+  const group = c.env.PRIVATE_GROUP.get(doId);
+
+  // Validate the group exists and that the caller belongs to it. Anyone else
+  // holding the group ID could otherwise fill the group's active-game cap and
+  // spam every member with invites.
+  const state = await fetchGroupState(c, groupId, true);
+  if (!state) return c.json({ error: 'Group not found' }, 404);
+  if (!(await callerBelongsToGroup(c, groupId, state, user.email))) {
+    return c.json(
+      { error: 'Only members of this group can create games in it', code: 'NOT_A_MEMBER' },
+      403,
+    );
+  }
 
   // Parse game config — force isPrivate=true and set groupId
   const body = await c.req.json();
@@ -171,13 +281,20 @@ groups.post('/:groupId/games', ipRateLimit(groupGameLimiter), async (c) => {
   const groupRes = await group.fetch(
     new Request('http://internal/games', {
       method: 'POST',
+      headers: { 'X-Caller-Email': user.email },
       body: JSON.stringify(groupGame),
     }),
   );
 
   if (!groupRes.ok) {
-    const errorData = (await groupRes.json()) as { error: string };
-    return c.json({ error: errorData.error }, groupRes.status as 400);
+    // Pass the DO's machine-readable `code` through. The client relies on
+    // NOT_A_MEMBER to self-heal a pre-existing membership that has no account
+    // link yet; stripping it leaves the client matching on prose instead.
+    const errorData = (await groupRes.json()) as { error: string; code?: string };
+    return c.json(
+      { error: errorData.error, ...(errorData.code ? { code: errorData.code } : {}) },
+      groupRes.status as 400,
+    );
   }
 
   logEvent(c.env, 'game_created', {
@@ -203,11 +320,18 @@ groups.post('/:groupId/hunts', ipRateLimit(groupGameLimiter), async (c) => {
 
   const groupId = c.req.param('groupId')!;
 
-  // Validate group exists
+  // Validate the group exists and the caller belongs to it — checked up front
+  // so a stranger never gets as far as spending credits or creating a room.
   const doId = c.env.PRIVATE_GROUP.idFromName(groupId);
   const group = c.env.PRIVATE_GROUP.get(doId);
-  const checkRes = await group.fetch(new Request('http://internal/state'));
-  if (!checkRes.ok) return c.json({ error: 'Group not found' }, 404);
+  const state = await fetchGroupState(c, groupId, true);
+  if (!state) return c.json({ error: 'Group not found' }, 404);
+  if (!(await callerBelongsToGroup(c, groupId, state, user.email))) {
+    return c.json(
+      { error: 'Only members of this group can create games in it', code: 'NOT_A_MEMBER' },
+      403,
+    );
+  }
 
   const body = await c.req.json();
   const parsed = HuntConfigSchema.safeParse({ ...(body as object), isPrivate: true, groupId });
@@ -264,14 +388,23 @@ groups.post('/:groupId/hunts', ipRateLimit(groupGameLimiter), async (c) => {
   const groupRes = await group.fetch(
     new Request('http://internal/games', {
       method: 'POST',
+      headers: { 'X-Caller-Email': user.email },
       body: JSON.stringify(groupGame),
     }),
   );
 
   if (!groupRes.ok) {
-    const errorData = (await groupRes.json()) as { error: string };
-    return c.json({ error: errorData.error }, groupRes.status as 400);
+    // Pass the DO's machine-readable `code` through. The client relies on
+    // NOT_A_MEMBER to self-heal a pre-existing membership that has no account
+    // link yet; stripping it leaves the client matching on prose instead.
+    const errorData = (await groupRes.json()) as { error: string; code?: string };
+    return c.json(
+      { error: errorData.error, ...(errorData.code ? { code: errorData.code } : {}) },
+      groupRes.status as 400,
+    );
   }
+
+  await recordHuntHost(c.env, huntId, user.email);
 
   logEvent(c.env, 'hunt_created', {
     huntId,
@@ -290,22 +423,30 @@ groups.post('/:groupId/hunts', ipRateLimit(groupGameLimiter), async (c) => {
 
 // GET /api/groups/:groupId/hunts/history — hunt history for a group
 groups.get('/:groupId/hunts/history', async (c) => {
-  const { huntHistoryLimiter, getClientIP } = await import('../middleware/rate-limit');
   if (!huntHistoryLimiter.check(getClientIP(c.req.raw))) {
     return c.json({ error: 'Too many requests. Please try again later.' }, 429);
   }
 
   const groupId = c.req.param('groupId')!;
 
-  const listResult = await c.env.TRIVIA_KV.list<HuntHistorySummary>({
-    prefix: 'hunt-history:',
-  });
+  // Every hunt this group ever played — who hosted it, who won, what they
+  // scored. Knowing the group ID is not a claim on any of that, so this is
+  // scoped the same way creating a game in the group is.
+  const user = await getSessionUser(c.req.raw, c.env);
+  if (!user) return c.json({ error: 'Sign in to view this group\'s hunt history' }, 401);
 
-  const summaries = listResult.keys
-    .filter((k) => k.metadata && (k.metadata as any).groupId === groupId)
-    .map((k) => k.metadata!);
+  const state = await fetchGroupState(c, groupId, true);
+  if (!state) return c.json({ error: 'Group not found' }, 404);
+  if (!(await callerBelongsToGroup(c, groupId, state, user.email))) {
+    return c.json(
+      { error: 'Only members of this group can view its hunt history', code: 'NOT_A_MEMBER' },
+      403,
+    );
+  }
 
-  summaries.sort((a, b) => b.finishedAt - a.finishedAt);
+  const summaries = (await listHuntHistorySummaries(c.env))
+    .filter((s) => s.groupId === groupId)
+    .sort((a, b) => b.finishedAt - a.finishedAt);
 
   return c.json({ hunts: summaries });
 });

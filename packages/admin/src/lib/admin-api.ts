@@ -62,12 +62,18 @@ export const adminApi = {
   getUser: (email: string) =>
     adminFetch<AdminUserDetailResponse>(`/users/${encodeURIComponent(email)}`),
 
-  adjustCredits: (email: string, amount: number, reason: string) =>
-    adminFetch<{ user: User; newBalance: number }>(
+  /**
+   * `requestId` identifies the adjustment, not the HTTP attempt — the server
+   * applies a given id once. Generate it where the admin submits the form and
+   * reuse it if they retry after a failure, so a timed-out request that
+   * actually landed cannot credit the user twice.
+   */
+  adjustCredits: (email: string, amount: number, reason: string, requestId: string) =>
+    adminFetch<{ user: User; newBalance: number; applied: boolean }>(
       `/users/${encodeURIComponent(email)}/credits`,
       {
         method: 'POST',
-        body: JSON.stringify({ amount, reason }),
+        body: JSON.stringify({ amount, reason, requestId }),
       },
     ),
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { UsernameSchema, GameConfigSchema, ClientMessageSchema, GroupNameSchema, GroupClientMessageSchema } from '../schemas';
+import { UsernameSchema, GameConfigSchema, ClientMessageSchema, GroupNameSchema, GroupClientMessageSchema, GroupMemberLinkSchema, HuntHistoryClaimSchema } from '../schemas';
 
 describe('UsernameSchema', () => {
   it('accepts a valid username like "player1"', () => {
@@ -361,5 +361,81 @@ describe('GroupClientMessageSchema', () => {
   it('rejects recover_member without username', () => {
     const result = GroupClientMessageSchema.safeParse({ type: 'recover_member' });
     expect(result.success).toBe(false);
+  });
+});
+
+describe('GroupMemberLinkSchema', () => {
+  it('accepts the memberId the group issued on join', () => {
+    const result = GroupMemberLinkSchema.safeParse({
+      memberId: '3f2504e0-4f89-41d3-9a0c-0305e82c3301',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts an empty body — that asks which member the account already owns', () => {
+    const result = GroupMemberLinkSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.memberId).toBeUndefined();
+  });
+
+  it('rejects a memberId that is not a UUID, so guesses cannot be sprayed', () => {
+    expect(GroupMemberLinkSchema.safeParse({ memberId: 'alice' }).success).toBe(false);
+    expect(GroupMemberLinkSchema.safeParse({ memberId: '' }).success).toBe(false);
+  });
+
+  it('ignores an email supplied by the client — identity comes from the session', () => {
+    const result = GroupMemberLinkSchema.safeParse({ email: 'attacker@example.com' });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toEqual({});
+  });
+});
+
+describe('HuntHistoryClaimSchema', () => {
+  it('accepts the huntId → hostSecret map the client keeps in local storage', () => {
+    const result = HuntHistoryClaimSchema.safeParse({
+      hostSecrets: { 'ABCD-1234': '3f2504e0-4f89-41d3-9a0c-0305e82c3301' },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) {
+      expect(result.data.hostSecrets['ABCD-1234']).toBe('3f2504e0-4f89-41d3-9a0c-0305e82c3301');
+    }
+  });
+
+  it('defaults to an empty map, so a body-less request is still a plain listing', () => {
+    const result = HuntHistoryClaimSchema.safeParse({});
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data.hostSecrets).toEqual({});
+  });
+
+  it('keeps ids it cannot vouch for — the route drops them, one bad key is not fatal', () => {
+    const result = HuntHistoryClaimSchema.safeParse({
+      hostSecrets: { 'not-a-hunt-id': 'junk', 'ABCD-1234': 'secret' },
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(Object.keys(result.data.hostSecrets)).toHaveLength(2);
+  });
+
+  it('rejects an empty secret and one long enough to be a payload', () => {
+    expect(HuntHistoryClaimSchema.safeParse({ hostSecrets: { 'ABCD-1234': '' } }).success)
+      .toBe(false);
+    expect(
+      HuntHistoryClaimSchema.safeParse({ hostSecrets: { 'ABCD-1234': 'x'.repeat(201) } }).success,
+    ).toBe(false);
+  });
+
+  it('rejects a secret that is not a string', () => {
+    expect(HuntHistoryClaimSchema.safeParse({ hostSecrets: { 'ABCD-1234': 1234 } }).success)
+      .toBe(false);
+    expect(HuntHistoryClaimSchema.safeParse({ hostSecrets: 'all-of-them' }).success).toBe(false);
+  });
+
+  it('ignores an email or huntIds supplied alongside — identity is never client-set', () => {
+    const result = HuntHistoryClaimSchema.safeParse({
+      hostSecrets: {},
+      email: 'attacker@example.com',
+      huntIds: ['ABCD-1234'],
+    });
+    expect(result.success).toBe(true);
+    if (result.success) expect(result.data).toEqual({ hostSecrets: {} });
   });
 });

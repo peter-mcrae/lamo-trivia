@@ -5,23 +5,47 @@
 
 import type { Env } from '../env';
 
+/**
+ * Take a value out of the caller's hands, the way a real store does.
+ *
+ * KV and Durable Object storage both serialize on write and deserialize on
+ * read, so nothing a handler keeps in memory is ever the same object the
+ * store holds. A mock that hands back a live reference cannot tell
+ * "persisted it" apart from "mutated it in memory and forgot to persist" —
+ * every assertion about storage passes either way, which is precisely the
+ * blind spot that let a wave of missing-persist bugs ship green.
+ *
+ * structuredClone is what the DO storage API actually uses, so this also
+ * inherits its failure mode: a value the runtime could not store (a function,
+ * a class instance with methods) throws here too, instead of being silently
+ * accepted.
+ */
+function snapshot<T>(value: T): T {
+  if (value === null || typeof value !== 'object') return value;
+  return structuredClone(value);
+}
+
 // --- Mock KV Namespace ---
 
 export function createMockKV(): KVNamespace {
-  const store = new Map<string, string>();
+  const store = new Map<string, unknown>();
   const metadataStore = new Map<string, unknown>();
 
   return {
     get: async (key: string, opts?: any) => {
       const val = store.get(key);
       if (val === undefined) return null;
-      if (opts === 'json' || opts?.type === 'json') return JSON.parse(val);
-      return val;
+      if (opts === 'json' || opts?.type === 'json') {
+        return typeof val === 'string' ? JSON.parse(val) : snapshot(val);
+      }
+      return typeof val === 'string' ? val : snapshot(val);
     },
     put: async (key: string, value: string, opts?: any) => {
-      store.set(key, value);
+      // Real KV takes bytes; anything else is stored as a snapshot so a
+      // caller can never mutate what it already wrote.
+      store.set(key, typeof value === 'string' ? value : snapshot(value));
       if (opts?.metadata) {
-        metadataStore.set(key, opts.metadata);
+        metadataStore.set(key, snapshot(opts.metadata));
       }
     },
     delete: async (key: string) => {
@@ -32,7 +56,7 @@ export function createMockKV(): KVNamespace {
       const prefix = opts?.prefix || '';
       const keys = Array.from(store.keys())
         .filter((name) => name.startsWith(prefix))
-        .map((name) => ({ name, metadata: metadataStore.get(name) ?? null }));
+        .map((name) => ({ name, metadata: snapshot(metadataStore.get(name)) ?? null }));
       return { keys, list_complete: true, cacheStatus: null };
     },
     getWithMetadata: async () => ({ value: null, metadata: null, cacheStatus: null }),
@@ -104,10 +128,15 @@ export function createMockDurableObjectState(): MockDurableObjectState {
     _webSockets: webSockets,
     id: { toString: () => 'mock-id' } as DurableObjectId,
     storage: {
-      get: async (key: string) => storage.get(key) ?? null,
+      // Snapshot on the way in and on the way out. The real DO storage API
+      // structured-clones in both directions, so a handler that mutates the
+      // object it read, or the object it wrote, changes nothing durable until
+      // it calls put() again. Returning the live object here is what made
+      // `state._storage.get('room')` assertions vacuous.
+      get: async (key: string) => (storage.has(key) ? snapshot(storage.get(key)) : null),
       put: async (key: string | Record<string, unknown>, value?: unknown) => {
         if (typeof key === 'string') {
-          storage.set(key, value);
+          storage.set(key, snapshot(value));
         }
       },
       delete: async (key: string) => storage.delete(key),
@@ -119,7 +148,7 @@ export function createMockDurableObjectState(): MockDurableObjectState {
       deleteAlarm: async () => {
         state._alarm = null;
       },
-      list: async () => new Map(storage),
+      list: async () => new Map(Array.from(storage, ([k, v]) => [k, snapshot(v)])),
     } as unknown as DurableObjectStorage,
     blockConcurrencyWhile: async (callback: () => Promise<void>) => {
       await callback();

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { adminApi } from '@/lib/admin-api';
 import type { User, CreditTransaction } from '@lamo-trivia/shared';
@@ -16,6 +16,13 @@ export default function AdminUserDetail() {
   const [adjusting, setAdjusting] = useState(false);
   const [adjustError, setAdjustError] = useState('');
   const [adjustSuccess, setAdjustSuccess] = useState('');
+  // Held across retries of the same adjustment and cleared once it lands, so
+  // clicking again after a failure cannot double-credit the user.
+  const requestIdRef = useRef<string | null>(null);
+
+  // Editing the amount or reason makes this a different adjustment, so it must
+  // not inherit the previous attempt's id and be dismissed as a duplicate.
+  useEffect(() => { requestIdRef.current = null; }, [amount, reason]);
 
   useEffect(() => {
     if (!email) return;
@@ -48,15 +55,20 @@ export default function AdminUserDetail() {
     setAdjustSuccess('');
 
     try {
+      requestIdRef.current ??= crypto.randomUUID();
       const res = await adminApi.adjustCredits(
         decodeURIComponent(email),
         numAmount,
         reason.trim(),
+        requestIdRef.current,
       );
+      requestIdRef.current = null;
       setUser(res.user);
       setAmount('');
       setReason('');
-      setAdjustSuccess(`Credits adjusted. New balance: ${res.newBalance}`);
+      setAdjustSuccess(res.applied
+        ? `Credits adjusted. New balance: ${res.newBalance}`
+        : `Already applied — no change. Balance: ${res.newBalance}`);
       // Refresh transactions
       const detail = await adminApi.getUser(decodeURIComponent(email));
       setTransactions(detail.transactions);
