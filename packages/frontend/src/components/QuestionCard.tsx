@@ -2,6 +2,21 @@ import { useEffect } from 'react';
 import confetti from 'canvas-confetti';
 import type { ClientQuestion } from '@lamo-trivia/shared';
 
+// canvas-confetti's default export always tries to render via an off-thread Web
+// Worker when the browser supports one (see the library's own getDefaultFire()),
+// and that `useWorker` choice is baked in at creation time -- passing `useWorker`
+// to an individual confetti() call has no effect on it. The production CSP
+// (packages/frontend/public/_headers) has no worker-src/blob:, so that worker is
+// blocked and confetti silently never renders. Create our own instance with the
+// worker disabled up front so it renders on the main thread instead.
+let confettiCannon: ReturnType<typeof confetti.create> | null = null;
+function getConfettiCannon() {
+  if (!confettiCannon) {
+    confettiCannon = confetti.create(undefined, { resize: true, useWorker: false });
+  }
+  return confettiCannon;
+}
+
 interface QuestionCardProps {
   question: ClientQuestion;
   questionIndex: number;
@@ -25,7 +40,7 @@ export function QuestionCard({
 }: QuestionCardProps) {
   useEffect(() => {
     if (showResult && selectedAnswer !== null && (isCorrect || selectedAnswer === correctIndex) && !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) {
-      confetti({
+      getConfettiCannon()({
         particleCount: 70,
         spread: 60,
         origin: { y: 0.7 },

@@ -5,12 +5,16 @@ import type {
   HuntHistorySummary,
 } from '@lamo-trivia/shared';
 import type { HuntServerMessage } from '@lamo-trivia/shared';
-import { HuntClientMessageSchema, HuntConfigSchema, AVATARS, HUNT_EXPIRY_MS } from '@lamo-trivia/shared';
+import {
+  HuntClientMessageSchema, HuntConfigSchema, AVATARS, HUNT_EXPIRY_MS, HUNT_LIMITS,
+} from '@lamo-trivia/shared';
 import { getAnthropicKey } from './env';
 import type { Env } from './env';
-import { verifyAndCompare } from './vision';
+import { verifyAndCompare, VERIFICATION_MODEL } from './vision';
 import { logEvent } from './analytics';
-import { getUser, updateUser, addCreditTransaction } from './auth';
+import {
+  adjustUserCredits, withKvLock, KvLockBusyError, InsufficientCreditsError,
+} from './auth';
 
 type AlarmAction =
   | 'expire_hunt'
@@ -19,6 +23,18 @@ type AlarmAction =
   | 'time_warning_1'
   | 'end_hunt'
   | 'cleanup_hunt';
+
+/** A finished submission — one a model actually returned a verdict for —
+ *  replayed verbatim if the client retries the same uploadId after a dropped
+ *  ack. A server-side failure is deliberately never recorded here: it is not
+ *  finished, and replaying it would answer the client's reconnect auto-retry
+ *  with a canned failure without ever re-verifying the photo, dead-ending the
+ *  retry the attempt refund exists to enable. */
+interface CompletedUpload {
+  /** `${playerId}:${itemId}:${uploadId}` */
+  key: string;
+  result: HuntServerMessage;
+}
 
 interface HuntRoomState {
   huntId: string;
@@ -38,11 +54,51 @@ interface HuntRoomState {
   // Secret per-player rejoin tokens (playerId → token). Kept out of the
   // Player objects, which are broadcast to all clients.
   rejoinTokens: Record<string, string>;
+  /** Delete-auth secret handed to the host when history is saved. Retained so
+   *  a host who was offline at that moment can be re-issued it on reconnect. */
+  hostSecret?: string;
+  /** The player who held host at the moment hostSecret was minted. `hostId`
+   *  drifts afterwards — an explicit Leave on the results screen transfers it
+   *  to a remaining player — and the delete-auth secret must not follow it. */
+  hostSecretOwnerId?: string;
+  /** Set once this room has written its own `hunt-host:` KV index entry, so
+   *  the backfill costs two KV writes per room lifetime, not per message. */
+  hostIndexWritten?: boolean;
+  /** playerId → itemId → consecutive verification failures already refunded.
+   *  Caps how often a failing item can hand the attempt back. */
+  refundedFailures: Record<string, Record<string, number>>;
+  /** Recently completed submissions, oldest first, for uploadId idempotency. */
+  completedUploads: CompletedUpload[];
+  /** `playerId:itemId` → token for the verification currently in flight. The
+   *  client re-sends the same uploadId after a dropped ack, so the uploadId
+   *  cannot tell one verification call from another: a swept submission that
+   *  is resubmitted and then has its original call throw late would otherwise
+   *  apply that failure to the new call, discarding its real verdict. */
+  activeVerifications: Record<string, string>;
 }
 
 // Per-connection message rate limiting
 const WS_RATE_WINDOW_MS = 10_000;
 const WS_RATE_MAX_MESSAGES = 30;
+
+// A verification that fails server-side refunds the attempt, but only a few
+// times per item — otherwise a client can loop a failing upload forever, and
+// every iteration bills two Sonnet calls plus a Haiku call.
+const MAX_REFUNDED_FAILURES_PER_ITEM = 2;
+
+// How many finished submissions to remember for uploadId replay. One entry per
+// item is a single team's working set, and the schema allows 15 items — a
+// smaller cap evicts a legitimate replay before the client's reconnect-retry
+// arrives and the double-attempt bug comes back. Counted per player, so a busy
+// team cannot evict another team's entries either.
+const MAX_COMPLETED_UPLOADS_PER_PLAYER = HUNT_LIMITS.maxItems;
+
+// The photo-upload gate in routes/hunts.ts refuses an upload unless
+// `hunt-host:{huntId}` exists. These mirror recordHuntHost's TTL and per-host
+// list cap exactly, so an entry this room backfills is indistinguishable from
+// one written at creation time.
+const HUNT_HOST_TTL = 90 * 24 * 60 * 60;
+const MAX_TRACKED_HUNTS = 200;
 
 // How long a dropped connection may stay gone before the player is removed
 // from the lobby (waiting) or loses host (playing). Phones background
@@ -54,6 +110,14 @@ export class ScavengerHuntRoom {
   private env: Env;
   private room: HuntRoomState | null = null;
   private wsRates = new Map<WebSocket, { count: number; start: number }>();
+  // Set synchronously at the top of handleStartHunt. The phase isn't committed
+  // until the end of that method and the input gate opens on every KV call in
+  // between, so a phase-only guard lets a concurrent start through.
+  private startInFlight = false;
+  // Same reasoning as startInFlight: the backfill's KV round trips reopen the
+  // input gate, so a second message would start a duplicate backfill before
+  // the persisted flag is written.
+  private hostIndexInFlight = false;
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -63,6 +127,9 @@ export class ScavengerHuntRoom {
       if (stored) {
         // Backfill fields added after the room was persisted
         stored.rejoinTokens ??= {};
+        stored.refundedFailures ??= {};
+        stored.completedUploads ??= [];
+        stored.activeVerifications ??= {};
         this.room = stored;
       }
     });
@@ -98,6 +165,9 @@ export class ScavengerHuntRoom {
           nextAlarmAction: 'expire_hunt',
           createdAt: Date.now(),
           rejoinTokens: {},
+          refundedFailures: {},
+          completedUploads: [],
+          activeVerifications: {},
         };
         await this.persist();
 
@@ -168,9 +238,11 @@ export class ScavengerHuntRoom {
       await this.startHuntPlaying();
     }
 
-    // Lazily act on players who dropped past the grace period (the single
-    // alarm slot belongs to the game timer chain, so no dedicated alarm)
+    // Lazily act on players who dropped past the grace period, and repair this
+    // hunt's own host index (the single alarm slot belongs to the game timer
+    // chain, so neither gets a dedicated alarm)
     if (this.room) {
+      await this.backfillHostIndex();
       await this.sweepDisconnectedPlayers(now);
     }
 
@@ -420,6 +492,10 @@ export class ScavengerHuntRoom {
       return;
     }
 
+    // Read the creator email before reattachPlayer swaps the attachment for
+    // the playerId — the host-secret re-issue below still needs it
+    const wsEmail = this.getPendingEmail(ws);
+
     // Find existing player by username (case insensitive)
     const existingPlayer = this.room.players.find(
       (p) => p.username.toLowerCase() === username.toLowerCase(),
@@ -453,6 +529,19 @@ export class ScavengerHuntRoom {
     if (this.room.phase === 'finished') {
       const results = this.buildResults();
       this.sendTo(ws, { type: 'hunt_finished', results });
+
+      // The delete-auth secret was delivered once, over whichever socket the
+      // host happened to have open when history was saved. Re-issue it here or
+      // a host who was disconnected at that instant can never delete their
+      // hunt's history and photos — but only to the account it was minted for,
+      // never to whoever holds hostId now (see canReceiveHostSecret).
+      if (this.room.hostSecret && this.canReceiveHostSecret(existingPlayer.id, wsEmail)) {
+        this.sendTo(ws, {
+          type: 'hunt_history_saved',
+          huntId: this.room.huntId,
+          hostSecret: this.room.hostSecret,
+        });
+      }
     }
 
     // Send any pending appeals to host
@@ -509,6 +598,15 @@ export class ScavengerHuntRoom {
     this.room.players = this.room.players.filter((p) => p.id !== playerId);
     delete this.room.progress[playerId];
     delete this.room.rejoinTokens[playerId];
+    // Nothing references a departed player again, and their leftovers count
+    // against the per-player replay cap if they rejoin under a new id
+    delete this.room.refundedFailures[playerId];
+    this.room.completedUploads = this.room.completedUploads.filter(
+      (e) => !e.key.startsWith(`${playerId}:`),
+    );
+    for (const key of Object.keys(this.room.activeVerifications)) {
+      if (key.startsWith(`${playerId}:`)) delete this.room.activeVerifications[key];
+    }
 
     let newHostId: string | undefined;
     if (wasHost && this.room.players.length > 0) {
@@ -522,6 +620,28 @@ export class ScavengerHuntRoom {
     await this.persist();
     this.broadcast({ type: 'player_left', playerId, ...(newHostId ? { newHostId } : {}) });
     await this.notifyGroupOfUpdate();
+  }
+
+  /**
+   * Whether this player may be handed the delete-auth secret again.
+   *
+   * `hostId` is not the right identity: when the real host taps Leave on the
+   * results screen, handleLeave(explicit) with phase 'finished' transfers host
+   * to a remaining player. That player rejoining would otherwise be issued a
+   * secret that deletes the real host's saved history and every R2 photo with
+   * it, and that also bypasses canViewHunt on GET /:huntId/history. So the
+   * secret goes back only to the player it was minted for.
+   *
+   * Rooms whose history was saved before the owner was recorded fall back to
+   * the creator's email, which the Worker sets on the socket from the session
+   * (X-User-Email is stripped from client requests) — otherwise a legitimate
+   * host mid-way through an already-finished hunt would be stranded.
+   */
+  private canReceiveHostSecret(playerId: string, wsEmail: string | null): boolean {
+    const room = this.room;
+    if (!room) return false;
+    if (room.hostSecretOwnerId) return room.hostSecretOwnerId === playerId;
+    return !!room.hostEmail && wsEmail === room.hostEmail;
   }
 
   /** Hand host to the first connected player and bring them up to speed. */
@@ -581,15 +701,84 @@ export class ScavengerHuntRoom {
     }
   }
 
+  /**
+   * Write this hunt's own `hunt-host:` index entry from persisted state.
+   *
+   * POST /api/hunts/:huntId/photos refuses an upload unless that key exists,
+   * and the only writer is recordHuntHost() at hunt-creation time — so every
+   * hunt already waiting or mid-play when that gate ships would answer every
+   * submit_photo with "Hunt not found", permanently, on a hunt the host has
+   * already paid credits for. Nothing outside the room can repair it: Durable
+   * Objects are not enumerable and HuntHistoryEntry carries no host email.
+   * hostEmail is an old field, so every existing hunt already has one.
+   *
+   * The key format, value and TTL mirror recordHuntHost in routes/hunts.ts
+   * exactly, companion `host-hunts:` index included — a mismatch leaves the
+   * gate shut and the history listing blind. Runs once per room lifetime,
+   * guarded by a persisted flag.
+   */
+  private async backfillHostIndex(): Promise<void> {
+    const room = this.room;
+    if (!room || room.hostIndexWritten || !room.hostEmail) return;
+    if (this.hostIndexInFlight) return;
+    this.hostIndexInFlight = true;
+
+    const { huntId, hostEmail } = room;
+    try {
+      await this.env.TRIVIA_KV.put(`hunt-host:${huntId}`, hostEmail, {
+        expirationTtl: HUNT_HOST_TTL,
+      });
+
+      const existing =
+        (await this.env.TRIVIA_KV.get<string[]>(`host-hunts:${hostEmail}`, 'json')) ?? [];
+      const updated = [huntId, ...existing.filter((id) => id !== huntId)]
+        .slice(0, MAX_TRACKED_HUNTS);
+      await this.env.TRIVIA_KV.put(`host-hunts:${hostEmail}`, JSON.stringify(updated));
+
+      // Flag only after both writes land: a failure has to be retried on the
+      // next message, not remembered as done
+      if (this.room) {
+        this.room.hostIndexWritten = true;
+        await this.persist();
+      }
+    } catch (err) {
+      console.error('Hunt host index backfill failed', {
+        huntId,
+        error: err instanceof Error ? err.message : String(err),
+      });
+    } finally {
+      this.hostIndexInFlight = false;
+    }
+  }
+
   private async handleStartHunt(ws: WebSocket): Promise<void> {
     if (!this.room) return;
 
     // Without this guard a duplicate start_hunt (double-click, stale tab) would
-    // re-deduct credits and re-initialize progress, wiping a hunt mid-play
-    if (this.room.phase !== 'waiting') {
+    // re-deduct credits and re-initialize progress, wiping a hunt mid-play.
+    // The phase isn't persisted as 'starting' until the very end of this
+    // method, and every KV/subrequest await before then reopens the DO input
+    // gate — so the phase check alone lets a second concurrent start_hunt
+    // through and bills the host twice. startInFlight is set synchronously,
+    // before the first await, and cleared on every exit path below.
+    if (this.room.phase !== 'waiting' || this.startInFlight) {
       this.sendTo(ws, { type: 'error', message: 'Hunt has already started' });
       return;
     }
+    this.startInFlight = true;
+    try {
+      await this.startHunt(ws);
+    } finally {
+      // By the time we get here the phase is either 'starting' (the durable
+      // guard has taken over) or still 'waiting' because the start failed —
+      // either way the room must not stay wedged behind the in-memory flag.
+      this.startInFlight = false;
+    }
+  }
+
+  /** Body of handleStartHunt, run under the startInFlight guard. */
+  private async startHunt(ws: WebSocket): Promise<void> {
+    if (!this.room) return;
 
     const playerId = this.getPlayerId(ws);
     if (playerId !== this.room.hostId) {
@@ -600,6 +789,12 @@ export class ScavengerHuntRoom {
     // Don't count (or bill credits for) players who dropped out of the
     // lobby past the grace period
     await this.sweepDisconnectedPlayers(Date.now());
+
+    // Every await from here on reopens the DO input gate, and an expire_hunt
+    // alarm delivered in that window nulls this.room and calls deleteAll() —
+    // so re-check before each deref, the same discipline finishHunt and
+    // saveHistory already follow
+    if (!this.room) return;
 
     const participantCount = this.room.players.length;
     if (participantCount < this.room.config.minPlayers) {
@@ -613,57 +808,95 @@ export class ScavengerHuntRoom {
     // Deduct credits from host
     if (this.room.hostEmail) {
       const creditsNeeded = this.room.items.length * this.room.config.maxRetries * participantCount;
+      const { huntId, hostEmail } = this.room;
+      const details = `Hunt "${this.room.config.name}" — ${this.room.items.length} items × ${this.room.config.maxRetries} retries × ${participantCount} teams`;
 
-      // Use a KV lock key to prevent concurrent deductions for this hunt
-      const lockKey = `credit-lock:${this.room.huntId}`;
-      const lockExists = await this.env.TRIVIA_KV.get(lockKey);
-      if (lockExists) {
-        this.sendTo(ws, { type: 'error', message: 'Hunt is already starting' });
-        return;
-      }
-      await this.env.TRIVIA_KV.put(lockKey, '1', { expirationTtl: 60 });
-
+      // One lock covers the whole charge, serialising per host: two hunts
+      // started at once by one host each read a pre-charge balance, and only
+      // serialising them keeps the second one's refusal honest.
+      //
+      // This replaces the old `credit-lock:{huntId}` get-then-put, which is now
+      // redundant: a second charge for *this* hunt is stopped durably by the
+      // idempotency key below rather than by a 60s KV key, and withKvLock's
+      // nonce arbitration is stricter than a bare read. The key here is
+      // per-host and distinct from the `credit-lock:user:` key
+      // adjustUserCredits takes internally, so the two nest without
+      // deadlocking — neither ever waits, a held lock throws immediately.
+      // hostEmail is a stored User.email, so it is already normalized.
+      //
+      // Affordability is adjustUserCredits' decision, not a pre-check here. It
+      // refuses an overdraw outright with InsufficientCreditsError, and a
+      // retry of a charge that already committed comes back `applied: false`
+      // with the current user. A pre-check would compare the *post-charge*
+      // balance against the full price and refuse a hunt the host has already
+      // paid for — exactly the state a DO that died between the charge and the
+      // phase write leaves behind.
       try {
-        const host = await getUser(this.room.hostEmail, this.env);
-        if (!host || host.credits < creditsNeeded) {
-          await this.env.TRIVIA_KV.delete(lockKey);
+        const { user: host, applied } = await withKvLock(
+          this.env,
+          `hunt-start-lock:${hostEmail}`,
+          () =>
+            // Keyed on the hunt: a hunt is billed once, and a hunt never
+            // returns to 'waiting', so this can't swallow a legitimate
+            // second charge.
+            adjustUserCredits(this.env, hostEmail, -creditsNeeded, {
+              idempotencyKey: `hunt-start:${huntId}`,
+              transaction: {
+                type: 'deduction',
+                amount: creditsNeeded,
+                timestamp: Date.now(),
+                details,
+                huntId,
+              },
+            }),
+        );
+
+        // The lock's KV round trips reopen the input gate: an expire_hunt
+        // alarm in that window deleted the room out from under a charge that
+        // has already landed. Nothing can be un-billed here, but the log is
+        // the only trace and the deref below would TypeError.
+        if (!this.room) {
+          console.error('Hunt expired mid-charge', { huntId, creditsNeeded });
+          return;
+        }
+
+        // `applied === false` means an earlier attempt already paid for this
+        // hunt and this one was the idempotent replay, so record what was
+        // actually charged rather than what this attempt would have charged.
+        this.room.creditsDeducted = applied ? creditsNeeded : (this.room.creditsDeducted ?? 0);
+
+        // Notify host of deduction — zero when the charge had already landed
+        // on an earlier attempt and this one was the idempotent replay
+        this.sendTo(ws, {
+          type: 'credits_deducted',
+          amount: applied ? creditsNeeded : 0,
+          remaining: host.credits,
+        });
+      } catch (err) {
+        if (err instanceof KvLockBusyError) {
+          this.sendTo(ws, { type: 'error', message: 'Hunt is already starting' });
+          return;
+        }
+        if (err instanceof InsufficientCreditsError) {
+          // The generic message below would be true but misleading: nothing
+          // was charged and the start was refused for one specific reason
           this.sendTo(ws, {
             type: 'error',
             message: 'Not enough credits to start this hunt',
           });
           return;
         }
-
-        host.credits -= creditsNeeded;
-        await updateUser(host, this.env);
-
-        await addCreditTransaction(host.userId, {
-          type: 'deduction',
-          amount: creditsNeeded,
-          timestamp: Date.now(),
-          details: `Hunt "${this.room.config.name}" — ${this.room.items.length} items × ${this.room.config.maxRetries} retries × ${participantCount} teams`,
-          huntId: this.room.huntId,
-        }, this.env);
-
-        this.room.creditsDeducted = creditsNeeded;
-
-        // Notify host of deduction
-        this.sendTo(ws, {
-          type: 'credits_deducted',
-          amount: creditsNeeded,
-          remaining: host.credits,
-        });
-      } catch (err) {
-        // Release the lock so a retry isn't refused for the next 60s
-        await this.env.TRIVIA_KV.delete(lockKey);
         console.error('Credit deduction failed', {
-          huntId: this.room.huntId,
+          huntId,
           error: err instanceof Error ? err.message : String(err),
         });
         this.sendTo(ws, { type: 'error', message: 'Failed to start hunt. Please try again.' });
         return;
       }
     }
+
+    // The credit charge above was a round trip through KV
+    if (!this.room) return;
 
     // Initialize progress for all players (including host, who also plays)
     for (const player of this.room.players) {
@@ -704,13 +937,17 @@ export class ScavengerHuntRoom {
     // Use alarm for the 3-second countdown (durable across hibernation)
     await this.state.storage.setAlarm(Date.now() + 3000);
 
-    // Remove from lobby
+    if (!this.room) return;
+
+    // Remove from lobby — a DO-to-DO fetch, so the gate reopens again here
+    const huntId = this.room.huntId;
     const lobbyId = this.env.GAME_LOBBY.idFromName('global');
     const lobby = this.env.GAME_LOBBY.get(lobbyId);
     await lobby.fetch(
-      new Request(`http://internal/games/${this.room.huntId}`, { method: 'DELETE' }),
+      new Request(`http://internal/games/${huntId}`, { method: 'DELETE' }),
     );
 
+    if (!this.room) return;
     await this.notifyGroupOfUpdate();
   }
 
@@ -751,6 +988,14 @@ export class ScavengerHuntRoom {
 
   private async handleRevealClue(ws: WebSocket, itemId: string, clueId: string): Promise<void> {
     if (!this.room || this.room.phase !== 'playing') return;
+
+    // The phase stays 'playing' through the end-of-hunt verification grace, so
+    // a phase-only guard would keep charging clue points after the player's
+    // timer reads 00:00. Same deadline check handleSubmitPhoto makes.
+    if (this.room.endsAt && Date.now() > this.room.endsAt) {
+      this.sendTo(ws, { type: 'error', message: 'The hunt has ended' });
+      return;
+    }
 
     const playerId = this.getPlayerId(ws);
     if (!playerId) return;
@@ -829,6 +1074,24 @@ export class ScavengerHuntRoom {
       return;
     }
 
+    // The client re-sends the same uploadId when an ack goes missing, so a
+    // repeat of an already-finished submission replays the original outcome
+    // instead of burning a second attempt. Checked before the status ladder:
+    // after a win the item is 'found', which would otherwise answer the retry
+    // with "Item already found".
+    const replay = this.findCompletedUpload(playerId, itemId, uploadId);
+    if (replay) {
+      this.sendTo(ws, replay);
+      return;
+    }
+
+    // Same upload, still verifying — re-ack rather than erroring, so the
+    // client's retry resolves its pending state
+    if (itemProgress.status === 'pending_review' && itemProgress.activeUploadId === uploadId) {
+      this.sendTo(ws, { type: 'photo_verifying', itemId });
+      return;
+    }
+
     if (itemProgress.status === 'found') {
       this.sendTo(ws, { type: 'error', message: 'Item already found' });
       return;
@@ -839,37 +1102,59 @@ export class ScavengerHuntRoom {
       return;
     }
 
+    // An item with an appeal in the queue is not settled. Letting a new photo
+    // through would let the same item score twice: once here, once again when
+    // the host approves the appeal that is still waiting on their dashboard.
+    if (this.hasPendingAppeal(playerId, itemId)) {
+      this.sendTo(ws, {
+        type: 'error',
+        message: 'Your appeal for this item is waiting on the host.',
+      });
+      return;
+    }
+
     if (itemProgress.attemptsUsed >= this.room.config.maxRetries) {
       this.sendTo(ws, { type: 'error', message: 'No attempts remaining' });
       return;
     }
 
-    // Mark as pending review
+    // Mark as pending review. The token — not the uploadId — is what later
+    // identifies this particular verification call: the client re-sends the
+    // same uploadId after a dropped ack, so two calls can share one.
+    const verifyToken = crypto.randomUUID();
     itemProgress.status = 'pending_review';
     itemProgress.pendingReviewSince = Date.now();
     itemProgress.attemptsUsed++;
     itemProgress.lastRejectedPhotoUrl = undefined;
     itemProgress.activeUploadId = uploadId;
+    this.setVerifyToken(playerId, itemId, verifyToken);
     await this.persist();
 
     this.sendTo(ws, { type: 'photo_verifying', itemId });
+
+    const photoKey = `${this.room.huntId}/${uploadId}`;
+    // Whether the object was actually read out of R2 on this attempt. The
+    // catch below must not advertise a key for an object that was never
+    // stored: the host would get a broken image in the appeal, and approving
+    // it writes the dangling key into saved history forever.
+    let photoInR2 = false;
 
     // Verify the photo asynchronously
     try {
       const apiKey = await getAnthropicKey(this.env);
 
       // Fetch photo from R2
-      const photoKey = `${this.room.huntId}/${uploadId}`;
       const photoObj = await this.env.R2_HUNT_PHOTOS.get(photoKey);
       if (!photoObj) {
         itemProgress.status = 'searching';
         itemProgress.pendingReviewSince = undefined;
         itemProgress.attemptsUsed--; // Nothing was verified — refund the attempt
-        itemProgress.activeUploadId = undefined;
+        this.endVerification(itemProgress, playerId, itemId);
         await this.persist();
         this.sendTo(ws, { type: 'error', message: 'Photo not found. Please try again.' });
         return;
       }
+      photoInR2 = true;
 
       const photoBytes = await photoObj.arrayBuffer();
       const contentType = photoObj.httpMetadata?.contentType || 'image/jpeg';
@@ -881,7 +1166,7 @@ export class ScavengerHuntRoom {
       // Fire-and-forget: log photo verification + vision comparison events
       logEvent(this.env, 'photo_verified', {
         huntId: this.room.huntId,
-        model: 'claude-sonnet-4-20250514',
+        model: VERIFICATION_MODEL,
         accepted: result.accepted,
         confidence: result.confidence,
         latencyMs: comparison.sonnetLatencyMs,
@@ -905,8 +1190,10 @@ export class ScavengerHuntRoom {
       if (!currentProgress) return;
 
       // A stuck-review reset or a newer submission superseded this verification
-      // while we were waiting on the API — discard the stale result
-      if (currentProgress.activeUploadId !== uploadId) return;
+      // while we were waiting on the API — discard the stale result. Keyed on
+      // the per-attempt token, because a resubmission re-sends the same
+      // uploadId and would otherwise look like this very call.
+      if (this.getVerifyToken(playerId, itemId) !== verifyToken) return;
 
       // Re-lookup the player's WebSocket — the original `ws` may be stale
       // if the player disconnected and reconnected during async verification
@@ -915,7 +1202,7 @@ export class ScavengerHuntRoom {
       if (this.room.phase !== 'playing') {
         currentProgress.status = 'searching';
         currentProgress.pendingReviewSince = undefined;
-        currentProgress.activeUploadId = undefined;
+        this.endVerification(currentProgress, playerId, itemId);
         await this.persist();
         this.sendTo(currentWs, {
           type: 'error',
@@ -927,22 +1214,26 @@ export class ScavengerHuntRoom {
       if (result.accepted) {
         currentProgress.status = 'found';
         currentProgress.pendingReviewSince = undefined;
-        currentProgress.activeUploadId = undefined;
+        this.endVerification(currentProgress, playerId, itemId);
         currentProgress.foundAt = Date.now();
         currentProgress.photoUrl = photoKey;
 
         // Calculate points: basePoints - hint deductions (already subtracted from totalScore)
         const pointsEarned = item.basePoints;
         this.room.progress[playerId].totalScore += pointsEarned;
+        this.clearRefundedFailures(playerId, itemId);
 
-        await this.persist();
-
-        this.sendTo(currentWs, {
+        const accepted: HuntServerMessage = {
           type: 'photo_accepted',
           itemId,
           pointsEarned,
           newScore: this.room.progress[playerId].totalScore,
-        });
+        };
+        this.rememberCompletedUpload(playerId, itemId, uploadId, accepted);
+
+        await this.persist();
+
+        this.sendTo(currentWs, accepted);
 
         this.notifyHostOfTeamUpdate();
         await this.checkAllTeamsComplete();
@@ -953,7 +1244,7 @@ export class ScavengerHuntRoom {
           // Auto-create appeal
           currentProgress.status = 'rejected';
           currentProgress.pendingReviewSince = undefined;
-          currentProgress.activeUploadId = undefined;
+          this.endVerification(currentProgress, playerId, itemId);
           const player = this.room.players.find((p) => p.id === playerId);
           const appeal: HuntAppeal = {
             playerId,
@@ -965,9 +1256,18 @@ export class ScavengerHuntRoom {
             isContest: false,
           };
           this.room.pendingAppeals.push(appeal);
+          this.clearRefundedFailures(playerId, itemId);
+
+          const submitted: HuntServerMessage = {
+            type: 'appeal_submitted',
+            itemId,
+            attemptsUsed: currentProgress.attemptsUsed,
+          };
+          this.rememberCompletedUpload(playerId, itemId, uploadId, submitted);
+
           await this.persist();
 
-          this.sendTo(currentWs, { type: 'appeal_submitted', itemId, attemptsUsed: currentProgress.attemptsUsed });
+          this.sendTo(currentWs, submitted);
 
           // Notify host
           const hostWs = this.findPlayerWebSocket(this.room.hostId);
@@ -980,17 +1280,22 @@ export class ScavengerHuntRoom {
         } else {
           currentProgress.status = 'searching';
           currentProgress.pendingReviewSince = undefined;
-          currentProgress.activeUploadId = undefined;
+          this.endVerification(currentProgress, playerId, itemId);
           currentProgress.lastRejectedPhotoUrl = photoKey;
-          await this.persist();
+          this.clearRefundedFailures(playerId, itemId);
 
-          this.sendTo(currentWs, {
+          const rejected: HuntServerMessage = {
             type: 'photo_rejected',
             itemId,
             reason: result.reason,
             attemptsRemaining,
             attemptsUsed: currentProgress.attemptsUsed,
-          });
+          };
+          this.rememberCompletedUpload(playerId, itemId, uploadId, rejected);
+
+          await this.persist();
+
+          this.sendTo(currentWs, rejected);
 
           this.notifyHostOfTeamUpdate();
         }
@@ -1003,35 +1308,220 @@ export class ScavengerHuntRoom {
         error: err instanceof Error ? err.message : String(err),
       });
 
-      // Reset status on error so player can retry — but only if this upload is
-      // still the one being verified (a reset/resubmission may have superseded it)
-      if (this.room) {
-        const currentProgress = this.room.progress[playerId]?.items[itemId];
-        if (
-          currentProgress &&
-          currentProgress.status === 'pending_review' &&
-          currentProgress.activeUploadId === uploadId
-        ) {
-          currentProgress.status = 'searching';
-          currentProgress.pendingReviewSince = undefined;
-          currentProgress.activeUploadId = undefined;
-          currentProgress.attemptsUsed--; // Don't count failed verification as an attempt
-          await this.persist();
-        }
+      // Everything below belongs to *this* verification attempt, so all of it
+      // sits inside the supersession guard. Outside it, the reply carried an
+      // attemptsUsed read from whatever submission happened to be current, and
+      // a cached failure landed on a newer, still-legitimate one.
+      if (!this.room) return;
+      const currentProgress = this.room.progress[playerId]?.items[itemId];
+      if (
+        !currentProgress ||
+        currentProgress.status !== 'pending_review' ||
+        this.getVerifyToken(playerId, itemId) !== verifyToken
+      ) {
+        return;
       }
 
-      // Send photo_rejected (not just error) so the frontend clears the verifying state
-      const errorWs = this.findPlayerWebSocket(playerId) ?? ws;
-      const attemptsUsed = this.room?.progress[playerId]?.items[itemId]?.attemptsUsed ?? 0;
-      const maxRetries = this.room?.config.maxRetries ?? 3;
-      this.sendTo(errorWs, {
+      // Reset status on error so the player can retry
+      currentProgress.status = 'searching';
+      currentProgress.pendingReviewSince = undefined;
+      this.endVerification(currentProgress, playerId, itemId);
+      // The photo was never judged, so keep it contestable — otherwise
+      // contest_photo answers "No rejected photo to contest" for every
+      // server-side failure. Only when it really is in R2, though: a key for
+      // an object that was never stored gives the host a broken image and, on
+      // approve, a dangling entry in saved history.
+      if (photoInR2) {
+        currentProgress.lastRejectedPhotoUrl = photoKey;
+      }
+
+      // A transient failure shouldn't eat the attempt, but an unconditional
+      // refund makes verification free: credits are debited once at start,
+      // so a client could loop a failing upload forever at two Sonnet calls
+      // plus a Haiku call each. Refund the first few, then start charging.
+      const refunded = this.getRefundedFailures(playerId, itemId);
+      if (refunded < MAX_REFUNDED_FAILURES_PER_ITEM) {
+        currentProgress.attemptsUsed--;
+        this.setRefundedFailures(playerId, itemId, refunded + 1);
+      }
+      await this.persist();
+
+      // Send photo_rejected (not just error) so the frontend clears the
+      // verifying state. Deliberately NOT remembered as a completed upload: a
+      // transient failure is not a finished submission, and the client's
+      // reconnect auto-retry would replay it through findCompletedUpload
+      // without ever re-verifying the photo.
+      this.sendTo(this.findPlayerWebSocket(playerId) ?? ws, {
         type: 'photo_rejected',
         itemId,
         reason: 'Photo verification failed. Please try again.',
-        attemptsRemaining: maxRetries - attemptsUsed,
-        attemptsUsed,
+        attemptsRemaining: this.room.config.maxRetries - currentProgress.attemptsUsed,
+        attemptsUsed: currentProgress.attemptsUsed,
+      });
+
+      await this.fileVerificationFailureAppeal(
+        playerId,
+        itemId,
+        photoInR2 ? photoKey : '',
+      );
+    }
+  }
+
+  /**
+   * Hand an item whose attempts ran out on *server-side failures* to the host
+   * as an appeal, so it can still be settled by hand.
+   *
+   * Without it the refund cap creates a state the machine cannot leave. During
+   * an API outage the first failures are refunded and the rest consume the
+   * attempts; from there submit_photo answers "No attempts remaining",
+   * contest_photo refuses on the same counter, and the auto-appeal in the
+   * verdict path never ran because no verdict was ever returned. The item
+   * stays unsettled, so checkAllTeamsComplete can't end the hunt early either
+   * — on a hunt the host has already paid credits for.
+   *
+   * Same mechanism the real-rejection path uses; the appeal is labelled so the
+   * host can see it is a verification failure and not a rejected photo.
+   */
+  private async fileVerificationFailureAppeal(
+    playerId: string,
+    itemId: string,
+    photoUrl: string,
+  ): Promise<void> {
+    const room = this.room;
+    if (!room || room.phase !== 'playing') return;
+
+    const progress = room.progress[playerId]?.items[itemId];
+    if (!progress || progress.status !== 'searching') return;
+    // Only once the player genuinely has no way back in
+    if (room.config.maxRetries - progress.attemptsUsed > 0) return;
+    if (this.hasPendingAppeal(playerId, itemId)) return;
+
+    const item = room.items.find((i) => i.id === itemId);
+    if (!item) return;
+
+    const player = room.players.find((p) => p.id === playerId);
+    const appeal: HuntAppeal = {
+      playerId,
+      playerUsername: player?.username || 'Unknown',
+      itemId,
+      // The host dashboard renders this string, and it is the only channel
+      // that can tell them the photo was never actually judged
+      itemDescription: `${item.description} — photo verification failed (server error, not a rejection)`,
+      photoUrl,
+      timestamp: Date.now(),
+      isContest: false,
+    };
+
+    progress.status = 'rejected';
+    room.pendingAppeals.push(appeal);
+    this.clearRefundedFailures(playerId, itemId);
+    await this.persist();
+
+    const playerWs = this.findPlayerWebSocket(playerId);
+    if (playerWs) {
+      this.sendTo(playerWs, {
+        type: 'appeal_submitted',
+        itemId,
+        attemptsUsed: progress.attemptsUsed,
       });
     }
+
+    const hostWs = this.findPlayerWebSocket(room.hostId);
+    if (hostWs) {
+      this.sendTo(hostWs, { type: 'appeal_received', appeal });
+    }
+
+    this.notifyHostOfTeamUpdate();
+  }
+
+  // --- Submission bookkeeping ---
+
+  private uploadKey(playerId: string, itemId: string, uploadId: string): string {
+    return `${playerId}:${itemId}:${uploadId}`;
+  }
+
+  /** The outcome already recorded for this exact upload, if any. */
+  private findCompletedUpload(
+    playerId: string,
+    itemId: string,
+    uploadId: string,
+  ): HuntServerMessage | null {
+    if (!this.room) return null;
+    const key = this.uploadKey(playerId, itemId, uploadId);
+    return this.room.completedUploads.find((e) => e.key === key)?.result ?? null;
+  }
+
+  /** Record a finished submission, evicting this player's oldest past the cap. */
+  private rememberCompletedUpload(
+    playerId: string,
+    itemId: string,
+    uploadId: string,
+    result: HuntServerMessage,
+  ): void {
+    if (!this.room) return;
+    const key = this.uploadKey(playerId, itemId, uploadId);
+    const existing = this.room.completedUploads.findIndex((e) => e.key === key);
+    if (existing !== -1) this.room.completedUploads.splice(existing, 1);
+    this.room.completedUploads.push({ key, result });
+
+    // Evict within this player only. A global FIFO let one busy team push
+    // another team's entry out, and the evicted team's reconnect-retry then
+    // burned a second attempt on a photo that had already been judged.
+    const prefix = `${playerId}:`;
+    let overflow =
+      this.room.completedUploads.filter((e) => e.key.startsWith(prefix)).length
+      - MAX_COMPLETED_UPLOADS_PER_PLAYER;
+    if (overflow <= 0) return;
+    // Oldest first, so dropping from the front drops the oldest
+    this.room.completedUploads = this.room.completedUploads.filter((e) => {
+      if (overflow > 0 && e.key.startsWith(prefix)) {
+        overflow--;
+        return false;
+      }
+      return true;
+    });
+  }
+
+  private verifyKey(playerId: string, itemId: string): string {
+    return `${playerId}:${itemId}`;
+  }
+
+  private setVerifyToken(playerId: string, itemId: string, token: string): void {
+    if (!this.room) return;
+    this.room.activeVerifications[this.verifyKey(playerId, itemId)] = token;
+  }
+
+  private getVerifyToken(playerId: string, itemId: string): string | undefined {
+    return this.room?.activeVerifications[this.verifyKey(playerId, itemId)];
+  }
+
+  /** Close out an item's in-flight verification: nothing is being awaited for
+   *  it any more, and a late result must not be applied. */
+  private endVerification(item: HuntItemProgress, playerId: string, itemId: string): void {
+    item.activeUploadId = undefined;
+    if (this.room) delete this.room.activeVerifications[this.verifyKey(playerId, itemId)];
+  }
+
+  private getRefundedFailures(playerId: string, itemId: string): number {
+    return this.room?.refundedFailures[playerId]?.[itemId] ?? 0;
+  }
+
+  private setRefundedFailures(playerId: string, itemId: string, count: number): void {
+    if (!this.room) return;
+    const forPlayer = (this.room.refundedFailures[playerId] ??= {});
+    forPlayer[itemId] = count;
+  }
+
+  /** A verification that actually returned a verdict clears the refund streak. */
+  private clearRefundedFailures(playerId: string, itemId: string): void {
+    const forPlayer = this.room?.refundedFailures[playerId];
+    if (forPlayer) delete forPlayer[itemId];
+  }
+
+  private hasPendingAppeal(playerId: string, itemId: string): boolean {
+    return !!this.room?.pendingAppeals.some(
+      (a) => a.playerId === playerId && a.itemId === itemId,
+    );
   }
 
   private async handleApproveAppeal(ws: WebSocket, playerId: string, itemId: string): Promise<void> {
@@ -1051,18 +1541,30 @@ export class ScavengerHuntRoom {
       return;
     }
 
-    // Remove appeal
+    const appeal = this.room.pendingAppeals[appealIdx];
+    const progress = this.room.progress[playerId]?.items[itemId];
+    const item = this.room.items.find((i) => i.id === itemId);
+
+    // Every exit below removes the appeal and persists. Splicing ahead of a
+    // bare `return` drops it from memory while it survives in storage, where
+    // it reappears after eviction and blocks checkAllTeamsComplete forever.
     this.room.pendingAppeals.splice(appealIdx, 1);
 
-    // Mark item as found
-    const progress = this.room.progress[playerId]?.items[itemId];
-    if (!progress) return;
-
-    const item = this.room.items.find((i) => i.id === itemId);
-    if (!item) return;
+    // The player may have resubmitted and already won the item while this
+    // appeal sat in the queue — scoring it again would double the points
+    if (!progress || !item || progress.status === 'found') {
+      await this.persist();
+      this.sendTo(ws, { type: 'error', message: 'That item is already resolved' });
+      this.notifyHostOfTeamUpdate();
+      await this.checkAllTeamsComplete();
+      return;
+    }
 
     progress.status = 'found';
     progress.foundAt = Date.now();
+    // Without this the photo is missing from history: saveHistory only keeps
+    // photos for items that are both 'found' and carry a photoUrl
+    progress.photoUrl = appeal.photoUrl;
 
     const pointsEarned = item.basePoints;
     this.room.progress[playerId].totalScore += pointsEarned;
@@ -1103,11 +1605,15 @@ export class ScavengerHuntRoom {
 
     const appeal = this.room.pendingAppeals[appealIdx];
 
-    // If this was a voluntary contest and player has attempts left, return to searching
+    // If this was a voluntary contest and player has attempts left, return to searching.
+    // Never for an item already won on a later submission: flipping it back to
+    // 'searching' would leave its points on the total, so buildResults and
+    // totalScore would disagree.
     const progress = this.room.progress[playerId]?.items[itemId];
     const returnToSearching = !!(
       appeal.isContest &&
       progress &&
+      progress.status !== 'found' &&
       this.room.config.maxRetries - progress.attemptsUsed > 0
     );
     if (returnToSearching && progress) {
@@ -1290,6 +1796,7 @@ export class ScavengerHuntRoom {
 
     const STUCK_THRESHOLD_MS = 60_000;
     let anyReset = false;
+    const exhausted: Array<{ playerId: string; itemId: string; photoUrl: string }> = [];
 
     for (const player of this.room.players) {
       const progress = this.room.progress[player.id];
@@ -1301,10 +1808,26 @@ export class ScavengerHuntRoom {
           item.pendingReviewSince &&
           now - item.pendingReviewSince > STUCK_THRESHOLD_MS
         ) {
+          // The photo is still in R2 and was never judged — keep it
+          // contestable, or contest_photo answers "No rejected photo to
+          // contest" for every timed-out review
+          if (item.activeUploadId) {
+            item.lastRejectedPhotoUrl = `${this.room.huntId}/${item.activeUploadId}`;
+          }
           item.status = 'searching';
           item.pendingReviewSince = undefined;
-          item.activeUploadId = undefined;
-          item.attemptsUsed = Math.max(0, item.attemptsUsed - 1);
+          this.endVerification(item, player.id, itemId);
+
+          // Under the same cap the throwing path is under. Refunding here
+          // unconditionally reopened the cost-abuse vector through slow or
+          // hanging verifications instead of fast-failing ones, and left two
+          // players hitting one degraded API with opposite outcomes depending
+          // on whether their call threw or timed out.
+          const refunded = this.getRefundedFailures(player.id, itemId);
+          if (refunded < MAX_REFUNDED_FAILURES_PER_ITEM) {
+            item.attemptsUsed = Math.max(0, item.attemptsUsed - 1);
+            this.setRefundedFailures(player.id, itemId, refunded + 1);
+          }
           anyReset = true;
 
           const ws = this.findPlayerWebSocket(player.id);
@@ -1317,12 +1840,27 @@ export class ScavengerHuntRoom {
               attemptsUsed: item.attemptsUsed,
             });
           }
+
+          // Same escape hatch the throwing path gets — capping the refund
+          // without one just moves the terminal state to timeouts
+          if (this.room.config.maxRetries - item.attemptsUsed <= 0) {
+            exhausted.push({
+              playerId: player.id,
+              itemId,
+              photoUrl: item.lastRejectedPhotoUrl ?? '',
+            });
+          }
         }
       }
     }
 
     if (anyReset) {
       await this.persist();
+    }
+
+    // Filed after the walk: each one persists and mutates pendingAppeals
+    for (const entry of exhausted) {
+      await this.fileVerificationFailureAppeal(entry.playerId, entry.itemId, entry.photoUrl);
     }
   }
 
@@ -1354,7 +1892,7 @@ export class ScavengerHuntRoom {
         if (item.status === 'pending_review') {
           item.status = 'searching';
           item.pendingReviewSince = undefined;
-          item.activeUploadId = undefined;
+          this.endVerification(item, progress.playerId, item.itemId);
         }
       }
     }
@@ -1374,8 +1912,16 @@ export class ScavengerHuntRoom {
 
     const results = this.buildResults();
 
-    await this.saveHistory(results);
+    // Commit the finished state and its cleanup alarm together, before any
+    // non-storage await reopens the input gate. Previously nextAlarmAction was
+    // set to 'cleanup_hunt' with the matching setAlarm 50 lines later, behind a
+    // KV write — an alarm delivered in that window ran cleanupHunt(), nulled
+    // this.room, and the hunt_finished broadcast never fired.
     await this.persist();
+    await this.state.storage.setAlarm(Date.now() + HUNT_EXPIRY_MS);
+
+    // Tell everyone the hunt is over before the KV write below can yield
+    this.broadcast({ type: 'hunt_finished', results });
 
     logEvent(this.env, 'hunt_finished', {
       huntId: this.room.huntId,
@@ -1390,11 +1936,20 @@ export class ScavengerHuntRoom {
       isGroupGame: !!this.room.config.groupId,
     }).catch(() => {});
 
-    this.broadcast({ type: 'hunt_finished', results });
-    await this.notifyGroupOfUpdate();
+    await this.saveHistory(results);
+    // saveHistory writes to KV, so a cleanup alarm may have run meanwhile
+    if (!this.room) return;
 
-    // Keep the finished room around for rejoins/results until HUNT_EXPIRY_MS passes
-    await this.state.storage.setAlarm(Date.now() + HUNT_EXPIRY_MS);
+    // "Save photos" off used to mean "don't index them in history" while every
+    // photo stayed in R2 forever — cleanupR2Photos' only caller bails unless
+    // the hunt is still 'waiting'. Nothing references them once the hunt is
+    // over, so delete them for real.
+    if (!this.room.config.savePhotos) {
+      await this.cleanupR2Photos();
+      if (!this.room) return;
+    }
+
+    await this.notifyGroupOfUpdate();
   }
 
   private buildResults(): HuntResults {
@@ -1538,7 +2093,14 @@ export class ScavengerHuntRoom {
     if (!this.room) return;
 
     const hostPlayer = this.room.players.find((p) => p.id === this.room!.hostId);
-    const hostSecret = crypto.randomUUID();
+    if (!this.room.hostSecret) {
+      this.room.hostSecret = crypto.randomUUID();
+      // Bind the secret to whoever holds host *now*. hostId drifts afterwards
+      // — an explicit Leave on the results screen transfers it — and the
+      // re-issue on rejoin must not follow it to a participant.
+      this.room.hostSecretOwnerId = this.room.hostId;
+    }
+    const hostSecret = this.room.hostSecret;
 
     // Collect photo R2 keys for found items (only if savePhotos is enabled)
     const photoKeys: Record<string, Record<string, string>> = {};
@@ -1596,25 +2158,36 @@ export class ScavengerHuntRoom {
       groupId: this.room.config.groupId,
     };
 
+    // Read these out before the KV write: a cleanup alarm delivered while it
+    // is in flight nulls this.room, and everything below used to deref it
+    const huntId = this.room.huntId;
+    const secretOwnerId = this.room.hostSecretOwnerId ?? this.room.hostId;
+
     try {
       await this.env.TRIVIA_KV.put(
-        `hunt-history:${this.room.huntId}`,
+        `hunt-history:${huntId}`,
         JSON.stringify(entry),
         { expirationTtl: 90 * 24 * 60 * 60, metadata },
       );
 
+      if (!this.room) return;
+
+      // Persist the secret so a host who is offline right now can still be
+      // re-issued it when they reconnect (see handleRejoin)
+      await this.persist();
+
       // Send host secret to host for deletion auth
-      const hostWs = this.findPlayerWebSocket(this.room.hostId);
+      const hostWs = this.findPlayerWebSocket(secretOwnerId);
       if (hostWs) {
         this.sendTo(hostWs, {
           type: 'hunt_history_saved',
-          huntId: this.room.huntId,
+          huntId,
           hostSecret,
         });
       }
     } catch (err) {
       console.error('Failed to save hunt history', {
-        huntId: this.room.huntId,
+        huntId,
         error: err instanceof Error ? err.message : String(err),
       });
     }

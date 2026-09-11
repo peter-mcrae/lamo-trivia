@@ -59,6 +59,21 @@ export const GroupClientMessageSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ping') }),
 ]);
 
+/**
+ * Body of `POST /api/groups/:groupId/members/link`, which ties a member record
+ * to the signed-in caller's account.
+ *
+ * `memberId` is the opaque id the group DO handed that member when it joined —
+ * possession of it is what proves the caller owns the record. It is omitted
+ * when the caller is instead asking which member record their account already
+ * owns (recovering a membership on a new device).
+ */
+export const GroupMemberLinkSchema = z.object({
+  memberId: z.string().uuid().optional(),
+});
+
+export type GroupMemberLinkInput = z.infer<typeof GroupMemberLinkSchema>;
+
 // --- Scavenger Hunt Schemas ---
 
 export const HuntClueSchema = z.object({
@@ -92,6 +107,25 @@ export const HuntConfigSchema = z.object({
 );
 
 export type HuntConfigInput = z.infer<typeof HuntConfigSchema>;
+
+/**
+ * Body of `POST /api/hunts/history`, the hunt-history listing.
+ *
+ * `hostSecrets` maps huntId → the hostSecret that hunt handed its host when it
+ * finished, as the client keeps them in local storage. Hunts created before
+ * the server started indexing hosts by account have nothing else tying them to
+ * anyone, so this is the only way their host can still see them listed.
+ *
+ * Ids are not validated here on purpose: a client whose local storage has
+ * picked up a stale or malformed key should still get the rest of its list
+ * back, so the route drops ids that are not hunt-shaped instead of failing the
+ * whole request.
+ */
+export const HuntHistoryClaimSchema = z.object({
+  hostSecrets: z.record(z.string(), z.string().min(1).max(200)).default({}),
+});
+
+export type HuntHistoryClaimInput = z.infer<typeof HuntHistoryClaimSchema>;
 
 // --- Auth Schemas ---
 

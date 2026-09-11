@@ -23,9 +23,13 @@ export function useHuntState() {
     switch (message.type) {
       case 'hunt_state':
         setHuntState(message.state);
-        setMyProgress(message.state.myProgress);
+        setMyProgress(message.state.myProgress ?? null);
         if (message.state.allTeams) {
           setAllTeams(message.state.allTeams);
+        } else if (message.state.myProgress?.playerId !== message.state.hostId) {
+          // Only the host's state carries allTeams — a demoted host would
+          // otherwise keep rendering a roster that stopped updating
+          setAllTeams(null);
         }
         // Rebuild verifyingItems from items with pending_review status (e.g. after rejoin)
         if (message.state.myProgress?.items) {
@@ -206,7 +210,10 @@ export function useHuntState() {
               [message.itemId]: {
                 ...itemProgress,
                 status: 'rejected' as const,
-                attemptsUsed: message.attemptsUsed,
+                // Same defensive fallback as photo_rejected: a malformed
+                // message must never poison attemptsUsed (undefined → NaN
+                // permanently disables the submit button)
+                attemptsUsed: message.attemptsUsed ?? itemProgress.attemptsUsed,
               },
             },
           };
@@ -214,7 +221,20 @@ export function useHuntState() {
         break;
 
       case 'appeal_received':
-        setAppeals((prev) => [...prev, message.appeal]);
+        // The server deliberately replays the whole pending list on rejoin,
+        // host transfer and claim_host, so appending blindly doubles the queue
+        // on every host reconnect (duplicate cards, inflated badge count and
+        // duplicate React keys). Key on (playerId, itemId) and keep the newest.
+        setAppeals((prev) => {
+          const incoming = message.appeal;
+          const existing = prev.findIndex(
+            (a) => a.playerId === incoming.playerId && a.itemId === incoming.itemId,
+          );
+          if (existing === -1) return [...prev, incoming];
+          const next = [...prev];
+          next[existing] = incoming;
+          return next;
+        });
         break;
 
       case 'appeal_approved':

@@ -93,10 +93,25 @@ export interface GameListing {
 }
 
 export interface GroupMember {
+  /**
+   * The opaque id the group DO issued this member on join, and the bearer
+   * secret that proves the record belongs to you. It is delivered only to its
+   * own owner — `join_confirmed`, or the `POST /members/link` response — and is
+   * stripped from every member list the group broadcasts, so it is absent on
+   * everyone else's entry in `GroupState.members` and in `member_joined`.
+   */
   memberId?: string;
   username: string;
   joinedAt: number;
   online: boolean;
+  /**
+   * True once this member record has been matched to a signed-in account.
+   * The address itself never appears here — member lists are broadcast to the
+   * whole group — so the link is only ever reported as a flag. Members who
+   * joined before account linking existed report `false` until their client
+   * links them on the next visit.
+   */
+  linkedAccount?: boolean;
 }
 
 export interface GroupGame {

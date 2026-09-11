@@ -5,10 +5,10 @@ import {
 } from '@lamo-trivia/shared';
 import {
   sendMagicCode, verifyMagicCode, createSession, getSessionUser, deleteSession,
-  getUser, updateUser, addCreditTransaction,
+  adjustUserCredits,
 } from '../auth';
-import { getInvite, markInviteAccepted } from '../invites';
-import type { User, CreditTransaction } from '@lamo-trivia/shared';
+import { acceptInvite } from '../invites';
+import type { User } from '@lamo-trivia/shared';
 import { getClientIP } from '../middleware/rate-limit';
 import { authCodeLimiter, authVerifyLimiter, authVerifyEmailLimiter, rateLimitedResponse } from '../middleware/rate-limit';
 
@@ -81,48 +81,40 @@ auth.post('/accept-invite', async (c) => {
     return c.json({ error: 'Invalid invite token' }, 400);
   }
 
-  const invite = await getInvite(c.env, body.token);
-  if (!invite) {
-    return c.json({ error: 'Invite not found or expired' }, 404);
-  }
+  // acceptInvite claims the invite under a lock and marks it used before the
+  // grant runs, so concurrent accepts of one token can't each pay out. The
+  // idempotency key is the second line of defence: if a duplicate ever did get
+  // through, the credits land exactly once anyway.
+  let user: User | undefined;
+  let isNewUser = false;
 
-  if (invite.acceptedAt) {
+  const outcome = await acceptInvite(c.env, body.token, async (invite) => {
+    const result = await adjustUserCredits(c.env, invite.email, invite.credits, {
+      idempotencyKey: `invite:${invite.token}`,
+      createIfMissing: true,
+      transaction: {
+        type: 'admin_credit',
+        amount: invite.credits,
+        timestamp: Date.now(),
+        details: `Invite credits from ${invite.invitedBy}`,
+      },
+    });
+    user = result.user;
+    isNewUser = result.isNewUser;
+  });
+
+  if (!outcome.ok) {
+    if (outcome.reason === 'not_found') {
+      return c.json({ error: 'Invite not found or expired' }, 404);
+    }
+    if (outcome.reason === 'busy') {
+      return c.json({ error: 'This invite is already being processed' }, 409);
+    }
     return c.json({ error: 'This invite has already been used' }, 400);
   }
 
-  // Check if user already exists
-  let user = await getUser(invite.email, c.env);
-  const isNewUser = !user;
-
-  if (!user) {
-    // Create the user with invite credits
-    user = {
-      userId: crypto.randomUUID(),
-      email: invite.email,
-      credits: invite.credits,
-      createdAt: Date.now(),
-    };
-    await c.env.TRIVIA_KV.put(`user:${invite.email}`, JSON.stringify(user));
-  } else {
-    // Existing user — still give them the credits
-    user.credits += invite.credits;
-    await updateUser(user, c.env);
-  }
-
-  // Record the credit transaction
-  const transaction: CreditTransaction = {
-    type: 'admin_credit',
-    amount: invite.credits,
-    timestamp: Date.now(),
-    details: `Invite credits from ${invite.invitedBy}`,
-  };
-  await addCreditTransaction(user.userId, transaction, c.env);
-
-  // Mark invite as used
-  await markInviteAccepted(c.env, invite);
-
   // Create a session so they're logged in
-  const { token: sessionToken } = await createSession(invite.email, c.env);
+  const { token: sessionToken } = await createSession(outcome.invite.email, c.env);
 
   return c.json({ token: sessionToken, user, isNewUser });
 });

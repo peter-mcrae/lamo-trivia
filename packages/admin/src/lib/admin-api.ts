@@ -33,6 +33,16 @@ export interface AdminUserDetailResponse {
   transactions: CreditTransaction[];
 }
 
+export interface AdminCreditAdjustmentResponse {
+  user: User;
+  newBalance: number;
+  /**
+   * False when this requestId had already been applied. The response replays
+   * the original adjustment, so the balance is unchanged by this call.
+   */
+  applied: boolean;
+}
+
 export interface AdminEventsResponse {
   events: Array<{ key: string; metadata: unknown }>;
   cursor: string | null;
@@ -62,12 +72,16 @@ export const adminApi = {
   getUser: (email: string) =>
     adminFetch<AdminUserDetailResponse>(`/users/${encodeURIComponent(email)}`),
 
-  adjustCredits: (email: string, amount: number, reason: string) =>
-    adminFetch<{ user: User; newBalance: number }>(
+  // `requestId` names one adjustment and must come from the caller: the backend
+  // treats a repeat of an id as the same adjustment rather than a second grant,
+  // so a retry has to reuse the id it failed with. Minting one here would defeat
+  // that — every retry would get a fresh id and credit the user twice.
+  adjustCredits: (email: string, amount: number, reason: string, requestId: string) =>
+    adminFetch<AdminCreditAdjustmentResponse>(
       `/users/${encodeURIComponent(email)}/credits`,
       {
         method: 'POST',
-        body: JSON.stringify({ amount, reason }),
+        body: JSON.stringify({ amount, reason, requestId }),
       },
     ),
 

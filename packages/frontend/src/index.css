@@ -1170,9 +1170,24 @@
   place-items: center;
   flex: none;
 }
+.hunt-option {
+  background: #f5fafa;
+  border-color: #bfe2e4;
+}
+.hunt-option .option-bottom > p {
+  color: #3c6d71;
+}
 .hunt-example {
   background: #f0f8f9;
   border-color: #dceff1;
+}
+.hunt-example .example-label {
+  color: #2d7075;
+}
+.hunt-example .example-checklist > li > span {
+  background: #dff3f2;
+  border-color: #b9dedc;
+  color: #1f6f74;
 }
 .option-bottom {
   padding: 1.35rem 1.5rem 1.5rem;
@@ -1246,6 +1261,27 @@
 }
 .trivia-option .option-button:hover {
   background: #4a73ff;
+}
+.riddle-option {
+  background: #eef4ff;
+  border-color: #bcd2f5;
+}
+.riddle-option .option-meta {
+  color: #3557a6;
+}
+.riddle-option .option-meta > span {
+  background: #d7e6ff;
+  color: #1d3f91;
+}
+.riddle-option .option-bottom > p {
+  color: #41598c;
+}
+.riddle-example {
+  background: #e2ecfe;
+  border-color: #b9cdf0;
+}
+.riddle-example .example-label {
+  color: #3557a6;
 }
 .first-time-note {
   margin-top: 1.6rem;

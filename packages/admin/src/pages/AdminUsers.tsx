@@ -29,6 +29,10 @@ export default function AdminUsers() {
   const [creditReason, setCreditReason] = useState('');
   const [creditLoading, setCreditLoading] = useState(false);
   const [creditMsg, setCreditMsg] = useState('');
+  // See AdminUserDetail: the requestId names one adjustment, so a retry after a
+  // failure reuses it and anything else gets a fresh one. Keyed by recipient as
+  // well as amount and reason, since this form can be reopened on another user.
+  const creditRequest = useRef<{ key: string; requestId: string } | null>(null);
 
   // Invite user state
   const [inviteEmail, setInviteEmail] = useState('');
@@ -71,11 +75,29 @@ export default function AdminUsers() {
     const amount = parseInt(creditAmount, 10);
     if (!amount || !creditReason.trim()) return;
 
+    const trimmedReason = creditReason.trim();
+    const key = `${creditEmail}:${amount}:${trimmedReason}`;
+    if (creditRequest.current?.key !== key) {
+      creditRequest.current = { key, requestId: crypto.randomUUID() };
+    }
+
     setCreditLoading(true);
     setCreditMsg('');
     try {
-      const res = await adminApi.adjustCredits(creditEmail, amount, creditReason.trim());
-      setCreditMsg(`Done! New balance: ${res.newBalance}`);
+      const res = await adminApi.adjustCredits(
+        creditEmail,
+        amount,
+        trimmedReason,
+        creditRequest.current.requestId,
+      );
+      creditRequest.current = null;
+      // `applied === false` means this requestId had already gone through, so
+      // the balance below is a replay rather than the result of this click.
+      setCreditMsg(
+        res.applied === false
+          ? `Done — already applied. Balance unchanged: ${res.newBalance}`
+          : `Done! New balance: ${res.newBalance}`,
+      );
       setCreditAmount('');
       setCreditReason('');
       // Update the user in the list

@@ -22,6 +22,15 @@ function saveGroupsToStorage(groups: SavedGroup[]): void {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(groups));
 }
 
+/**
+ * The member token this device holds for a group, for callers outside React.
+ * It is what proves to the server that a member record is ours, so the API
+ * layer needs it when linking a membership to the signed-in account.
+ */
+export function getStoredMemberId(groupId: string): string | null {
+  return loadGroups().find((g) => g.groupId === groupId)?.memberId ?? null;
+}
+
 export function useGroups() {
   const [groups, setGroups] = useState<SavedGroup[]>(loadGroups);
 

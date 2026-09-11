@@ -17,7 +17,8 @@ export function Timer({ seconds, total }: TimerProps) {
       </div>
       <div role="progressbar" aria-label="Time remaining" aria-valuemin={0} aria-valuemax={Math.max(1, total)} aria-valuenow={Math.max(0, Math.min(seconds, total))} aria-valuetext={`${seconds} seconds remaining`} className="h-2 bg-lamo-bg rounded-full overflow-hidden">
         <div
-          className={`h-full rounded-full transition-all duration-1000 ${urgent ? 'bg-red-500' : 'bg-lamo-lime'}`}
+          data-testid="timer-fill"
+          className={`h-full rounded-full transition-all duration-1000 ${urgent ? 'bg-red-500' : 'bg-lamo-blue'}`}
           style={{ width: `${pct}%` }}
         />
       </div>

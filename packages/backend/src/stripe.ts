@@ -1,7 +1,7 @@
 import { Env, getStripeKey } from './env';
 import { CREDIT_PRICING } from '@lamo-trivia/shared';
 import type { User } from '@lamo-trivia/shared';
-import { getUser, updateUser, addCreditTransaction } from './auth';
+import { getUser, updateUser, adjustUserCredits, withKvLock, KvLockBusyError } from './auth';
 
 // --- Checkout ---
 
@@ -163,24 +163,69 @@ export async function handleCheckoutCompleted(
     return;
   }
 
-  // Add credits
-  user.credits += CREDIT_PRICING.creditsPerPurchase;
-
-  // Save Stripe customer ID if we got one
-  if (session.customer && !user.stripeCustomerId) {
-    user.stripeCustomerId = session.customer;
+  // Add credits. `user` above is only a snapshot used for the existence check:
+  // `user.credits += n` on it and a whole-record write back would revert any
+  // coupon redemption or hunt deduction that landed in between. The Stripe
+  // retry gate above doesn't help there — the racing write isn't a retry.
+  // adjustUserCredits re-reads the balance inside the per-user lock instead.
+  let credited: User;
+  try {
+    ({ user: credited } = await adjustUserCredits(
+      env,
+      email,
+      CREDIT_PRICING.creditsPerPurchase,
+      {
+        // One Checkout Session is one purchase. Coarser (the user id) would
+        // swallow their second purchase; finer (a per-delivery id) would let
+        // two deliveries of this session pay out twice.
+        idempotencyKey: `stripe-purchase:${session.id}`,
+        transaction: {
+          type: 'purchase',
+          amount: CREDIT_PRICING.creditsPerPurchase,
+          timestamp: Date.now(),
+          details: `Purchased ${CREDIT_PRICING.creditsPerPurchase} credits`,
+          stripeSessionId: session.id,
+        },
+      },
+    ));
+  } catch (err) {
+    // Drop the gate so Stripe's retry can have another go — leaving it at
+    // 'processing' would make the retry return early and lose a paid grant.
+    //
+    // Deleting this gate is only safe because it is not the last one. The
+    // retry re-enters adjustUserCredits, which keeps its own
+    // `credit-applied:stripe-purchase:{session}` marker for 90 days and only
+    // ever removes it for a failure that happened *before* the balance was
+    // written. So either the balance moved and the marker survives (the retry
+    // is a no-op returning applied: false), or neither happened and the retry
+    // pays out exactly once. The marker used to be rolled back for any failure
+    // at all, ledger appends included — which, with this delete, turned one
+    // payment into two grants.
+    await env.TRIVIA_KV.delete(idempotencyKey);
+    throw err;
   }
 
-  await updateUser(user, env);
-
-  // Record transaction
-  await addCreditTransaction(user.userId, {
-    type: 'purchase',
-    amount: CREDIT_PRICING.creditsPerPurchase,
-    timestamp: Date.now(),
-    details: `Purchased ${CREDIT_PRICING.creditsPerPurchase} credits`,
-    stripeSessionId: session.id,
-  }, env);
+  // Save Stripe customer ID if we got one. This is a second write, so it has
+  // to re-read the user under the same per-user lock adjustUserCredits takes
+  // internally (auth.ts) — keep the key in step with it:
+  // writing the pre-grant `user` object back here would carry its stale
+  // credits and undo the purchase we just made. Best-effort — a paid-for
+  // grant must not fail on a bookkeeping field.
+  const customerId = session.customer;
+  if (customerId && !credited.stripeCustomerId) {
+    try {
+      await withKvLock(env, `credit-lock:user:${credited.email}`, async () => {
+        const fresh = await getUser(credited.email, env);
+        if (!fresh || fresh.stripeCustomerId) return;
+        fresh.stripeCustomerId = customerId;
+        await updateUser(fresh, env);
+      });
+    } catch (err) {
+      if (!(err instanceof KvLockBusyError)) throw err;
+      // Another credit op holds the lock; the id gets picked up next purchase.
+      console.warn('Stripe customer id not saved, lock busy', session.id);
+    }
+  }
 
   // Mark as fulfilled
   await env.TRIVIA_KV.put(idempotencyKey, 'fulfilled', { expirationTtl: 30 * 24 * 60 * 60 });

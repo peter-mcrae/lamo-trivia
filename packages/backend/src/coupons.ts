@@ -1,10 +1,57 @@
 import type { Env } from './env';
 import type { Coupon } from '@lamo-trivia/shared';
 import { getResendKey } from './env';
+import { withKvLock } from './auth';
+
+/**
+ * How long a per-user claim record is kept. The coupon's own `usedBy` list is
+ * the durable record of who redeemed it; this key exists only as a second,
+ * per-user barrier against a concurrent double redemption.
+ */
+const COUPON_CLAIM_TTL = 90 * 24 * 60 * 60; // 90 days
 
 /** KV key for a coupon */
 function couponKey(code: string): string {
   return `coupon:${code.toUpperCase()}`;
+}
+
+/**
+ * KV key recording that one user has claimed one coupon. `createdAt` is part
+ * of the key so deleting a code and re-issuing it doesn't inherit the old
+ * coupon's claims.
+ */
+function couponClaimKey(coupon: Coupon, email: string): string {
+  return `coupon-claim:${coupon.code.toUpperCase()}:${coupon.createdAt}:${email.toLowerCase()}`;
+}
+
+/**
+ * KV put options for a coupon record. The metadata mirrors the record, so it
+ * has to be rebuilt from whatever version is being written — including the
+ * pre-redemption one a rollback restores.
+ */
+function couponKvOptions(coupon: Coupon): {
+  metadata: Record<string, unknown>;
+  expirationTtl?: number;
+} {
+  const opts: { metadata: Record<string, unknown>; expirationTtl?: number } = {
+    metadata: {
+      code: coupon.code,
+      credits: coupon.credits,
+      maxUses: coupon.maxUses,
+      usedCount: coupon.usedCount,
+      note: coupon.note.slice(0, 100),
+      createdAt: coupon.createdAt,
+    },
+  };
+
+  if (coupon.expiresAt) {
+    const ttlSeconds = Math.floor((coupon.expiresAt - Date.now()) / 1000);
+    if (ttlSeconds > 60) {
+      opts.expirationTtl = ttlSeconds;
+    }
+  }
+
+  return opts;
 }
 
 /** Generate a random coupon code: LAMO-XXXX-XXXX */
@@ -59,25 +106,7 @@ export async function createCoupon(
   };
 
   // Store with optional TTL based on expiry
-  const kvOpts: { metadata: Record<string, unknown>; expirationTtl?: number } = {
-    metadata: {
-      code: coupon.code,
-      credits: coupon.credits,
-      maxUses: coupon.maxUses,
-      usedCount: coupon.usedCount,
-      note: coupon.note.slice(0, 100),
-      createdAt: coupon.createdAt,
-    },
-  };
-
-  if (opts.expiresAt) {
-    const ttlSeconds = Math.floor((opts.expiresAt - Date.now()) / 1000);
-    if (ttlSeconds > 60) {
-      kvOpts.expirationTtl = ttlSeconds;
-    }
-  }
-
-  await env.TRIVIA_KV.put(couponKey(code), JSON.stringify(coupon), kvOpts);
+  await env.TRIVIA_KV.put(couponKey(code), JSON.stringify(coupon), couponKvOptions(coupon));
 
   return coupon;
 }
@@ -120,61 +149,119 @@ export async function listCoupons(
   };
 }
 
-/** Redeem a coupon for a user. Returns credits granted or throws on error. */
+/**
+ * Redeem a coupon for a user. Returns credits granted or throws on error.
+ *
+ * Redemption used to be a bare read-check-write: N concurrent requests for the
+ * same code all read `usedCount` before any of them wrote it back, so all N
+ * passed both the max-uses and the already-used check. It is now serialised on
+ * a per-coupon lock, re-validated inside that lock, and backed by a per-user
+ * claim key so a duplicate that outruns the lock still can't redeem twice.
+ *
+ * `grant` (when supplied) runs inside the lock, *after* the coupon has been
+ * written back as consumed. That ordering decides what an isolate that dies
+ * mid-redemption leaves behind: a burnt use, which an admin can re-issue,
+ * rather than a fully-paid-out coupon that is still redeemable by the next
+ * person. A *clean* failure is different — `grant` is all-or-nothing (see
+ * `adjustUserCredits`), so a throw means no credits moved and the use is put
+ * back.
+ */
 export async function redeemCoupon(
   env: Env,
   code: string,
   userEmail: string,
+  grant?: (coupon: Coupon) => Promise<void>,
 ): Promise<{ credits: number; coupon: Coupon }> {
+  const email = userEmail.toLowerCase();
   const normalized = code.toUpperCase().replace(/-/g, '');
   // Re-add dashes for lookup — try both raw and formatted
-  const coupon = await getCoupon(env, code) ?? await getCoupon(env, normalized);
+  const found = await getCoupon(env, code) ?? await getCoupon(env, normalized);
 
-  if (!coupon) {
+  if (!found) {
     throw new Error('Invalid coupon code');
   }
 
-  // Check expiry
-  if (coupon.expiresAt && Date.now() > coupon.expiresAt) {
-    throw new Error('This coupon has expired');
-  }
-
-  // Check max uses
-  if (coupon.usedCount >= coupon.maxUses) {
-    throw new Error('This coupon has been fully redeemed');
-  }
-
-  // Check if user already used it
-  if (coupon.usedBy.includes(userEmail.toLowerCase())) {
-    throw new Error('You have already used this coupon');
-  }
-
-  // Redeem
-  coupon.usedCount++;
-  coupon.usedBy.push(userEmail.toLowerCase());
-
-  // Update KV
-  const kvOpts: { metadata: Record<string, unknown>; expirationTtl?: number } = {
-    metadata: {
-      code: coupon.code,
-      credits: coupon.credits,
-      maxUses: coupon.maxUses,
-      usedCount: coupon.usedCount,
-      note: coupon.note.slice(0, 100),
-      createdAt: coupon.createdAt,
-    },
-  };
-
-  if (coupon.expiresAt) {
-    const ttlSeconds = Math.floor((coupon.expiresAt - Date.now()) / 1000);
-    if (ttlSeconds > 60) {
-      kvOpts.expirationTtl = ttlSeconds;
+  return withKvLock(env, `coupon-lock:${found.code}`, async () => {
+    // Re-read inside the lock — `found` was fetched before we held it, so its
+    // usedCount may already be stale.
+    const coupon = await getCoupon(env, found.code);
+    if (!coupon) {
+      throw new Error('Invalid coupon code');
     }
-  }
 
-  await env.TRIVIA_KV.put(couponKey(coupon.code), JSON.stringify(coupon), kvOpts);
+    // Check expiry
+    if (coupon.expiresAt && Date.now() > coupon.expiresAt) {
+      throw new Error('This coupon has expired');
+    }
 
-  return { credits: coupon.credits, coupon };
+    // Check max uses
+    if (coupon.usedCount >= coupon.maxUses) {
+      throw new Error('This coupon has been fully redeemed');
+    }
+
+    // Check if user already used it — the claim key catches a redemption that
+    // was granted but whose coupon write never landed.
+    const claimKey = couponClaimKey(coupon, email);
+    if (coupon.usedBy.includes(email) || (await env.TRIVIA_KV.get(claimKey))) {
+      throw new Error('You have already used this coupon');
+    }
+
+    // Redeem. `coupon` is left untouched so it can be written back verbatim if
+    // the redemption has to be undone.
+    const consumed: Coupon = {
+      ...coupon,
+      usedCount: coupon.usedCount + 1,
+      usedBy: [...coupon.usedBy, email],
+    };
+
+    await env.TRIVIA_KV.put(
+      claimKey,
+      JSON.stringify({ code: coupon.code, email, credits: coupon.credits, claimedAt: Date.now() }),
+      { expirationTtl: COUPON_CLAIM_TTL },
+    );
+
+    // Consume first, then grant. Each step is undone only if it actually
+    // happened: the old rollback deleted the claim key for *any* failure under
+    // the comment "Nothing was consumed", including one raised after the
+    // credits had already been handed out — which dropped the user's barrier
+    // and left the coupon unconsumed, i.e. payable again.
+    let consumedWritten = false;
+    try {
+      await env.TRIVIA_KV.put(
+        couponKey(consumed.code),
+        JSON.stringify(consumed),
+        couponKvOptions(consumed),
+      );
+      consumedWritten = true;
+
+      if (grant) await grant(consumed);
+    } catch (err) {
+      // A throw from `grant` means the credits did not move, so the use goes
+      // back and the claim is dropped for a retry.
+      try {
+        if (consumedWritten) {
+          await env.TRIVIA_KV.put(
+            couponKey(coupon.code),
+            JSON.stringify(coupon),
+            couponKvOptions(coupon),
+          );
+        }
+        await env.TRIVIA_KV.delete(claimKey);
+      } catch (rollbackErr) {
+        // Undoing failed as well, so the use stays consumed and the claim
+        // stands together with it — the safe residue. Surface the original
+        // failure, not this one.
+        console.error('Coupon rollback failed; redemption left consumed', {
+          code: coupon.code,
+          email,
+          error: rollbackErr instanceof Error ? rollbackErr.message : String(rollbackErr),
+        });
+      }
+      throw err;
+    }
+
+    return { credits: consumed.credits, coupon: consumed };
+  });
 }
 
 /** Delete a coupon */
