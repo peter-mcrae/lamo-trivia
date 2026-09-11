@@ -37,6 +37,12 @@ function delayedOKResponse(content: string, delayMs: number): Promise<Response> 
  * exactly why the positional read survived the move to Sonnet 5. These don't.
  */
 describe('verifyHuntPhoto — response shape on current models', () => {
+  // Asserting on mock.calls[0] only means what it says if this block starts
+  // from a clean mock, rather than from whatever ran before it in file order.
+  beforeEach(() => {
+    mockFetch.mockReset();
+  });
+
   const VERDICT = JSON.stringify({ accepted: true, confidence: 0.9, reason: 'Looks right' });
 
   /** What a current model returns when thinking runs: a thinking block first,
