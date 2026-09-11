@@ -5,8 +5,12 @@ import type { ServerMessage } from '@lamo-trivia/shared';
 
 // --- Mocks ---
 
-// Mock canvas-confetti
-vi.mock('canvas-confetti', () => ({ default: vi.fn() }));
+// Mock canvas-confetti. QuestionCard fires through a confetti.create() instance
+// (the bare export hardcodes a blob:-Worker the production CSP blocks), so the
+// mock needs `create` even though these tests never reach the celebration.
+vi.mock('canvas-confetti', () => ({
+  default: Object.assign(vi.fn(), { create: vi.fn(() => vi.fn()) }),
+}));
 
 // Mock GroupMembersCard (uses its own WebSocket, unrelated to this test)
 vi.mock('@/components/GroupMembersCard', () => ({

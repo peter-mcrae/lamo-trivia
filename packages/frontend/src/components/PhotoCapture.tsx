@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import { Button } from '@/components/ui/Button';
-import { canDecodeImages, photoDecodeMessage } from '@/hooks/usePhotoUpload';
+import { canDecodeImages, decodeImage, photoDecodeMessage } from '@/hooks/usePhotoUpload';
 
 const PREVIEW_MAX_DIMENSION = 1024;
 
@@ -29,7 +29,8 @@ async function toPreviewDataUrl(file: File): Promise<string> {
   if (!canDecodeImages()) {
     throw new Error('createImageBitmap is unavailable');
   }
-  const bitmap = await createImageBitmap(file);
+  // Same EXIF handling as the upload path, so the preview matches what is sent
+  const bitmap = await decodeImage(file);
 
   try {
     let { width, height } = bitmap;

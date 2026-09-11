@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { MAX_SOURCE_PHOTO_BYTES, usePhotoUpload } from '../usePhotoUpload';
+import { MAX_SOURCE_PHOTO_BYTES, decodeImage, usePhotoUpload } from '../usePhotoUpload';
 import { api } from '@/lib/api';
 
 vi.mock('@/lib/api', () => ({
@@ -69,6 +69,47 @@ afterEach(() => {
 function photo(name = 'IMG_0001.jpg', type = 'image/jpeg', bytes = 8 * 1024 * 1024) {
   return new File([new Uint8Array(bytes)], name, { type });
 }
+
+describe('decodeImage — EXIF orientation', () => {
+  function bitmap() {
+    return { width: 8, height: 8, close: vi.fn() } as unknown as ImageBitmap;
+  }
+
+  it('asks for the image\'s own orientation so phone photos are not submitted sideways', async () => {
+    const create = vi.fn(async () => bitmap());
+    vi.stubGlobal('createImageBitmap', create);
+
+    await decodeImage(new Blob(['x']));
+
+    // <img> applied EXIF rotation implicitly; the canvas re-encode strips EXIF,
+    // so if this option is dropped a rotated photo is permanently rotated.
+    expect(create).toHaveBeenCalledWith(expect.anything(), { imageOrientation: 'from-image' });
+  });
+
+  it('falls back to a plain decode on engines that reject the option', async () => {
+    const create = vi.fn(async (_blob: Blob, opts?: ImageBitmapOptions) => {
+      // What an engine that does not know the enum value actually does
+      if (opts?.imageOrientation) throw new TypeError('not a valid enum value');
+      return bitmap();
+    });
+    vi.stubGlobal('createImageBitmap', create);
+
+    await expect(decodeImage(new Blob(['x']))).resolves.toBeDefined();
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(create.mock.calls[1][1]).toBeUndefined();
+  });
+
+  it('does not retry a genuine decode failure', async () => {
+    // An undecodable file must surface, not be masked by the orientation retry
+    const create = vi.fn(async () => {
+      throw new DOMException('The source image could not be decoded.', 'InvalidStateError');
+    });
+    vi.stubGlobal('createImageBitmap', create);
+
+    await expect(decodeImage(new Blob(['x']))).rejects.toThrow(/could not be decoded/);
+    expect(create).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('usePhotoUpload', () => {
   it('downscales through createImageBitmap without ever minting a blob: URL', async () => {

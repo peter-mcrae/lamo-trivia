@@ -63,6 +63,26 @@ export function photoDecodeMessage(file: File): string {
 }
 
 /**
+ * Decode a picked image, honouring its EXIF orientation.
+ *
+ * `<img>` applied EXIF rotation implicitly, so dropping it for
+ * `createImageBitmap` silently started submitting sideways phone photos — and
+ * the canvas re-encode strips the EXIF, so nothing downstream can correct it.
+ * `imageOrientation: 'from-image'` restores that, but the option is not
+ * universal and an engine that does not know the value throws a TypeError
+ * rather than ignoring it. So ask for it, and fall back to a plain decode on
+ * the engines that would reject it instead of failing the photo outright.
+ */
+export async function decodeImage(blob: Blob): Promise<ImageBitmap> {
+  try {
+    return await createImageBitmap(blob, { imageOrientation: 'from-image' });
+  } catch (err) {
+    if (!(err instanceof TypeError)) throw err;
+    return createImageBitmap(blob);
+  }
+}
+
+/**
  * Decode and downscale a picked photo entirely through `createImageBitmap`.
  *
  * It takes the Blob directly, so there is no `blob:` URL and no Worker — the
@@ -74,7 +94,7 @@ export async function resizeViaCanvas(blob: Blob): Promise<File> {
   if (!canDecodeImages()) {
     throw new Error(OUTDATED_BROWSER_MESSAGE);
   }
-  const bitmap = await createImageBitmap(blob);
+  const bitmap = await decodeImage(blob);
 
   try {
     let { width, height } = bitmap;

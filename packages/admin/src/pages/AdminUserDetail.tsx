@@ -16,13 +16,15 @@ export default function AdminUserDetail() {
   const [adjusting, setAdjusting] = useState(false);
   const [adjustError, setAdjustError] = useState('');
   const [adjustSuccess, setAdjustSuccess] = useState('');
-  // Held across retries of the same adjustment and cleared once it lands, so
-  // clicking again after a failure cannot double-credit the user.
-  const requestIdRef = useRef<string | null>(null);
 
-  // Editing the amount or reason makes this a different adjustment, so it must
-  // not inherit the previous attempt's id and be dismissed as a duplicate.
-  useEffect(() => { requestIdRef.current = null; }, [amount, reason]);
+  // The backend identifies an adjustment by the requestId we send and refuses
+  // to apply the same one twice, so a retry after a failure must reuse the id
+  // it failed with — a fresh id would credit a request that actually landed
+  // but whose response we lost a second time. The id is held against the
+  // submitted values: editing the amount or reason makes it a different
+  // adjustment, and so does re-entering the same values after a success (an
+  // admin granting the same amount twice on purpose must be credited twice).
+  const pendingRequest = useRef<{ key: string; requestId: string } | null>(null);
 
   useEffect(() => {
     if (!email) return;
@@ -50,25 +52,35 @@ export default function AdminUserDetail() {
       return;
     }
 
+    const trimmedReason = reason.trim();
+    const key = `${numAmount}:${trimmedReason}`;
+    if (pendingRequest.current?.key !== key) {
+      pendingRequest.current = { key, requestId: crypto.randomUUID() };
+    }
+    const { requestId } = pendingRequest.current;
+
     setAdjusting(true);
     setAdjustError('');
     setAdjustSuccess('');
 
     try {
-      requestIdRef.current ??= crypto.randomUUID();
       const res = await adminApi.adjustCredits(
         decodeURIComponent(email),
         numAmount,
-        reason.trim(),
-        requestIdRef.current,
+        trimmedReason,
+        requestId,
       );
-      requestIdRef.current = null;
+      pendingRequest.current = null;
       setUser(res.user);
       setAmount('');
       setReason('');
-      setAdjustSuccess(res.applied
-        ? `Credits adjusted. New balance: ${res.newBalance}`
-        : `Already applied — no change. Balance: ${res.newBalance}`);
+      // `applied === false` means this requestId had already been applied, so
+      // the balance is a replay of the earlier adjustment, not a new one.
+      setAdjustSuccess(
+        res.applied === false
+          ? `Already applied — this adjustment had already gone through. Balance unchanged: ${res.newBalance}`
+          : `Credits adjusted. New balance: ${res.newBalance}`,
+      );
       // Refresh transactions
       const detail = await adminApi.getUser(decodeURIComponent(email));
       setTransactions(detail.transactions);
