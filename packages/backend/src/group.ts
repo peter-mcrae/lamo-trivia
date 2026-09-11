@@ -579,9 +579,13 @@ export class PrivateGroup {
    * Grandfather clause: a group with no owner on record *and* not one linked
    * member predates both mechanisms, so there is nothing here to check a
    * caller against. Refusing everybody would freeze such a group for good, and
-   * the Worker has already proved the caller is signed in — it also applies
-   * the stricter owner-or-linked-member rule before ever reaching the DO, so
-   * this fallback only loosens the DO's own defence-in-depth check.
+   * the Worker has at least proved the caller is signed in.
+   *
+   * Be clear about what this is NOT: `callerBelongsToGroup` in routes/groups.ts
+   * answers by calling this very method over `/membership`, so there is no
+   * stricter outer check standing in front of it. For a group in this state,
+   * any signed-in caller is treated as a member. Every group created since
+   * `/init` started recording `ownerEmail` is unaffected.
    */
   private isGroupMember(email: string): boolean {
     if (!this.group) return false;

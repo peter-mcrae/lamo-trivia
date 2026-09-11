@@ -304,12 +304,21 @@ export default function GroupLobby() {
         <Button onClick={() => setShowGameTypeChoice(!showGameTypeChoice)}>New Game</Button>
         {showGameTypeChoice && (
           <div className="absolute left-0 top-full mt-2 w-56 bg-white rounded-xl shadow-lg border border-lamo-border z-40 overflow-hidden">
+            {/* Creating a group game needs an account the server can check
+                against the group's membership, so say so here rather than
+                letting someone fill in the whole form and fail at the end. */}
             <button
-              onClick={() => { setShowGameTypeChoice(false); setShowNewGameModal(true); }}
+              onClick={() => {
+                setShowGameTypeChoice(false);
+                if (!user) { navigate('/login'); return; }
+                setShowNewGameModal(true);
+              }}
               className="w-full px-4 py-3 text-left hover:bg-lamo-bg transition-colors"
             >
               <p className="text-sm font-medium text-lamo-dark">Trivia</p>
-              <p className="text-xs text-lamo-gray">Answer questions in real-time</p>
+              <p className="text-xs text-lamo-gray">
+                {user ? 'Answer questions in real-time' : 'Sign in to start a group game'}
+              </p>
             </button>
             <button
               onClick={() => { setShowGameTypeChoice(false); navigate('/riddle-wordle'); }}
@@ -319,11 +328,17 @@ export default function GroupLobby() {
               <p className="text-xs text-lamo-gray">Solve riddles letter by letter</p>
             </button>
             <button
-              onClick={() => { setShowGameTypeChoice(false); setShowNewHuntModal(true); }}
+              onClick={() => {
+                setShowGameTypeChoice(false);
+                if (!user) { navigate('/login'); return; }
+                setShowNewHuntModal(true);
+              }}
               className="w-full px-4 py-3 text-left hover:bg-lamo-bg transition-colors border-t border-lamo-border"
             >
               <p className="text-sm font-medium text-lamo-dark">Scavenger Hunt</p>
-              <p className="text-xs text-lamo-gray">Find items and snap photos</p>
+              <p className="text-xs text-lamo-gray">
+                {user ? 'Find items and snap photos' : 'Sign in to start a group hunt'}
+              </p>
             </button>
           </div>
         )}

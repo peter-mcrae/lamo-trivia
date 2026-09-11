@@ -189,7 +189,13 @@ export function usePhotoUpload(huntId: string) {
           const msg = err instanceof Error ? err.message : '';
           // Only retry on network errors, not on 4xx validation errors
           const isNetworkError = msg === 'Failed to fetch' || msg === 'Load failed' || msg === 'NetworkError when attempting to fetch resource.';
-          if (!isNetworkError || attempt === 2) throw err;
+          // A hunt that predates the server-side host index has that index
+          // written by its own room on first contact, and the write takes a
+          // moment to reach the location serving the upload. Retrying a
+          // "Hunt not found" covers that window; a hunt that truly does not
+          // exist just fails one attempt later.
+          const isMissingHunt = /hunt not found/i.test(msg);
+          if ((!isNetworkError && !isMissingHunt) || attempt === 2) throw err;
           await new Promise((r) => setTimeout(r, 1000 * (attempt + 1)));
         }
       }

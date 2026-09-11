@@ -59,12 +59,11 @@ function linkGroupMember(groupId: string, memberId?: string) {
 /**
  * Recognise the server's "you are not in this group" refusal.
  *
- * The route-level check answers with a `code`, but the *late* one — raised by
- * the group Durable Object once the game is being registered — is re-wrapped
- * on the way out as `c.json({ error: errorData.error }, status)`
- * (packages/backend/src/routes/groups.ts), which drops `code` entirely. That
- * late failure is precisely the one the retry below exists for, so match the
- * status and message shape as well rather than trusting `code` to be there.
+ * Both the route-level check and the *late* one raised by the group Durable
+ * Object now carry `code` — routes/groups.ts forwards it rather than dropping
+ * it, which it used to do. The status-and-message fallback stays because this
+ * client can meet an older backend during a deploy, where the frontend ships
+ * first and the late failure still arrives bare.
  */
 function isNotAMemberError(err: unknown): err is ApiError {
   if (!(err instanceof ApiError)) return false;

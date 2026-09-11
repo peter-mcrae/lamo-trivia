@@ -32,6 +32,54 @@ function delayedOKResponse(content: string, delayMs: number): Promise<Response> 
   });
 }
 
+/**
+ * Every other mock in this file puts the text block at content[0], which is
+ * exactly why the positional read survived the move to Sonnet 5. These don't.
+ */
+describe('verifyHuntPhoto — response shape on current models', () => {
+  const VERDICT = JSON.stringify({ accepted: true, confidence: 0.9, reason: 'Looks right' });
+
+  /** What a current model returns when thinking runs: a thinking block first,
+   *  whose text is empty under the default display: "omitted". */
+  function mockThinkingThenText(content: string) {
+    return new Response(JSON.stringify({
+      content: [
+        { type: 'thinking', thinking: '' },
+        { type: 'text', text: content },
+      ],
+    }), { status: 200 });
+  }
+
+  it('reads the verdict past a leading thinking block', async () => {
+    mockFetch.mockImplementation(() => mockThinkingThenText(VERDICT));
+
+    const result = await verifyHuntPhoto(TEST_API_KEY, 'a red stapler', TEST_PHOTO, 'image/jpeg');
+
+    // Positionally this is the thinking block, text '' — the parse would throw
+    expect(result.accepted).toBe(true);
+    expect(result.confidence).toBe(0.9);
+  });
+
+  it('does not let the model spend the token budget thinking', async () => {
+    mockFetch.mockImplementation(() => mockOKResponse(VERDICT));
+
+    await verifyHuntPhoto(TEST_API_KEY, 'a red stapler', TEST_PHOTO, 'image/jpeg');
+
+    // Sonnet 5 thinks by default when `thinking` is omitted, and those tokens
+    // come out of max_tokens — 256 of them would come back truncated.
+    const body = JSON.parse(mockFetch.mock.calls[0][1].body as string);
+    expect(body.thinking).toEqual({ type: 'disabled' });
+  });
+
+  it('reads the comparison verdict past a leading thinking block too', async () => {
+    mockFetch.mockImplementation(() => mockThinkingThenText(VERDICT));
+
+    const result = await verifyWithHaiku(TEST_API_KEY, 'a red stapler', TEST_PHOTO, 'image/jpeg');
+
+    expect(result.accepted).toBe(true);
+  });
+});
+
 describe('verifyHuntPhoto — Accepted', () => {
   beforeEach(() => {
     mockFetch.mockReset();

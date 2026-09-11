@@ -41,6 +41,18 @@ function stripCodeFences(text: string): string {
 }
 
 /**
+ * Pull the answer out of a response's content blocks.
+ *
+ * Never index positionally. Current models return a `thinking` block first when
+ * thinking runs, and with the default `display: "omitted"` its text is empty —
+ * so `content[0].text` reads '' and the parse below fails on a response that
+ * was perfectly good. The answer is the first `text` block, wherever it sits.
+ */
+function answerText(content?: Array<{ type: string; text?: string }>): string {
+  return content?.find((block) => block.type === 'text')?.text || '';
+}
+
+/**
  * Parse and validate a verification response from the model.
  *
  * Throws — rather than returning a best-effort guess — when the response was
@@ -99,6 +111,13 @@ export async function verifyHuntPhoto(
 
   const body = {
     model: VERIFICATION_MODEL,
+    // Sonnet 5 runs adaptive thinking when `thinking` is omitted, where the
+    // Sonnet 4 this replaced ran none. That silently changes the response: a
+    // thinking block arrives first, and its tokens come out of max_tokens — so
+    // a 256-token budget gets spent reasoning and comes back truncated. This
+    // call is a short, structured yes/no judgement, so ask for the behaviour
+    // the prompt was written against instead of inheriting a new default.
+    thinking: { type: 'disabled' as const },
     max_tokens: 256,
     system: SYSTEM_PROMPT,
     messages: [
@@ -150,11 +169,11 @@ export async function verifyHuntPhoto(
       }
 
       const result = await response.json() as {
-        content: Array<{ type: string; text: string }>;
+        content: Array<{ type: string; text?: string }>;
         stop_reason?: string | null;
       };
 
-      const text = result.content?.[0]?.text || '';
+      const text = answerText(result.content);
       return parseVerificationResult(text, result.stop_reason);
     } catch (err) {
       lastError = err instanceof Error ? err : new Error(String(err));
@@ -224,11 +243,11 @@ export async function verifyWithHaiku(
   }
 
   const result = await response.json() as {
-    content: Array<{ type: string; text: string }>;
+    content: Array<{ type: string; text?: string }>;
     stop_reason?: string | null;
   };
 
-  const text = result.content?.[0]?.text || '';
+  const text = answerText(result.content);
   return parseVerificationResult(text, result.stop_reason);
 }
 

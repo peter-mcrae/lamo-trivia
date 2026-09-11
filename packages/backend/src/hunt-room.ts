@@ -860,7 +860,10 @@ export class ScavengerHuntRoom {
           return;
         }
 
-        this.room.creditsDeducted = creditsNeeded;
+        // `applied === false` means an earlier attempt already paid for this
+        // hunt and this one was the idempotent replay, so record what was
+        // actually charged rather than what this attempt would have charged.
+        this.room.creditsDeducted = applied ? creditsNeeded : (this.room.creditsDeducted ?? 0);
 
         // Notify host of deduction — zero when the charge had already landed
         // on an earlier attempt and this one was the idempotent replay
